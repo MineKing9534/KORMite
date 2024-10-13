@@ -1,4 +1,4 @@
-rootProject.name = "cryo-sqleep"
+rootProject.name = "CryoSQLeep"
 include("core")
 
 include("postgres")

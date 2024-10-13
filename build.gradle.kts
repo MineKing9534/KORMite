@@ -1,16 +1,25 @@
 import com.adarshr.gradle.testlogger.theme.ThemeType
+import java.io.ByteArrayOutputStream
 
 plugins {
 	kotlin("jvm") version "2.0.10"
 
 	id("com.adarshr.test-logger") version "4.0.0"
 	id("test-report-aggregation")
+
+	id("maven-publish")
 }
+
+group = "de.mineking"
+version = "1.0.0"
+
+val release = System.getenv("RELEASE") == "true"
 
 allprojects {
 	apply(plugin = "org.jetbrains.kotlin.jvm")
 	apply(plugin = "com.adarshr.test-logger")
 	apply(plugin = "test-report-aggregation")
+	apply(plugin = "maven-publish")
 
 	repositories {
 		mavenCentral()
@@ -36,4 +45,45 @@ allprojects {
 		theme = ThemeType.MOCHA
 		showStackTraces = false
 	}
+
+	publishing {
+		val branch: String by lazy {
+			val branch = ByteArrayOutputStream()
+			exec {
+				commandLine("git rev-parse --abbrev-ref HEAD".split(" "))
+				standardOutput = branch
+			}
+			branch.toString().trim()
+		}
+
+		repositories {
+			maven {
+				url = uri("https://maven.mineking.dev/" + (if (release) "releases" else "snapshots"))
+				credentials {
+					username = System.getenv("MAVEN_USERNAME")
+					password = System.getenv("MAVEN_SECRET")
+				}
+			}
+		}
+
+		publications {
+			register<MavenPublication>("maven") {
+				from(components["java"])
+
+				groupId = "de.mineking.CryoSQLeep"
+				artifactId = "CryoSQLeep-${ project.name }"
+				version = if (release) "${ project.version }" else branch
+			}
+		}
+	}
+}
+
+tasks.register("publishAll") {
+	dependsOn(":core:publish")
+
+	dependsOn(":postgres:publish")
+	dependsOn(":sqlite:publish")
+
+	dependsOn(":minecraft:publish")
+	dependsOn(":discord:publish")
 }

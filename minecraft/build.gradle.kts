@@ -1,6 +1,3 @@
-group = "de.mineking"
-version = "1.0.0"
-
 repositories {
     maven("https://repo.papermc.io/repository/maven-public/")
 }
