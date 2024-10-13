@@ -5,13 +5,13 @@ on:
   push:
     branches: [ "master" ]
     paths:
-      - 'src/**'
-      - 'build.gradle'
+      - "**/src/**"
+      - "**/build.gradle.kts"
   pull_request:
     branches: [ "master" ]
     paths:
-      - 'src/**'
-      - 'build.gradle'
+      - "**/src/**"
+      - "**/build.gradle.kts"
 
 jobs:
   build:
@@ -39,8 +39,8 @@ jobs:
       - name: Setup JDK
         uses: actions/setup-java@v4
         with:
-          java-version: '17'
-          distribution: 'temurin'
+          java-version: "17"
+          distribution: "temurin"
 
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v3
