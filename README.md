@@ -183,7 +183,7 @@ fun main() {
     val book = bookTable.insert(BookDao(name = "Test Book", author = author)).value!!
     
     assertEquals(author, bookTable.select<AuthorDao>(property("author")).first())
-	assertEquals("Test Author", bookTable.select<String>(property("author->name")).first())
+    assertEquals("Test Author", bookTable.select<String>(property("author->name")).first())
 }
 ```
 
