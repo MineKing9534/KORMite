@@ -48,7 +48,7 @@ class SQLiteTable<T: Any>(
 		TODO("Not yet implemented")
 	}
 
-	override fun createSelect(columns: String, where: Where, order: Order?, limit: Int?, offset: Int?): String = """
+	private fun createSelect(columns: String, where: Where, order: Order?, limit: Int?, offset: Int?): String = """
 		
 	""".trim().replace("\\s+".toRegex(), " ")
 
@@ -69,6 +69,10 @@ class SQLiteTable<T: Any>(
 	}
 
 	override fun insert(obj: T): UpdateResult<T> {
+		TODO("Not yet implemented")
+	}
+
+	override fun upsert(obj: T): UpdateResult<T> {
 		TODO("Not yet implemented")
 	}
 
