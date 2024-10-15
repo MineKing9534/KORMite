@@ -47,15 +47,6 @@ allprojects {
 	}
 
 	publishing {
-		val branch: String by lazy {
-			val branch = ByteArrayOutputStream()
-			exec {
-				commandLine("git rev-parse --abbrev-ref HEAD".split(" "))
-				standardOutput = branch
-			}
-			branch.toString().trim()
-		}
-
 		repositories {
 			maven {
 				url = uri("https://maven.mineking.dev/" + (if (release) "releases" else "snapshots"))
@@ -72,7 +63,7 @@ allprojects {
 
 				groupId = "de.mineking.CryoSQLeep"
 				artifactId = "CryoSQLeep-${ project.name }"
-				version = if (release) "${ project.version }" else branch
+				version = if (release) "${ project.version }" else System.getenv("BRANCH")
 			}
 		}
 	}

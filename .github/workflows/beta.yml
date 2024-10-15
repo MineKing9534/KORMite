@@ -49,4 +49,5 @@ jobs:
         env:
           MAVEN_USERNAME: ${{ secrets.MAVEN_NAME }}
           MAVEN_SECRET: ${{ secrets.MAVEN_SECRET }}
+          BRANCH: ${{ github.head_ref || github.ref_name }}
           RELEASE: false
