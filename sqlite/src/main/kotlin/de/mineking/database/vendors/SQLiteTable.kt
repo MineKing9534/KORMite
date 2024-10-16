@@ -9,8 +9,6 @@ import org.jdbi.v3.core.statement.UnableToExecuteStatementException
 import org.jdbi.v3.core.statement.Update
 import org.sqlite.SQLiteErrorCode
 import org.sqlite.SQLiteException
-import org.sqlite.core.Codes
-import java.sql.SQLException
 import kotlin.reflect.KClass
 import kotlin.reflect.KType
 
@@ -239,6 +237,10 @@ class SQLiteTable<T: Any>(
 			if (obj is DataObject<*>) obj.afterRead()
 			obj
 		}
+	}
+
+	override fun upsert(obj: T): UpdateResult<T> {
+		TODO("Not yet implemented")
 	}
 
 	/**
