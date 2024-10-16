@@ -51,6 +51,8 @@ interface Table<T: Any> {
 	fun update(column: String, value: Node, where: Where = Where.EMPTY): UpdateResult<Int>
 
 	fun insert(obj: T): UpdateResult<T>
+	fun upsert(obj: T): UpdateResult<T>
+
 	fun delete(where: Where = Where.EMPTY): Int
 	fun delete(obj: T) = delete(identifyObject(obj))
 }
@@ -63,8 +65,6 @@ abstract class TableImplementation<T: Any>(
 	val instance: () -> T
 ) : Table<T>, InvocationHandler {
 	override val implementation: TableImplementation<T> = this
-
-	abstract fun createSelect(columns: String, where: Where, order: Order?, limit: Int?, offset: Int?): String
 
 	open fun parseResult(context: ReadContext): Boolean {
 		if (!context.proceed()) return false

@@ -6,6 +6,7 @@ interface DataObject<T: Any> {
 
 	fun insert() = getTable().insert(this as T)
 	fun update() = getTable().update(this as T)
+	fun upsert() = getTable().upsert(this as T)
 	fun delete() = getTable().delete(this as T)
 
 	fun <O: Any> selectReferring(table: Table<O>, reference: String, where: Where = Where.EMPTY): QueryResult<O> {

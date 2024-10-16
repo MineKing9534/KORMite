@@ -81,7 +81,7 @@ class PostgresTable<T: Any>(
 		""") + createJoinList(it.reference!!.structure.columns, prefix + it.name) }
 	}
 
-	override fun createSelect(columns: String, where: Where, order: Order?, limit: Int?, offset: Int?): String = """
+	private fun createSelect(columns: String, where: Where, order: Order?, limit: Int?, offset: Int?): String = """
 		select $columns
 		from ${ structure.name }
 		${ createJoinList(structure.columns.reversed()).joinToString(" ") }
@@ -228,8 +228,38 @@ class PostgresTable<T: Any>(
 
 		val sql = """
 			insert into ${ structure.name }
-			(${columns.joinToString { "\"${it.name}\"" }})
-			values(${columns.joinToString { ":${it.name}" }}) 
+			(${ columns.joinToString { "\"${ it.name }\"" } })
+			values(${ columns.joinToString { ":${ it.name }" } }) 
+			returning *
+		""".trim().replace("\\s+".toRegex(), " ")
+
+		return createResult {
+			structure.manager.driver.withHandleUnchecked { executeUpdate(it.createUpdate(sql), obj) }
+			if (obj is DataObject<*>) obj.afterRead()
+			obj
+		}
+	}
+
+	override fun upsert(obj: T): UpdateResult<T> {
+		if (obj is DataObject<*>) obj.beforeWrite()
+
+		val insertColumns = structure.getAllColumns().filter {
+			if (!it.getRootColumn().autogenerate) true
+			else {
+				val value = it.get(obj)
+				value != 0 && value != null
+			}
+		}
+
+		val updateColumns = structure.getAllColumns().filter { !it.getRootColumn().key }
+
+
+		val sql = """
+			insert into ${ structure.name }
+			(${ insertColumns.joinToString { "\"${ it.name }\"" } })
+			values(${ insertColumns.joinToString { ":${ it.name }" } }) 
+			on conflict (${ structure.getKeys().joinToString { "\"${ it.name }\"" } }) do update set
+			${ updateColumns.joinToString { "\"${ it.name }\" = :${ it.name }" } }
 			returning *
 		""".trim().replace("\\s+".toRegex(), " ")
 

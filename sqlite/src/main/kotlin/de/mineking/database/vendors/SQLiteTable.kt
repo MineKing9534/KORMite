@@ -82,7 +82,7 @@ class SQLiteTable<T: Any>(
 		""") + createJoinList(it.reference!!.structure.columns, prefix + it.name) }
 	}
 
-	override fun createSelect(columns: String, where: Where, order: Order?, limit: Int?, offset: Int?): String = """
+	private fun createSelect(columns: String, where: Where, order: Order?, limit: Int?, offset: Int?): String = """
 		select $columns
 		from ${ structure.name }
 		${ createJoinList(structure.columns.reversed()).joinToString(" ") }
