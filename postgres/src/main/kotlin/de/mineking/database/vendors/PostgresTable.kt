@@ -52,7 +52,6 @@ class PostgresTable<T: Any>(
 		} }
 	}
 
-	//TODO this is failing with reference arrays because of added rows
 	override fun selectRowCount(where: Where): Int {
 		val sql = """
 			select count(*) from ${ structure.name }
