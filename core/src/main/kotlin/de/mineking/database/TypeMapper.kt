@@ -34,7 +34,7 @@ interface TypeMapper<T, D> {
 	fun accepts(manager: DatabaseConnection, property: KProperty<*>?, type: KType): Boolean
 
 	fun <O: Any> initialize(column: DirectColumnData<O, *>, type: KType) {}
-	fun getType(column: ColumnData<*, *>?, table: TableStructure<*>, property: KProperty<*>?, type: KType): DataType
+	fun getType(column: ColumnData<*, *>?, table: TableStructure<*>, type: KType): DataType
 
 	fun format(column: ColumnData<*, *>?, table: TableStructure<*>, type: KType, value: T): D
 	fun createArgument(column: ColumnData<*, *>?, table: TableStructure<*>, type: KType, value: D): Argument = object : Argument {
@@ -81,7 +81,7 @@ inline fun <reified T> typeMapper(
 	crossinline acceptor: (KType) -> Boolean = { it.isSubtypeOf(typeOf<T>()) }
 ): SimpleTypeMapper<T> = object : SimpleTypeMapper<T> {
 	override fun accepts(manager: DatabaseConnection, property: KProperty<*>?, type: KType): Boolean = acceptor(type)
-	override fun getType(column: ColumnData<*, *>?, table: TableStructure<*>, property: KProperty<*>?, type: KType): DataType = dataType
+	override fun getType(column: ColumnData<*, *>?, table: TableStructure<*>, type: KType): DataType = dataType
 
 	override fun createArgument(column: ColumnData<*, *>?, table: TableStructure<*>, type: KType, value: T): Argument = object : Argument {
 		override fun apply(position: Int, statement: PreparedStatement?, ctx: StatementContext?) {
@@ -114,7 +114,7 @@ inline fun <reified T, reified D> typeMapper(
 	crossinline formatter: (T) -> D
 ): TypeMapper<T, D> = object : TypeMapper<T, D> {
 	override fun accepts(manager: DatabaseConnection, property: KProperty<*>?, type: KType): Boolean = type.isSubtypeOf(typeOf<T>())
-	override fun getType(column: ColumnData<*, *>?, table: TableStructure<*>, property: KProperty<*>?, type: KType): DataType = temporary.getType(column, table, property, type)
+	override fun getType(column: ColumnData<*, *>?, table: TableStructure<*>, type: KType): DataType = temporary.getType(column, table, type)
 
 	override fun format(column: ColumnData<*, *>?, table: TableStructure<*>, type: KType, value: T): D = formatter(value)
 	override fun createArgument(column: ColumnData<*, *>?, table: TableStructure<*>, type: KType, value: D): Argument = temporary.write(column, table, type, value)
@@ -131,7 +131,7 @@ inline fun <reified T> binaryTypeMapper(
 	crossinline formatter: (T?) -> ByteArray
 ): TypeMapper<T?, ByteArray> = object : TypeMapper<T?, ByteArray> {
 	override fun accepts(manager: DatabaseConnection, property: KProperty<*>?, type: KType): Boolean = type.isSubtypeOf(typeOf<T>())
-	override fun getType(column: ColumnData<*, *>?, table: TableStructure<*>, property: KProperty<*>?, type: KType): DataType = dataType
+	override fun getType(column: ColumnData<*, *>?, table: TableStructure<*>, type: KType): DataType = dataType
 
 	override fun format(column: ColumnData<*, *>?, table: TableStructure<*>, type: KType, value: T?): ByteArray = formatter(value)
 

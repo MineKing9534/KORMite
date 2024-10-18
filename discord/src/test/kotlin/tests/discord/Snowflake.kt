@@ -3,10 +3,8 @@ package tests.discord
 import de.mineking.database.*
 import de.mineking.database.vendors.PostgresConnection
 import de.mineking.database.vendors.PostgresMappers
-import net.dv8tion.jda.api.entities.*
-import net.dv8tion.jda.api.entities.channel.middleman.MessageChannel
-import net.dv8tion.jda.api.entities.emoji.CustomEmoji
-import net.dv8tion.jda.api.entities.emoji.RichCustomEmoji
+import net.dv8tion.jda.api.entities.Guild
+import net.dv8tion.jda.api.entities.ISnowflake
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Test
 import setup.ConsoleSqlLogger
@@ -15,7 +13,7 @@ import setup.createSnowflake
 import setup.recreate
 
 data class SnowflakeDao(
-	@AutoGenerate @Key @Column val id: Int = 0,
+	@AutoIncrement @Key @Column val id: Int = 0,
 	@Column val snowflake: ISnowflake? = null,
 )
 

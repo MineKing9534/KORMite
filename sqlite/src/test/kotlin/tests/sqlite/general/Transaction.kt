@@ -1,6 +1,6 @@
-package tests.postgres.general
+package tests.sqlite.general
 
-import de.mineking.database.vendors.PostgresConnection
+import de.mineking.database.vendors.SQLiteConnection
 import org.junit.jupiter.api.Test
 import setup.ConsoleSqlLogger
 import setup.UserDao
@@ -8,7 +8,7 @@ import setup.recreate
 import kotlin.test.assertEquals
 
 class TransactionTest {
-	val connection = PostgresConnection("localhost:5432/test", user = "test", password = "test")
+	val connection = SQLiteConnection("test.db")
 	val table = connection.getTable(name = "basic_test") { UserDao() }
 
 	init {

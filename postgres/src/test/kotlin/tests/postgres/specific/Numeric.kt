@@ -1,6 +1,6 @@
 package tests.postgres.specific
 
-import de.mineking.database.AutoGenerate
+import de.mineking.database.AutoIncrement
 import de.mineking.database.Column
 import de.mineking.database.Key
 import de.mineking.database.vendors.PostgresConnection
@@ -12,7 +12,7 @@ import java.math.BigInteger
 import kotlin.test.assertEquals
 
 data class NumericDao(
-	@AutoGenerate @Key @Column val id: Int = 0,
+	@AutoIncrement @Key @Column val id: Int = 0,
 	@Column val short: Short = 0,
 	@Column val int: Int = 0,
 	@Column val long: Long = 0,

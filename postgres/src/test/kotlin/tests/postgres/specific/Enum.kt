@@ -11,7 +11,7 @@ import kotlin.test.assertEquals
 
 enum class TestEnum { A, B, C }
 data class EnumDao(
-	@AutoGenerate @Key @Column val id: Int = 0,
+	@AutoIncrement @Key @Column val id: Int = 0,
 	@Column val single: TestEnum = TestEnum.A,
 	@Column val multi: EnumSet<TestEnum> = EnumSet.noneOf(TestEnum::class.java)
 )

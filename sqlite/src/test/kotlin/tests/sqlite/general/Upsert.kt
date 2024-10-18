@@ -1,7 +1,7 @@
-package tests.postgres.general
+package tests.sqlite.general
 
 import de.mineking.database.*
-import de.mineking.database.vendors.PostgresConnection
+import de.mineking.database.vendors.SQLiteConnection
 import org.junit.jupiter.api.Test
 import setup.ConsoleSqlLogger
 import setup.recreate
@@ -10,21 +10,22 @@ import kotlin.test.assertTrue
 
 data class UpsertDao(
 	@AutoIncrement @Key @Column val id1: Int = 0,
-	@AutoIncrement @Key @Column val id2: Int = 0,
+	//SQLite doesn't support autoincrement with complex keys for some reason...
+	@Column val id2: Int = 0,
 	@Column val name: String = "",
 	@Unique @Column val email: String = ""
 )
 
 class UpsertTest {
-	val connection = PostgresConnection("localhost:5432/test", user = "test", password = "test")
+	val connection = SQLiteConnection("test.db")
 	val table = connection.getTable(name = "upsert_test") { UpsertDao() }
 
 	val entries = listOf(
-		UpsertDao(name = "Tom", email = "tom@example.com"),
-		UpsertDao(name = "Alex", email = "alex@example.com"),
-		UpsertDao(name = "Bob", email = "bob@example.com"),
-		UpsertDao(name = "Eve", email = "eve@example.com"),
-		UpsertDao(name = "Max", email = "max@example.com")
+		UpsertDao(id2 = 1, name = "Tom", email = "tom@example.com"),
+		UpsertDao(id2 = 2, name = "Alex", email = "alex@example.com"),
+		UpsertDao(id2 = 3, name = "Bob", email = "bob@example.com"),
+		UpsertDao(id2 = 4, name = "Eve", email = "eve@example.com"),
+		UpsertDao(id2 = 5, name = "Max", email = "max@example.com")
 	)
 
 	init {

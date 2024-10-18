@@ -1,6 +1,6 @@
 package tests.postgres.reference
 
-import de.mineking.database.AutoGenerate
+import de.mineking.database.AutoIncrement
 import de.mineking.database.Column
 import de.mineking.database.Key
 import de.mineking.database.Reference
@@ -14,7 +14,7 @@ import kotlin.test.assertContentEquals
 import kotlin.test.assertEquals
 
 data class DeletedReferenceDao(
-	@AutoGenerate @Key @Column val id: Int = 0,
+	@AutoIncrement @Key @Column val id: Int = 0,
 	@Reference("basic_test") @Column val user: UserDao = UserDao(),
 	@Reference("basic_test") @Column val users: List<UserDao?> = emptyList()
 )

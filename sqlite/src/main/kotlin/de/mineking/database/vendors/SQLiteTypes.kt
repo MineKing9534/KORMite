@@ -1,18 +1,21 @@
 package de.mineking.database.vendors
 
+import com.google.gson.GsonBuilder
+import com.google.gson.ToNumberStrategy
 import de.mineking.database.*
 import org.jdbi.v3.core.argument.Argument
+import org.jdbi.v3.core.statement.StatementContext
 import java.io.ByteArrayInputStream
 import java.io.ByteArrayOutputStream
 import java.io.ObjectInputStream
 import java.io.ObjectOutputStream
-import java.sql.Blob
-import java.sql.Date
-import java.sql.ResultSet
-import java.sql.Timestamp
-import java.time.*
+import java.sql.*
+import java.time.Instant
+import java.time.LocalDate
+import java.time.LocalDateTime
 import kotlin.reflect.KProperty
 import kotlin.reflect.KType
+import kotlin.reflect.jvm.javaType
 import kotlin.reflect.jvm.jvmErasure
 
 object SQLiteMappers {
@@ -33,12 +36,39 @@ object SQLiteMappers {
 	val ENUM = object : TypeMapper<Enum<*>?, String?> {
 		override fun accepts(manager: DatabaseConnection, property: KProperty<*>?, type: KType): Boolean = type.jvmErasure.java.isEnum
 
-		override fun getType(column: ColumnData<*, *>?, table: TableStructure<*>, property: KProperty<*>?, type: KType): DataType = SQLiteType.TEXT
+		override fun getType(column: ColumnData<*, *>?, table: TableStructure<*>, type: KType): DataType = SQLiteType.TEXT
 
 		override fun format(column: ColumnData<*, *>?, table: TableStructure<*>, type: KType, value: Enum<*>?): String? = value?.name
 
 		override fun extract(column: DirectColumnData<*, *>?, type: KType, context: ReadContext, name: String): String? = STRING.extract(column, type, context, name)
 		override fun parse(column: DirectColumnData<*, *>?, type: KType, value: String?, context: ReadContext, name: String): Enum<*>? = value?.let { name -> type.jvmErasure.java.enumConstants.map { it as Enum<*> }.first { it.name == name } }
+	}
+
+	val JSON = object : TypeMapper<Any?, String?> {
+		val numberStrategy = ToNumberStrategy { reader ->
+			val str = reader!!.nextString()
+			if (str.contains(".")) str.toDouble() else str.toInt()
+		}
+		val gson = GsonBuilder()
+			.setNumberToNumberStrategy(numberStrategy)
+			.setObjectToNumberStrategy(numberStrategy)
+			.create()
+
+		override fun accepts(manager: DatabaseConnection, property: KProperty<*>?, type: KType): Boolean = property?.hasDatabaseAnnotation<Json>() == true
+		override fun getType(column: ColumnData<*, *>?, table: TableStructure<*>, type: KType): DataType = SQLiteType.TEXT
+
+		override fun format(column: ColumnData<*, *>?, table: TableStructure<*>, type: KType, value: Any?): String? = value?.let { gson.toJson(value) }
+		override fun createArgument(column: ColumnData<*, *>?, table: TableStructure<*>, type: KType, value: String?): Argument = object : Argument {
+			override fun apply(position: Int, statement: PreparedStatement?, ctx: StatementContext?) {
+				if (value == null) statement?.setNull(position, Types.NULL)
+				else statement?.setString(position, value)
+			}
+
+			override fun toString(): String = value.toString()
+		}
+
+		override fun extract(column: DirectColumnData<*, *>?, type: KType, context: ReadContext, name: String): String? = STRING.extract(column, type, context, name)
+		override fun parse(column: DirectColumnData<*, *>?, type: KType, value: String?, context: ReadContext, name: String): Any? = value?.let { gson.fromJson(it, type.javaType) }
 	}
 
 	val INSTANT = typeMapper<Instant?>(SQLiteType.INTEGER, { set, name -> set.getTimestamp(name).toInstant() }, { value, statement, position -> statement.setTimestamp(position, value?.let { Timestamp.from(it) }) })
@@ -55,7 +85,7 @@ object SQLiteMappers {
 		fun Collection<*>.createArray(component: KType) = (this as java.util.Collection<*>).toArray { java.lang.reflect.Array.newInstance(component.jvmErasure.java, it) as Array<*> }
 
 		override fun accepts(manager: DatabaseConnection, property: KProperty<*>?, type: KType): Boolean = type.isArray()
-		override fun getType(column: ColumnData<*, *>?, table: TableStructure<*>, property: KProperty<*>?, type: KType): DataType = SQLiteType.BLOB
+		override fun getType(column: ColumnData<*, *>?, table: TableStructure<*>, type: KType): DataType = SQLiteType.BLOB
 
 		override fun <O: Any> initialize(column: DirectColumnData<O, *>, type: KType) {
 			val component = type.component()
@@ -128,11 +158,11 @@ object SQLiteMappers {
 			require(reference.structure.getKeys().size == 1) { "Can only reference a table with exactly one key" }
 		}
 
-		override fun getType(column: ColumnData<*, *>?, table: TableStructure<*>, property: KProperty<*>?, type: KType): DataType {
+		override fun getType(column: ColumnData<*, *>?, table: TableStructure<*>, type: KType): DataType {
 			require(column is DirectColumnData) { "Something went really wrong" }
 
 			val key = column.reference!!.structure.getKeys().first()
-			return key.mapper.getType(column, table, property, key.type)
+			return key.mapper.getType(column, table, key.type)
 		}
 
 		@Suppress("UNCHECKED_CAST")

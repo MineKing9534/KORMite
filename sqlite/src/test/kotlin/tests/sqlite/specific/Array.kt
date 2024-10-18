@@ -1,6 +1,8 @@
 package tests.sqlite.specific
 
-import de.mineking.database.*
+import de.mineking.database.AutoIncrement
+import de.mineking.database.Column
+import de.mineking.database.Key
 import de.mineking.database.vendors.SQLiteConnection
 import org.junit.jupiter.api.Assertions.assertArrayEquals
 import org.junit.jupiter.api.Test
@@ -8,10 +10,9 @@ import setup.ConsoleSqlLogger
 import setup.recreate
 import kotlin.test.assertContentEquals
 import kotlin.test.assertEquals
-import kotlin.test.assertTrue
 
 data class ArrayDao(
-	@AutoGenerate @Key @Column val id: Int = 0,
+	@AutoIncrement @Key @Column val id: Int = 0,
 	@Column val a: Int = 0,
 	@Column val stringList: List<String> = emptyList(),
 	@Column val arrayList: Array<List<String>> = emptyArray()

@@ -30,7 +30,7 @@ internal inline fun <reified T> DatabaseConnection.registerDiscordMappers(bot: J
 	if (enumMapper != null) {
 		typeMappers += object : TypeMapper<ISnowflake, T> {
 			override fun accepts(manager: DatabaseConnection, property: KProperty<*>?, type: KType): Boolean = type == typeOf<ISnowflake>() || type == typeOf<ISnowflake?>()
-			override fun getType(column: ColumnData<*, *>?, table: TableStructure<*>, property: KProperty<*>?, type: KType): DataType = mapper.getType(column, table, property, type)
+			override fun getType(column: ColumnData<*, *>?, table: TableStructure<*>, type: KType): DataType = mapper.getType(column, table, type)
 
 			override fun <O : Any> initialize(column: DirectColumnData<O, *>, type: KType) {
 				val name = "${column.baseName}Type"

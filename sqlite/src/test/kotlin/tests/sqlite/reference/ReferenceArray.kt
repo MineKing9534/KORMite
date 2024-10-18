@@ -1,15 +1,17 @@
 package tests.sqlite.reference
 
-import de.mineking.database.*
+import de.mineking.database.AutoIncrement
+import de.mineking.database.Column
+import de.mineking.database.Key
+import de.mineking.database.Reference
 import de.mineking.database.vendors.SQLiteConnection
 import org.junit.jupiter.api.Test
 import setup.ConsoleSqlLogger
 import setup.recreate
 import kotlin.test.assertContentEquals
-import kotlin.test.assertEquals
 
 data class ReferenceArrayDao(
-	@AutoGenerate @Key @Column val id: Int = 0,
+	@AutoIncrement @Key @Column val id: Int = 0,
 	@Reference("book_test") @Column val books: List<BookDao?> = emptyList()
 )
 

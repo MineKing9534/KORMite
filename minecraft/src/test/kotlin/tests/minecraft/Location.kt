@@ -14,7 +14,7 @@ import setup.recreate
 import java.util.*
 
 data class LocationDao(
-	@AutoGenerate @Key @Column val id: Int = 0,
+	@AutoIncrement @Key @Column val id: Int = 0,
 	@Column val location1: Location = Location(null, 0.0, 0.0, 0.0),
 	@LocationWorldColumn(name = "worldTest") @Column val location2: Location = Location(null, 0.0, 0.0, 0.0),
 	@Column(name = "world") val worldTest: World = createWorld()
