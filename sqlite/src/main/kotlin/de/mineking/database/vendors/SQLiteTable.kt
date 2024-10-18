@@ -3,7 +3,6 @@ package de.mineking.database.vendors
 import de.mineking.database.*
 import de.mineking.database.vendors.SQLiteConnection.Companion.logger
 import org.jdbi.v3.core.kotlin.useHandleUnchecked
-import org.jdbi.v3.core.kotlin.withHandleUnchecked
 import org.jdbi.v3.core.result.ResultIterable
 import org.jdbi.v3.core.statement.UnableToExecuteStatementException
 import org.jdbi.v3.core.statement.Update
@@ -58,7 +57,7 @@ class SQLiteTable<T: Any>(
 			${ where.format(structure) }
 		""".trim().replace("\\s+".toRegex(), " ")
 
-		return structure.manager.driver.withHandleUnchecked { it.createQuery(sql)
+		return structure.manager.execute { it.createQuery(sql)
 			.bindMap(where.values(structure))
 			.mapTo(Int::class.java)
 			.first()
@@ -109,7 +108,7 @@ class SQLiteTable<T: Any>(
 		val sql = createSelect(columnList.joinToString { "\"${it.first}\".\"${it.second}\" as \"${it.first}.${it.second}\"" }, where, order, limit, offset)
 		return object : RowQueryResult<T> {
 			override val instance: () -> T = this@SQLiteTable.instance
-			override fun <O> execute(handler: ((T) -> Boolean) -> O): O = structure.manager.driver.withHandleUnchecked { it.createQuery(sql)
+			override fun <O> execute(handler: ((T) -> Boolean) -> O): O = structure.manager.execute { it.createQuery(sql)
 				.bindMap(where.values(structure))
 				.execute { stmt, _ ->
 					val statement = stmt.get()
@@ -139,7 +138,7 @@ class SQLiteTable<T: Any>(
 
 		val sql = createSelect((columnList.map { "\"${ it.first }\".\"${ it.second }\" as \"${ it.first }.${ it.second }\"" } + "(${ target.format(structure) }) as \"value\"").joinToString(), where, order, limit, offset)
 		return object : ValueQueryResult<C> {
-			override fun <O> execute(handler: (ResultIterable<C>) -> O): O = structure.manager.driver.withHandleUnchecked { handler(it.createQuery(sql)
+			override fun <O> execute(handler: (ResultIterable<C>) -> O): O = structure.manager.execute { handler(it.createQuery(sql)
 				.bindMap(target.values(structure, column?.column))
 				.bindMap(where.values(structure))
 				.map { set, _ -> mapper.read(column?.column?.getRootColumn(), type, ReadContext(it, structure, set, columnList.map { "${ it.first }.${ it.second }" } + "value", autofillPrefix = { it != "value" }, shouldRead = false), "value") }
@@ -189,7 +188,7 @@ class SQLiteTable<T: Any>(
 		""".trim().replace("\\s+".toRegex(), " ")
 
 		return createResult {
-			structure.manager.driver.withHandleUnchecked { executeUpdate(it.createUpdate(sql).bindMap(identity.values(structure)), obj) }
+			structure.manager.execute { executeUpdate(it.createUpdate(sql).bindMap(identity.values(structure)), obj) }
 			if (obj is DataObject<*>) obj.afterRead()
 			obj
 		}
@@ -207,7 +206,7 @@ class SQLiteTable<T: Any>(
 			${ where.format(structure) } 
 		""".trim().replace("\\s+".toRegex(), " ")
 
-		return createResult { structure.manager.driver.withHandleUnchecked { it.createUpdate(sql)
+		return createResult { structure.manager.execute { it.createUpdate(sql)
 			.bindMap(value.values(structure, spec.column))
 			.bindMap(where.values(structure))
 			.execute()
@@ -233,7 +232,7 @@ class SQLiteTable<T: Any>(
 		""".trim().replace("\\s+".toRegex(), " ")
 
 		return createResult {
-			structure.manager.driver.withHandleUnchecked { executeUpdate(it.createUpdate(sql), obj) }
+			structure.manager.execute { executeUpdate(it.createUpdate(sql), obj) }
 			if (obj is DataObject<*>) obj.afterRead()
 			obj
 		}
@@ -248,7 +247,7 @@ class SQLiteTable<T: Any>(
 	 */
 	override fun delete(where: Where): Int {
 		val sql = "delete from ${ structure.name } ${ where.format(structure) }"
-		return structure.manager.driver.withHandleUnchecked { it.createUpdate(sql)
+		return structure.manager.execute { it.createUpdate(sql)
 			.bindMap(where.values(structure))
 			.execute()
 		}
