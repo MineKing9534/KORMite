@@ -9,13 +9,13 @@ import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 
 data class DataObjectReferenceDao(
-	@AutoGenerate @Key @Column val id: Int = 0,
+	@AutoIncrement @Key @Column val id: Int = 0,
 	@Column val reference: Int = 0
 )
 
 data class DataObjectDao(
 	val main: DataObjectTest,
-	@AutoGenerate @Key @Column val id: Int = 0,
+	@AutoIncrement @Key @Column val id: Int = 0,
 	@Column val name: String = ""
 ) : DataObject<DataObjectDao> {
 	override fun getTable(): Table<DataObjectDao> = main.table

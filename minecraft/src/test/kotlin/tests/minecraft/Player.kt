@@ -13,7 +13,7 @@ import setup.recreate
 import java.util.*
 
 data class PlayerDao(
-	@AutoGenerate @Key @Column val id: Int = 0,
+	@AutoIncrement @Key @Column val id: Int = 0,
 	@Column val player: OfflinePlayer = createPlayer()
 )
 

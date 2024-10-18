@@ -9,7 +9,7 @@ import kotlin.test.assertContentEquals
 import kotlin.test.assertEquals
 
 data class ReferenceArrayDao(
-	@AutoGenerate @Key @Column val id: Int = 0,
+	@AutoIncrement @Key @Column val id: Int = 0,
 	@Reference("book_test") @Column val books: List<BookDao?> = emptyList()
 )
 

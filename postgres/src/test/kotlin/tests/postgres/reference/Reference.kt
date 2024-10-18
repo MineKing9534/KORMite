@@ -9,18 +9,18 @@ import kotlin.test.assertContentEquals
 import kotlin.test.assertEquals
 
 data class PublisherDao(
-	@AutoGenerate @Key @Column val id: Int = 0,
+	@AutoIncrement @Key @Column val id: Int = 0,
 	@Column val name: String = ""
 )
 
 data class AuthorDao(
-	@AutoGenerate @Key @Column val id: Int = 0,
+	@AutoIncrement @Key @Column val id: Int = 0,
 	@Column val name: String = "",
 	@Reference("publisher_test") @Column val publisher: PublisherDao = PublisherDao()
 )
 
 data class BookDao(
-	@AutoGenerate @Key @Column val id: Int = 0,
+	@AutoIncrement @Key @Column val id: Int = 0,
 	@Column val title: String = "",
 	@Column val year: Int = 0,
 	@Reference(table = "author_test") @Column val author: AuthorDao = AuthorDao(),

@@ -11,7 +11,7 @@ import java.time.temporal.ChronoUnit
 import kotlin.test.assertEquals
 
 data class DateDao(
-	@AutoGenerate @Key @Column val id: Int = 0,
+	@AutoIncrement @Key @Column val id: Int = 0,
 	@Column val time: Instant = Instant.MIN,
 	@Column val date: LocalDate = LocalDate.MIN
 )

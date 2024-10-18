@@ -1,6 +1,6 @@
 package tests.sqlite.table
 
-import de.mineking.database.AutoGenerate
+import de.mineking.database.AutoIncrement
 import de.mineking.database.Column
 import de.mineking.database.Key
 import de.mineking.database.Unique
@@ -11,9 +11,10 @@ import setup.recreate
 import kotlin.test.assertTrue
 
 data class UniqueDao(
-    @AutoGenerate @Key @Column val id: Int = 0,
-    @Unique("a") @Column val a: String = "",
-    @Unique("b") @Column val b: String = ""
+    @AutoIncrement @Key @Column val id: Int = 0,
+    @Unique @Column val a: String = "",
+    @Unique(name = "test") @Column val b: String = "",
+    @Unique(name = "test") @Column val c: String = ""
 )
 
 class UniqueTest {
@@ -23,21 +24,27 @@ class UniqueTest {
     init {
         table.recreate()
 
-        table.insert(UniqueDao(a = "a", b = "b"))
+        table.insert(UniqueDao(a = "a", b = "a", c = "a"))
 
         connection.driver.setSqlLogger(ConsoleSqlLogger)
     }
 
     @Test
     fun simpleUnique() {
-        assertTrue(table.insert(UniqueDao(a = "b", b = "a")).isSuccess())
+        assertTrue(table.insert(UniqueDao(a = "b", b = "_", c = "_")).isSuccess())
 
-        val result1 = table.insert(UniqueDao(a = "a", b = "a"))
-        assertTrue(result1.isError())
-        assertTrue(result1.uniqueViolation)
+        val result = table.insert(UniqueDao(a = "a", b = ".", c = "."))
+        assertTrue(result.isError())
+        assertTrue(result.uniqueViolation)
+    }
 
-        val result2 = table.insert(UniqueDao(a = "b", b = "b"))
-        assertTrue(result2.isError())
-        assertTrue(result2.uniqueViolation)
+    @Test
+    fun complexUnique() {
+        assertTrue(table.insert(UniqueDao(a = "_", b = "a", c = "b")).isSuccess())
+        assertTrue(table.insert(UniqueDao(a = ".", b = "b", c = "a")).isSuccess())
+
+        val result = table.insert(UniqueDao(a = ",", b = "a", c = "a"))
+        assertTrue(result.isError())
+        assertTrue(result.uniqueViolation)
     }
 }

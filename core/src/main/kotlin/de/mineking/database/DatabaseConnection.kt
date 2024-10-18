@@ -24,6 +24,8 @@ abstract class DatabaseConnection(
     val data: MutableMap<String, Any> = mutableMapOf()
     val typeMappers: MutableList<TypeMapper<*, *>> = arrayListOf()
 
+    var autoGenerate: (ColumnData<*, *>) -> String = { error("No default autogenerate configured") }
+
     private val tables = hashMapOf<String, Table<*>>()
 
     @Suppress("UNCHECKED_CAST")
@@ -51,7 +53,7 @@ abstract class DatabaseConnection(
                 getTypeMapper<C, Any>(property.returnType, property) ?: throw IllegalArgumentException("No TypeMapper found for $property"),
                 property,
                 property.hasDatabaseAnnotation<Key>(),
-                property.hasDatabaseAnnotation<AutoGenerate>()
+                property.hasDatabaseAnnotation<AutoGenerate>() || property.hasDatabaseAnnotation<AutoIncrement>()
             )
         }
 

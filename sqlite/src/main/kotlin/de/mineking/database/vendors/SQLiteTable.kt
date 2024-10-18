@@ -18,22 +18,24 @@ class SQLiteTable<T: Any>(
 ) : TableImplementation<T>(type, structure, instance) {
 	override fun createTable() {
 		val columns = structure.getAllColumns().filter { it.shouldCreate() }
-		require(columns.filter { it.getRootColumn().property.hasDatabaseAnnotation<Unique>() }.groupBy { it.getRootColumn().property.getDatabaseAnnotation<Unique>()!!.name }.none { it.value.size > 1 }) { "Complex unique constraint not supported in SQLite" }
 
 		fun <C> formatColumn(column: ColumnData<T, C>): String {
 			val root = column.getRootColumn()
 			return """
-				"${ column.name }" ${ column.mapper.getType(column, column.table, root.property, column.type).sqlName }
-				${ if (column.getRootColumn().getRootColumn().property.hasDatabaseAnnotation<Unique>()) " unique" else "" }
+				"${ column.name }" ${ column.mapper.getType(column, column.table, column.type).sqlName }
+				${ if (root.property.hasDatabaseAnnotation<AutoGenerate>()) " default ${ root.property.getDatabaseAnnotation<AutoGenerate>()?.generator?.takeIf { it.isNotBlank() } ?: structure.manager.autoGenerate(column) } }" else "" }
 				${ root.property.takeIf { !it.returnType.isMarkedNullable }?.let { " not null" } ?: "" }
-				${ if (root.key) " primary key" else "" }
-				${ if (root.autogenerate) root.property.getDatabaseAnnotation<AutoGenerate>()?.generator?.takeIf { it.isNotBlank() }?.let { " default $it" } ?: " autoincrement" else "" }
 			""".replace("\n", "").replace("\t", "")
 		}
 
+		val keys = structure.getKeys()
+		val unique = columns.filter { it.getRootColumn().property.hasDatabaseAnnotation<Unique>() }.groupBy { it.getRootColumn().property.getDatabaseAnnotation<Unique>()!!.name }
+
 		structure.manager.driver.useHandleUnchecked { it.createUpdate("""
 			create table if not exists ${ structure.name } (
-				${ columns.map { formatColumn(it) }.joinToString() }
+				${ columns.joinToString { formatColumn(it) } }
+				${ if (keys.isNotEmpty()) ", primary key(${ keys.joinToString { "\"${ it.name }\"${ if (it.getRootColumn().property.hasDatabaseAnnotation<AutoIncrement>()) " autoincrement" else "" }" } })" else "" }
+				${ if (unique.isNotEmpty()) ", ${ unique.map { "unique(${ it.value.joinToString { "\"${ it.name }\"" } })" }.joinToString() }" else "" }
 			)
 		""".replace("\n", "").replace("\t", "")).execute() }
 
@@ -72,9 +74,9 @@ class SQLiteTable<T: Any>(
 			left join ${ it.reference!!.structure.name } 
 			as "${ (prefix + it.name).joinToString(".") }" 
 			on ${ (
-				unsafeNode("\"${(prefix + it.name).joinToString(".")}\".\"${it.reference!!.structure.getKeys().first().name}\"")
+				unsafeNode("\"${(prefix + it.name).joinToString(".")}\".\"${ it.reference!!.structure.getKeys().first().name }\"")
 						isEqualTo
-						unsafeNode("\"${prefix.joinToString(".").takeIf { it.isNotBlank() } ?: structure.name}\".\"${it.name}\"")
+						unsafeNode("\"${prefix.joinToString(".").takeIf { it.isNotBlank() } ?: structure.name}\".\"${ it.name }\"")
 				).get(structure) }
 		""") + createJoinList(it.reference!!.structure.columns, prefix + it.name) }
 	}
@@ -105,7 +107,7 @@ class SQLiteTable<T: Any>(
 			else columns.map { parseColumnSpecification(it, structure).column }.toSet()
 		)
 
-		val sql = createSelect(columnList.joinToString { "\"${it.first}\".\"${it.second}\" as \"${it.first}.${it.second}\"" }, where, order, limit, offset)
+		val sql = createSelect(columnList.joinToString { "\"${ it.first }\".\"${ it.second }\" as \"${ it.first }.${ it.second }\"" }, where, order, limit, offset)
 		return object : RowQueryResult<T> {
 			override val instance: () -> T = this@SQLiteTable.instance
 			override fun <O> execute(handler: ((T) -> Boolean) -> O): O = structure.manager.execute { it.createQuery(sql)
@@ -154,12 +156,12 @@ class SQLiteTable<T: Any>(
 			update.bind(it.name, createArgument(it))
 		}
 
-		return update.execute { stmt, _ ->
+		return update.execute { stmt, ctx -> ctx.use {
 			val statement = stmt.get()
 			val set = statement.resultSet
 
 			parseResult(ReadContext(obj, structure, set, columns.filter { it.getRootColumn().reference == null }.map { it.name }, autofillPrefix = { false }))
-		}
+		} }
 	}
 
 	private fun <T> createResult(function: () -> T): UpdateResult<T> {
@@ -182,7 +184,7 @@ class SQLiteTable<T: Any>(
 
 		val sql = """
 			update ${ structure.name }
-			set ${columns.joinToString { "\"${it.name}\" = :${it.name}" }}
+			set ${columns.joinToString { "\"${ it.name }\" = :${ it.name }" }}
 			${ identity.format(structure) }
 			returning *
 		""".trim().replace("\\s+".toRegex(), " ")
@@ -226,8 +228,8 @@ class SQLiteTable<T: Any>(
 
 		val sql = """
 			insert into ${ structure.name }
-			(${columns.joinToString { "\"${it.name}\"" }})
-			values(${columns.joinToString { ":${it.name}" }}) 
+			(${ columns.joinToString { "\"${ it.name }\"" } })
+			values(${ columns.joinToString { ":${ it.name }" } }) 
 			returning *
 		""".trim().replace("\\s+".toRegex(), " ")
 
@@ -239,7 +241,33 @@ class SQLiteTable<T: Any>(
 	}
 
 	override fun upsert(obj: T): UpdateResult<T> {
-		TODO("Not yet implemented")
+		if (obj is DataObject<*>) obj.beforeWrite()
+
+		val insertColumns = structure.getAllColumns().filter {
+			if (!it.getRootColumn().autogenerate) true
+			else {
+				val value = it.get(obj)
+				value != 0 && value != null
+			}
+		}
+
+		val updateColumns = structure.getAllColumns().filter { !it.getRootColumn().key }
+
+
+		val sql = """
+			insert into ${ structure.name }
+			(${ insertColumns.joinToString { "\"${ it.name }\"" } })
+			values(${ insertColumns.joinToString { ":${ it.name }" } }) 
+			on conflict (${ structure.getKeys().joinToString { "\"${ it.name }\"" } }) do update set
+			${ updateColumns.joinToString { "\"${ it.name }\" = :${ it.name }" } }
+			returning *
+		""".trim().replace("\\s+".toRegex(), " ")
+
+		return createResult {
+			structure.manager.execute { executeUpdate(it.createUpdate(sql), obj) }
+			if (obj is DataObject<*>) obj.afterRead()
+			obj
+		}
 	}
 
 	/**

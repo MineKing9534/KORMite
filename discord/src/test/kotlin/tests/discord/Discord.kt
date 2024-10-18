@@ -15,7 +15,7 @@ import setup.createSnowflake
 import setup.recreate
 
 data class DiscordDao(
-	@AutoGenerate @Key @Column val id: Int = 0,
+	@AutoIncrement @Key @Column val id: Int = 0,
 	@Column val guild: Guild = createSnowflake(),
 	@Column val role: Role = createSnowflake(),
 	@Column val channel: MessageChannel = createSnowflake(),

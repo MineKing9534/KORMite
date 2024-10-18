@@ -1,6 +1,6 @@
 package tests.postgres.table
 
-import de.mineking.database.AutoGenerate
+import de.mineking.database.AutoIncrement
 import de.mineking.database.Column
 import de.mineking.database.Key
 import de.mineking.database.Unique
@@ -11,7 +11,7 @@ import setup.recreate
 import kotlin.test.assertTrue
 
 data class UniqueDao(
-    @AutoGenerate @Key @Column val id: Int = 0,
+    @AutoIncrement @Key @Column val id: Int = 0,
     @Unique @Column val a: String = "",
     @Unique(name = "test") @Column val b: String = "",
     @Unique(name = "test") @Column val c: String = ""

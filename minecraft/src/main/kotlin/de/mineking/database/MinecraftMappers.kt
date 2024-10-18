@@ -24,7 +24,7 @@ fun DatabaseConnection.registerMinecraftMappers(server: Server, uuidType: TypeMa
 
 	typeMappers += object : TypeMapper<Location?, Array<Double>?> {
 		override fun accepts(manager: DatabaseConnection, property: KProperty<*>?, type: KType): Boolean = type.isSubtypeOf(typeOf<Location?>())
-		override fun getType(column: ColumnData<*, *>?, table: TableStructure<*>, property: KProperty<*>?, type: KType): DataType = arrayType.getType(column, table, property, typeOf<Array<Double>>())
+		override fun getType(column: ColumnData<*, *>?, table: TableStructure<*>, type: KType): DataType = arrayType.getType(column, table, typeOf<Array<Double>>())
 
 		override fun <O: Any> initialize(column: DirectColumnData<O, *>, type: KType) {
 			val worldColumn = column.property.getDatabaseAnnotation<LocationWorldColumn>()

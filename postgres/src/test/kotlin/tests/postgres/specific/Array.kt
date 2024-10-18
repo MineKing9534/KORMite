@@ -11,7 +11,7 @@ import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 
 data class ArrayDao(
-	@AutoGenerate @Key @Column val id: Int = 0,
+	@AutoIncrement @Key @Column val id: Int = 0,
 	@Column val a: Int = 0,
 	@Column val stringList: List<String> = emptyList(),
 	@Column val arrayList: Array<List<String>> = emptyArray()

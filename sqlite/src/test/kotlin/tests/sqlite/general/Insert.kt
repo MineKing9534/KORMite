@@ -39,6 +39,9 @@ class InsertTest {
         val obj = UserDao(name = "Test", email = "test@example.com", age = 50)
         val result = table.insert(obj)
 
+        println(result.isSuccess())
+        result.error?.printStackTrace()
+
         assertTrue(result.isSuccess())
         assertEquals(obj, result.value)
         assertEquals(6, obj.id)

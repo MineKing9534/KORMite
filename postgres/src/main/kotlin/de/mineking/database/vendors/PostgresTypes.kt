@@ -5,6 +5,7 @@ import com.google.gson.ToNumberStrategy
 import de.mineking.database.*
 import org.jdbi.v3.core.argument.Argument
 import org.jdbi.v3.core.statement.StatementContext
+import org.postgresql.util.PGobject
 import java.math.BigDecimal
 import java.math.BigInteger
 import java.sql.*
@@ -39,7 +40,7 @@ object PostgresMappers {
 	val STRING = typeMapper<String?>(PostgresType.TEXT, ResultSet::getString)
 	val ENUM = object : TypeMapper<Enum<*>?, String?> {
 		override fun accepts(manager: DatabaseConnection, property: KProperty<*>?, type: KType): Boolean = type.jvmErasure.java.isEnum
-		override fun getType(column: ColumnData<*, *>?, table: TableStructure<*>, property: KProperty<*>?, type: KType): DataType = PostgresType.TEXT
+		override fun getType(column: ColumnData<*, *>?, table: TableStructure<*>, type: KType): DataType = PostgresType.TEXT
 
 		override fun format(column: ColumnData<*, *>?, table: TableStructure<*>, type: KType, value: Enum<*>?): String? = value?.name
 
@@ -58,10 +59,23 @@ object PostgresMappers {
 			.setObjectToNumberStrategy(numberStrategy)
 			.create()
 
-		override fun accepts(manager: DatabaseConnection, property: KProperty<*>?, type: KType): Boolean = property?.hasDatabaseAnnotation<JSON>() == true
-		override fun getType(column: ColumnData<*, *>?, table: TableStructure<*>, property: KProperty<*>?, type: KType): DataType = if (property?.getDatabaseAnnotation<JSON>()?.decompress == true) PostgresType.JSONB else PostgresType.JSON
+		override fun accepts(manager: DatabaseConnection, property: KProperty<*>?, type: KType): Boolean = property?.hasDatabaseAnnotation<Json>() == true
+		override fun getType(column: ColumnData<*, *>?, table: TableStructure<*>, type: KType): DataType = if (column?.getRootColumn()?.property?.getDatabaseAnnotation<Json>()?.binary == true) PostgresType.JSONB else PostgresType.JSON
 
 		override fun format(column: ColumnData<*, *>?, table: TableStructure<*>, type: KType, value: Any?): String? = value?.let { gson.toJson(value) }
+		override fun createArgument(column: ColumnData<*, *>?, table: TableStructure<*>, type: KType, value: String?): Argument = object : Argument {
+			override fun apply(position: Int, statement: PreparedStatement?, ctx: StatementContext?) {
+				if (value == null) statement?.setNull(position, Types.NULL)
+				else {
+					val obj = PGobject()
+					obj.type = getType(column, table, type).sqlName
+					obj.value = value
+					statement?.setObject(position, obj)
+				}
+			}
+
+			override fun toString(): String = value.toString()
+		}
 
 		override fun extract(column: DirectColumnData<*, *>?, type: KType, context: ReadContext, name: String): String? = STRING.extract(column, type, context, name)
 		override fun parse(column: DirectColumnData<*, *>?, type: KType, value: String?, context: ReadContext, name: String): Any? = value?.let { gson.fromJson(it, type.javaType) }
@@ -83,10 +97,10 @@ object PostgresMappers {
 		fun Collection<*>.createArray(component: KType) = (this as java.util.Collection<*>).toArray { java.lang.reflect.Array.newInstance(component.jvmErasure.java, it) as Array<*> }
 
 		override fun accepts(manager: DatabaseConnection, property: KProperty<*>?, type: KType): Boolean = type.isArray()
-		override fun getType(column: ColumnData<*, *>?, table: TableStructure<*>, property: KProperty<*>?, type: KType): DataType {
+		override fun getType(column: ColumnData<*, *>?, table: TableStructure<*>, type: KType): DataType {
 			val component = type.component()
-			val componentMapper = table.manager.getTypeMapper<Any, Any>(component, property) ?: throw IllegalArgumentException("No TypeMapper found for $component")
-			val componentType = componentMapper.getType(column, table, property, component)
+			val componentMapper = table.manager.getTypeMapper<Any, Any>(component, column?.getRootColumn()?.property) ?: throw IllegalArgumentException("No TypeMapper found for $component")
+			val componentType = componentMapper.getType(column, table, component)
 			return DataType.of("${ componentType.sqlName }[]")
 		}
 
@@ -123,7 +137,7 @@ object PostgresMappers {
 					val component = type.component()
 					val mapper = table.manager.getTypeMapper<Any, Any>(component, if (column is DirectColumnData) column.property else null) ?: throw IllegalArgumentException("No TypeMapper found for $component")
 
-					statement?.setArray(position, statement.connection.createArrayOf(mapper.getType(column, table, null, component).sqlName.replace("\\[]+$".toRegex(), ""), value))
+					statement?.setArray(position, statement.connection.createArrayOf(mapper.getType(column, table, component).sqlName.replace("\\[]+$".toRegex(), ""), value))
 				}
 			}
 
@@ -166,11 +180,11 @@ object PostgresMappers {
 			require(reference.structure.getKeys().size == 1) { "Can only reference a table with exactly one key" }
 		}
 
-		override fun getType(column: ColumnData<*, *>?, table: TableStructure<*>, property: KProperty<*>?, type: KType): DataType {
+		override fun getType(column: ColumnData<*, *>?, table: TableStructure<*>, type: KType): DataType {
 			require(column is DirectColumnData) { "Something went really wrong" }
 
 			val key = column.reference!!.structure.getKeys().first()
-			return key.mapper.getType(column, table, property, key.type)
+			return key.mapper.getType(column, table, key.type)
 		}
 
 		@Suppress("UNCHECKED_CAST")

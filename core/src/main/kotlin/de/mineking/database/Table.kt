@@ -16,6 +16,10 @@ annotation class Column(val name: String = "")
 
 @Target(AnnotationTarget.FIELD)
 @Retention(AnnotationRetention.RUNTIME)
+annotation class AutoIncrement
+
+@Target(AnnotationTarget.FIELD)
+@Retention(AnnotationRetention.RUNTIME)
 annotation class AutoGenerate(val generator: String = "")
 
 @Target(AnnotationTarget.FIELD)
@@ -32,7 +36,7 @@ annotation class Reference(val table: String)
 
 @Target(AnnotationTarget.FIELD)
 @Retention(AnnotationRetention.RUNTIME)
-annotation class JSON(val decompress: Boolean = false)
+annotation class Json(val binary: Boolean = false)
 
 interface Table<T: Any> {
 	val structure: TableStructure<T>
