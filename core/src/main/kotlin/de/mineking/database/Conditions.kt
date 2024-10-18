@@ -84,6 +84,9 @@ infix fun Node.isLike(other: String) = Where(this + " like '" + other + "'")
 infix fun Node.matches(other: String) = Where(this + " ~ '" + other + "'")
 infix fun Node.contains(other: Node) = Where(other + " = any(" + this + ")")
 
+fun Node.isIn(nodes: Array<Node>) = Where(this + " in (" + nodes.join() + ")")
+fun Node.isIn(nodes: Collection<Node>) = isIn(nodes.toTypedArray())
+
 infix fun Node.isGreaterThan(other: Node) = Where(this + " > " + other)
 infix fun Node.isGreaterThanOrEqual(other: Node) = Where(this + " >= " + other)
 

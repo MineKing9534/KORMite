@@ -2,6 +2,10 @@ package de.mineking.database
 
 import org.jdbi.v3.core.argument.Argument
 import org.jdbi.v3.core.statement.StatementContext
+import java.io.ByteArrayInputStream
+import java.io.ByteArrayOutputStream
+import java.io.ObjectInputStream
+import java.io.ObjectOutputStream
 import java.sql.PreparedStatement
 import java.sql.ResultSet
 import java.sql.Types
@@ -47,6 +51,19 @@ interface TypeMapper<T, D> {
 
 	fun write(column: ColumnData<*, *>?, table: TableStructure<*>, type: KType, value: T): Argument = createArgument(column, table, type, format(column, table, type, value))
 	fun read(column: DirectColumnData<*, *>?, type: KType, context: ReadContext, name: String): T = parse(column, type, extract(column, type, context, name), context, name)
+
+	fun writeToBinary(column: ColumnData<*, *>?, table: TableStructure<*>, type: KType, value: T): ByteArray = toBinary(column, table, type, format(column, table, type, value))
+	fun toBinary(column: ColumnData<*, *>?, table: TableStructure<*>, type: KType, value: D): ByteArray {
+		val output = ByteArrayOutputStream()
+
+		ObjectOutputStream(output).use { it.writeObject(value) }
+
+		return output.toByteArray()
+	}
+
+	@Suppress("UNCHECKED_CAST")
+	fun fromBinary(column: DirectColumnData<*, *>?, type: KType, value: ByteArray, context: ReadContext, name: String): D = ObjectInputStream(ByteArrayInputStream(value)).use { it.readObject() } as D
+	fun readFromBinary(column: DirectColumnData<*, *>?, type: KType, value: ByteArray, context: ReadContext, name: String): T = parse(column, type, fromBinary(column, type, value, context, name), context, name)
 }
 
 interface SimpleTypeMapper<T> : TypeMapper<T, T> {
@@ -75,22 +92,21 @@ inline fun <reified T> typeMapper(
 	}
 
 	override fun extract(column: DirectColumnData<*, *>?, type: KType, context: ReadContext, name: String): T = context.read(name, extractor)
+
+	override fun toString() = typeOf<T>().toString()
 }
 
 inline fun <reified T> nullSafeTypeMapper(
 	dataType: DataType,
-	noinline extractor: (ResultSet, String) -> T?,
-	crossinline inserter: (T?, PreparedStatement, Int) -> Unit = { value, statement, position ->
-		if (value == null) statement.setNull(position, Types.NULL)
-		else statement.setObject(position, value)
-	},
+	noinline extractor: (ResultSet, String) -> T,
+	crossinline inserter: (T, PreparedStatement, Int) -> Unit = { value, statement, position -> statement.setObject(position, value) },
 	crossinline acceptor: (KType) -> Boolean = { it.isSubtypeOf(typeOf<T?>()) }
 ) = typeMapper<T?>(dataType, { set, name ->
 	val temp = extractor(set, name)
 
 	if (set.wasNull()) null
 	else temp
-}, inserter, acceptor)
+}, { value, statement, position -> if (value == null) statement.setNull(position, Types.NULL) else inserter(value, statement, position) }, acceptor)
 
 inline fun <reified T, reified D> typeMapper(
 	temporary: TypeMapper<D, *>,
@@ -105,4 +121,23 @@ inline fun <reified T, reified D> typeMapper(
 
 	override fun extract(column: DirectColumnData<*, *>?, type: KType, context: ReadContext, name: String): D = temporary.read(column, type, context, name)
 	override fun parse(column: DirectColumnData<*, *>?, type: KType, value: D, context: ReadContext, name: String): T = parser(value)
+
+	override fun toString() = typeOf<T>().toString()
+}
+
+inline fun <reified T> binaryTypeMapper(
+	dataType: DataType,
+	crossinline parser: (ByteArray) -> T?,
+	crossinline formatter: (T?) -> ByteArray
+): TypeMapper<T?, ByteArray> = object : TypeMapper<T?, ByteArray> {
+	override fun accepts(manager: DatabaseConnection, property: KProperty<*>?, type: KType): Boolean = type.isSubtypeOf(typeOf<T>())
+	override fun getType(column: ColumnData<*, *>?, table: TableStructure<*>, property: KProperty<*>?, type: KType): DataType = dataType
+
+	override fun format(column: ColumnData<*, *>?, table: TableStructure<*>, type: KType, value: T?): ByteArray = formatter(value)
+
+	override fun extract(column: DirectColumnData<*, *>?, type: KType, context: ReadContext, name: String): ByteArray = context.read(name, ResultSet::getBytes)
+	override fun parse(column: DirectColumnData<*, *>?, type: KType, value: ByteArray, context: ReadContext, name: String): T? = parser(value)
+
+	override fun toBinary(column: ColumnData<*, *>?, table: TableStructure<*>, type: KType, value: ByteArray): ByteArray = value
+	override fun fromBinary(column: DirectColumnData<*, *>?, type: KType, value: ByteArray, context: ReadContext, name: String): ByteArray = value
 }
