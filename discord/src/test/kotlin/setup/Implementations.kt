@@ -18,7 +18,7 @@ inline fun <reified T: ISnowflake> createSnowflake(id: Long = 0) = createImpleme
 	else -> error("Method not supported: $method")
 } }
 
-fun createJDA(guilds: List<Guild>, roles: List<Role>, channels: List<Channel>, emojis: List<CustomEmoji>, events: List<ScheduledEvent>, users: List<User>) = createImplementation<JDA> { method, params -> when (method) {
+fun createJDA(guilds: List<Guild>, roles: List<Role> = emptyList(), channels: List<Channel> = emptyList(), emojis: List<CustomEmoji> = emptyList(), events: List<ScheduledEvent> = emptyList(), users: List<User> = emptyList()) = createImplementation<JDA> { method, params -> when (method) {
 	"getGuildById" -> guilds.find { it.id == params[0].toString() }
 	"getRoleById" -> roles.find { it.id == params[0].toString() }
 	"getChannelById" -> channels.find { it.id == params[1].toString() }
