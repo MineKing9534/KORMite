@@ -1,6 +1,9 @@
 package de.mineking.database
 
+import org.jdbi.v3.core.Handle
 import org.jdbi.v3.core.Jdbi
+import org.jdbi.v3.core.kotlin.inTransactionUnchecked
+import org.jdbi.v3.core.kotlin.withHandleUnchecked
 import java.lang.reflect.Proxy
 import kotlin.reflect.KClass
 import kotlin.reflect.KProperty
@@ -8,6 +11,8 @@ import kotlin.reflect.KProperty1
 import kotlin.reflect.KType
 import kotlin.reflect.full.memberProperties
 import kotlin.reflect.jvm.javaField
+
+internal val CURRENT_TRANSACTION: ThreadLocal<Handle> = ThreadLocal()
 
 inline fun <reified T: Annotation> KProperty<*>.getDatabaseAnnotation(): T? = this.javaField?.getAnnotation(T::class.java)
 inline fun <reified T: Annotation> KProperty<*>.hasDatabaseAnnotation(): Boolean = getDatabaseAnnotation<T>() != null
@@ -94,4 +99,19 @@ abstract class DatabaseConnection(
 
     @Suppress("UNCHECKED_CAST")
     fun <T: Any> getCachedTable(name: String): Table<T> = (tables[name] ?: throw IllegalArgumentException("Table $name not found")) as Table<T>
+
+    fun <R> inTransaction(action: (Handle) -> R): R = driver.inTransactionUnchecked { handle ->
+        try {
+            CURRENT_TRANSACTION.set(handle)
+            action(handle)
+        } finally {
+            CURRENT_TRANSACTION.set(null)
+        }
+    }
+
+    fun <R> execute(action: (Handle) -> R): R {
+        val transaction = CURRENT_TRANSACTION.get()
+        return if (transaction != null) action(transaction)
+        else driver.withHandleUnchecked { action(it) }
+    }
 }
