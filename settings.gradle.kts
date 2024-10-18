@@ -1,4 +1,4 @@
-rootProject.name = "CryoSQLeep"
+rootProject.name = "KORMite"
 include("core")
 
 include("postgres")

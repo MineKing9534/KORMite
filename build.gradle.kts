@@ -1,5 +1,4 @@
 import com.adarshr.gradle.testlogger.theme.ThemeType
-import java.io.ByteArrayOutputStream
 
 plugins {
 	kotlin("jvm") version "2.0.10"
@@ -61,8 +60,8 @@ allprojects {
 			register<MavenPublication>("maven") {
 				from(components["java"])
 
-				groupId = "de.mineking.CryoSQLeep"
-				artifactId = "CryoSQLeep-${ project.name }"
+				groupId = "de.mineking.KORMite"
+				artifactId = "KORMite-${ project.name }"
 				version = if (release) "${ project.version }" else System.getenv("BRANCH")
 			}
 		}

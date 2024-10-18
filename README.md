@@ -1,10 +1,10 @@
-# CryoSQLeep
-CryoSQLeep is a library that aims to abstract database operations to simple kotlin functions. 
+# KORMite
+KORMite is a library that aims to abstract database operations to simple kotlin functions. 
 Therefore, the library provides a `Table` interface with methods for database operations. 
 See [Usage](#usage) for a detailed explanation. 
 
 ## Installation
-CryoSQLeep is hosted on a custom repository at [https://maven.mineking.dev](https://maven.mineking.dev/#/releases/de/mineking/cryo-sqleep). Replace VERSION with the latest version (without the `v` prefix).
+KORMite is hosted on a custom repository at [https://maven.mineking.dev](https://maven.mineking.dev/#/releases/de/mineking/KORMite). Replace VERSION with the latest version (without the `v` prefix).
 Alternatively, you can download the artifacts from jitpack (not recommended).
 
 ### Gradle
@@ -15,7 +15,7 @@ repositories {
 }
 
 dependencies {
-    implementation("de.mineking:CryoSQLeep-core:VERSION")
+    implementation("de.mineking:KORMite-core:VERSION")
 }
 ```
 
@@ -32,7 +32,7 @@ dependencies {
 <dependencies>
     <dependency>
         <groupId>de.mineking</groupId>
-        <artifactId>CryoSQLeep-core</artifactId>
+        <artifactId>KORMite-core</artifactId>
         <version>VERSION</version>
     </dependency>
 </dependencies>
@@ -41,7 +41,7 @@ dependencies {
 ## Vendors
 The core library only contains the infrastructure for type mapping etc. To actually connect to a database and work with it, you also need the dependency for the database vendor you use, that then contains the actual implementation for SQL generation etc.
 
-For postgreSQL (recommended), you can use `de.mineking:CryoSQLeep-postgres:VERSION`.
+For postgreSQL (recommended), you can use `de.mineking:KORMite-postgres:VERSION`.
 
 ## Usage
 The basic usage looks like this:
