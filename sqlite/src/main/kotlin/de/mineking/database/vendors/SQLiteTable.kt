@@ -108,17 +108,15 @@ class SQLiteTable<T: Any>(
 		)
 
 		val sql = createSelect(columnList.joinToString { "\"${ it.first }\".\"${ it.second }\" as \"${ it.first }.${ it.second }\"" }, where, order, limit, offset)
-		return object : RowQueryResult<T> {
-			override val instance: () -> T = this@SQLiteTable.instance
-			override fun <O> execute(handler: ((T) -> Boolean) -> O): O = structure.manager.execute { it.createQuery(sql)
+		return object : SimpleQueryResult<T> {
+			override fun <O> execute(handler: (ResultIterable<T>) -> O): O = structure.manager.execute { handler(it.createQuery(sql)
 				.bindMap(where.values(structure))
-				.execute { stmt, _ ->
-					val statement = stmt.get()
-					val set = statement.resultSet
-
-					handler { parseResult(ReadContext(it, structure, set, columnList.map { "${ it.first }.${ it.second }" })) }
+				.map { set, _ ->
+					val instance = instance()
+					parseResult(ReadContext(instance, structure, set, columnList.map { "${ it.first }.${ it.second }" }))
+					instance
 				}
-			}
+			) }
 		}
 	}
 
@@ -139,7 +137,7 @@ class SQLiteTable<T: Any>(
 		val columnList = createColumnList(column?.column?.let { listOf(it) } ?: emptyList())
 
 		val sql = createSelect((columnList.map { "\"${ it.first }\".\"${ it.second }\" as \"${ it.first }.${ it.second }\"" } + "(${ target.format(structure) }) as \"value\"").joinToString(), where, order, limit, offset)
-		return object : ValueQueryResult<C> {
+		return object : SimpleQueryResult<C> {
 			override fun <O> execute(handler: (ResultIterable<C>) -> O): O = structure.manager.execute { handler(it.createQuery(sql)
 				.bindMap(target.values(structure, column?.column))
 				.bindMap(where.values(structure))
@@ -156,11 +154,11 @@ class SQLiteTable<T: Any>(
 			update.bind(it.name, createArgument(it))
 		}
 
-		return update.execute { stmt, ctx -> ctx.use {
+		update.execute { stmt, ctx -> ctx.use {
 			val statement = stmt.get()
 			val set = statement.resultSet
 
-			parseResult(ReadContext(obj, structure, set, columns.filter { it.getRootColumn().reference == null }.map { it.name }, autofillPrefix = { false }))
+			if (set.next()) parseResult(ReadContext(obj, structure, set, columns.filter { it.getRootColumn().reference == null }.map { it.name }, autofillPrefix = { false }))
 		} }
 	}
 

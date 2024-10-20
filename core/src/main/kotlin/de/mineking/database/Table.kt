@@ -70,9 +70,7 @@ abstract class TableImplementation<T: Any>(
 ) : Table<T>, InvocationHandler {
 	override val implementation: TableImplementation<T> = this
 
-	open fun parseResult(context: ReadContext): Boolean {
-		if (!context.proceed()) return false
-
+	open fun parseResult(context: ReadContext) {
 		@Suppress("UNCHECKED_CAST")
 		val instance = context.instance as T
 
@@ -80,7 +78,6 @@ abstract class TableImplementation<T: Any>(
 		structure.columns.forEach { if (context.shouldRead(it.name)) setField(it) }
 
 		if (context.instance is DataObject<*>) context.instance.afterRead()
-		return true
 	}
 
 	override fun invoke(proxy: Any?, method: Method?, args: Array<out Any?>?): Any? {
