@@ -1,4 +1,4 @@
-package de.mineking.database.vendors
+package de.mineking.database.vendors.postgres
 
 import com.google.gson.GsonBuilder
 import com.google.gson.ToNumberStrategy
@@ -40,7 +40,8 @@ object PostgresMappers {
 	val STRING = typeMapper<String?>(PostgresType.TEXT, ResultSet::getString)
 	val ENUM = object : TypeMapper<Enum<*>?, String?> {
 		override fun accepts(manager: DatabaseConnection, property: KProperty<*>?, type: KType): Boolean = type.jvmErasure.java.isEnum
-		override fun getType(column: ColumnData<*, *>?, table: TableStructure<*>, type: KType): DataType = PostgresType.TEXT
+		override fun getType(column: ColumnData<*, *>?, table: TableStructure<*>, type: KType): DataType =
+            PostgresType.TEXT
 
 		override fun format(column: ColumnData<*, *>?, table: TableStructure<*>, type: KType, value: Enum<*>?): String? = value?.name
 

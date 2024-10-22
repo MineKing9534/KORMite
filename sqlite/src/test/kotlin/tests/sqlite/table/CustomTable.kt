@@ -4,7 +4,7 @@ import de.mineking.database.Table
 import de.mineking.database.isEqualTo
 import de.mineking.database.property
 import de.mineking.database.value
-import de.mineking.database.vendors.SQLiteConnection
+import de.mineking.database.vendors.sqlite.SQLiteConnection
 import setup.ConsoleSqlLogger
 import setup.UserDao
 import setup.recreate

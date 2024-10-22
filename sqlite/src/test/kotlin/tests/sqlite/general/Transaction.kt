@@ -1,6 +1,6 @@
 package tests.sqlite.general
 
-import de.mineking.database.vendors.SQLiteConnection
+import de.mineking.database.vendors.sqlite.SQLiteConnection
 import org.junit.jupiter.api.Test
 import setup.ConsoleSqlLogger
 import setup.UserDao

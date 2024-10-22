@@ -1,6 +1,7 @@
 package de.mineking.database
 
 import org.jdbi.v3.core.argument.Argument
+import javax.swing.text.html.StyleSheet.BoxPainter
 import kotlin.reflect.KType
 import kotlin.reflect.full.isSubtypeOf
 import kotlin.reflect.jvm.jvmErasure
@@ -26,7 +27,6 @@ fun length(node: Node) = "len"(node)
 fun lowerCase(node: Node) = "lower"(node)
 fun upperCase(node: Node) = "upper"(node)
 
-fun arrayLength(node: Node) = "array_length"(node)
 fun abs(node: Node) = "abs"(node)
 
 operator fun Node.get(index: Node) = this + "[" + index + "]"
@@ -38,22 +38,22 @@ fun property(name: String): PropertyNode = object : PropertyNode {
 	override fun columnContext(table: TableStructure<*>): ColumnInfo = parseColumnSpecification(name, table)
 }
 
-fun <T> value(value: T, type: KType): ValueNode = object : ValueNode {
+fun <T> value(value: T, type: KType, static: Boolean = false): ValueNode = object : ValueNode {
 	override fun format(table: TableStructure<*>): String = ":${ hashCode() }"
 
 	override fun values(table: TableStructure<*>, column: ColumnData<*, *>?): Map<String, Argument> {
 		@Suppress("UNCHECKED_CAST")
-		val manager = column?.takeIf { it.type.isSubtypeOf(type) }?.mapper as TypeMapper<T, *>? ?: table.manager.getTypeMapper<T, Any>(type, column?.getRootColumn()?.property) ?: throw IllegalArgumentException("Cannot find suitable TypeMapper for $type")
+		val manager = column?.takeIf { !static && it.type.isSubtypeOf(type) }?.mapper as TypeMapper<T, *>? ?: table.manager.getTypeMapper<T, Any>(type, column?.getRootColumn()?.property?.takeIf { !static }) ?: throw IllegalArgumentException("Cannot find suitable TypeMapper for $type")
 		return mapOf(hashCode().toString() to manager.write(column, table, type, value))
 	}
 }
+
+inline fun <reified T> value(value: T, static: Boolean = false) = value(value, typeOf<T>(), static)
 
 fun nullValue() = object : ValueNode {
 	override fun format(table: TableStructure<*>): String = "null"
 	override fun values(table: TableStructure<*>, column: ColumnData<*, *>?): Map<String, Argument> = emptyMap()
 }
-
-inline fun <reified T> value(value: T) = value(value, typeOf<T>())
 
 fun unsafeNode(string: String, values: Map<String, Argument> = emptyMap()) = object : Node {
 	override fun format(table: TableStructure<*>): String = string

@@ -1,4 +1,4 @@
-package de.mineking.database.vendors
+package de.mineking.database.vendors.sqlite
 
 import de.mineking.database.*
 import mu.KotlinLogging

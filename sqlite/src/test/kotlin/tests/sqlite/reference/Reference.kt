@@ -1,7 +1,7 @@
 package tests.sqlite.reference
 
 import de.mineking.database.*
-import de.mineking.database.vendors.SQLiteConnection
+import de.mineking.database.vendors.sqlite.SQLiteConnection
 import org.junit.jupiter.api.Test
 import setup.ConsoleSqlLogger
 import setup.recreate

@@ -4,7 +4,7 @@ import de.mineking.database.AutoIncrement
 import de.mineking.database.Column
 import de.mineking.database.Key
 import de.mineking.database.Reference
-import de.mineking.database.vendors.SQLiteConnection
+import de.mineking.database.vendors.sqlite.SQLiteConnection
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import setup.ConsoleSqlLogger
