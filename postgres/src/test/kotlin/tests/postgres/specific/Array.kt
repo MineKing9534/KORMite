@@ -1,7 +1,8 @@
 package tests.postgres.specific
 
 import de.mineking.database.*
-import de.mineking.database.vendors.PostgresConnection
+import de.mineking.database.vendors.postgres.PostgresConnection
+import de.mineking.database.vendors.postgres.contains
 import org.junit.jupiter.api.Assertions.assertArrayEquals
 import org.junit.jupiter.api.Test
 import setup.ConsoleSqlLogger

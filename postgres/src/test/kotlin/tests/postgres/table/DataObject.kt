@@ -1,7 +1,7 @@
 package tests.postgres.table
 
 import de.mineking.database.*
-import de.mineking.database.vendors.PostgresConnection
+import de.mineking.database.vendors.postgres.PostgresConnection
 import setup.ConsoleSqlLogger
 import setup.recreate
 import kotlin.test.Test

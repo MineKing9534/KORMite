@@ -4,7 +4,7 @@ import de.mineking.database.AutoIncrement
 import de.mineking.database.Column
 import de.mineking.database.Key
 import de.mineking.database.Unique
-import de.mineking.database.vendors.PostgresConnection
+import de.mineking.database.vendors.postgres.PostgresConnection
 import org.junit.jupiter.api.Test
 import setup.ConsoleSqlLogger
 import setup.recreate

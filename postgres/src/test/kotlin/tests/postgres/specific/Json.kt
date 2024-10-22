@@ -1,7 +1,8 @@
 package tests.postgres.specific
 
 import de.mineking.database.*
-import de.mineking.database.vendors.PostgresConnection
+import de.mineking.database.vendors.postgres.PostgresConnection
+import de.mineking.database.vendors.postgres.json
 import org.junit.jupiter.api.Test
 import setup.ConsoleSqlLogger
 import setup.recreate
@@ -36,5 +37,10 @@ class JsonTest {
 	@Test
 	fun selectSingle() {
 		assertEquals(linkedMapOf("a" to "b", "b" to "a"), table.select<LinkedHashMap<String, String>>(property("map1")).first())
+	}
+
+	@Test
+	fun selectChild() {
+		assertEquals("b", table.select<String>(property("map1").json("a")).first())
 	}
 }

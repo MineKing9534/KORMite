@@ -1,6 +1,6 @@
 package tests.postgres.general
 
-import de.mineking.database.vendors.PostgresConnection
+import de.mineking.database.vendors.postgres.PostgresConnection
 import org.junit.jupiter.api.Test
 import setup.ConsoleSqlLogger
 import setup.UserDao

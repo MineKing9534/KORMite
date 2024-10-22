@@ -1,8 +1,8 @@
 package tests.minecraft
 
 import de.mineking.database.*
-import de.mineking.database.vendors.PostgresConnection
-import de.mineking.database.vendors.PostgresMappers
+import de.mineking.database.vendors.postgres.PostgresConnection
+import de.mineking.database.vendors.postgres.PostgresMappers
 import org.bukkit.OfflinePlayer
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Test

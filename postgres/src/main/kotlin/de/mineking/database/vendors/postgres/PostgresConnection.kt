@@ -1,4 +1,4 @@
-package de.mineking.database.vendors
+package de.mineking.database.vendors.postgres
 
 import de.mineking.database.DatabaseConnection
 import de.mineking.database.NamingStrategy

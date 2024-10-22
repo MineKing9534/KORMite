@@ -4,7 +4,7 @@ import de.mineking.database.Table
 import de.mineking.database.isEqualTo
 import de.mineking.database.property
 import de.mineking.database.value
-import de.mineking.database.vendors.PostgresConnection
+import de.mineking.database.vendors.postgres.PostgresConnection
 import setup.ConsoleSqlLogger
 import setup.UserDao
 import setup.recreate

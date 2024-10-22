@@ -1,4 +1,4 @@
-package de.mineking.database.vendors
+package de.mineking.database.vendors.sqlite
 
 import com.google.gson.GsonBuilder
 import com.google.gson.ToNumberStrategy
@@ -36,7 +36,8 @@ object SQLiteMappers {
 	val ENUM = object : TypeMapper<Enum<*>?, String?> {
 		override fun accepts(manager: DatabaseConnection, property: KProperty<*>?, type: KType): Boolean = type.jvmErasure.java.isEnum
 
-		override fun getType(column: ColumnData<*, *>?, table: TableStructure<*>, type: KType): DataType = SQLiteType.TEXT
+		override fun getType(column: ColumnData<*, *>?, table: TableStructure<*>, type: KType): DataType =
+            SQLiteType.TEXT
 
 		override fun format(column: ColumnData<*, *>?, table: TableStructure<*>, type: KType, value: Enum<*>?): String? = value?.name
 
@@ -55,7 +56,8 @@ object SQLiteMappers {
 			.create()
 
 		override fun accepts(manager: DatabaseConnection, property: KProperty<*>?, type: KType): Boolean = property?.hasDatabaseAnnotation<Json>() == true
-		override fun getType(column: ColumnData<*, *>?, table: TableStructure<*>, type: KType): DataType = SQLiteType.TEXT
+		override fun getType(column: ColumnData<*, *>?, table: TableStructure<*>, type: KType): DataType =
+            SQLiteType.TEXT
 
 		override fun format(column: ColumnData<*, *>?, table: TableStructure<*>, type: KType, value: Any?): String? = value?.let { gson.toJson(value) }
 		override fun createArgument(column: ColumnData<*, *>?, table: TableStructure<*>, type: KType, value: String?): Argument = object : Argument {
@@ -85,7 +87,8 @@ object SQLiteMappers {
 		fun Collection<*>.createArray(component: KType) = (this as java.util.Collection<*>).toArray { java.lang.reflect.Array.newInstance(component.jvmErasure.java, it) as Array<*> }
 
 		override fun accepts(manager: DatabaseConnection, property: KProperty<*>?, type: KType): Boolean = type.isArray()
-		override fun getType(column: ColumnData<*, *>?, table: TableStructure<*>, type: KType): DataType = SQLiteType.BLOB
+		override fun getType(column: ColumnData<*, *>?, table: TableStructure<*>, type: KType): DataType =
+            SQLiteType.BLOB
 
 		override fun <O: Any> initialize(column: DirectColumnData<O, *>, type: KType) {
 			val component = type.component()

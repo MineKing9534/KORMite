@@ -1,8 +1,8 @@
 package tests.discord
 
 import de.mineking.database.*
-import de.mineking.database.vendors.PostgresConnection
-import de.mineking.database.vendors.PostgresMappers
+import de.mineking.database.vendors.postgres.PostgresConnection
+import de.mineking.database.vendors.postgres.PostgresMappers
 import net.dv8tion.jda.api.entities.*
 import net.dv8tion.jda.api.entities.channel.middleman.MessageChannel
 import net.dv8tion.jda.api.entities.emoji.CustomEmoji

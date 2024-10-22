@@ -1,7 +1,7 @@
 package tests.sqlite.table
 
 import de.mineking.database.*
-import de.mineking.database.vendors.SQLiteConnection
+import de.mineking.database.vendors.sqlite.SQLiteConnection
 import setup.ConsoleSqlLogger
 import setup.recreate
 import kotlin.test.Test
