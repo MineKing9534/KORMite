@@ -26,8 +26,8 @@ fun DatabaseConnection.registerMinecraftMappers(
 	data["server"] = server
 
 	if (uuidType != null) typeMappers += typeMapper(uuidType, { it?.let { server.getOfflinePlayer(it) } }, { it?.uniqueId })
-	if (textType != null) typeMappers += typeMapper(textType, { it?.let { NamedTextColor.NAMES.value(it) } }, { it?.let { NamedTextColor.NAMES.key(it) } })
 	if (textType != null) typeMappers += typeMapper<TextColor?, String?>(textType, { it?.let { TextColor.fromHexString(it) } }, { it?.asHexString() })
+	if (textType != null) typeMappers += typeMapper(textType, { it?.let { NamedTextColor.NAMES.value(it.lowercase()) } }, { it?.let { NamedTextColor.NAMES.key(it)?.uppercase() } })
 
 	val worldMapper = if (uuidType != null) typeMapper(uuidType, { it?.let { server.getWorld(it) } }, { it?.uid }) else null
 	if (worldMapper != null) typeMappers += worldMapper
