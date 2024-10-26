@@ -5,10 +5,6 @@ import de.mineking.database.vendors.postgres.PostgresConnection
 import org.junit.jupiter.api.Test
 import setup.ConsoleSqlLogger
 import setup.recreate
-import java.awt.Color
-import java.time.Instant
-import java.time.LocalDate
-import java.time.temporal.ChronoUnit
 import java.util.*
 import kotlin.test.assertEquals
 

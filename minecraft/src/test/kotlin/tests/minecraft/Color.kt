@@ -5,14 +5,11 @@ import de.mineking.database.vendors.postgres.PostgresConnection
 import de.mineking.database.vendors.postgres.PostgresMappers
 import net.kyori.adventure.text.format.NamedTextColor
 import net.kyori.adventure.text.format.TextColor
-import org.bukkit.OfflinePlayer
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Test
 import setup.ConsoleSqlLogger
-import setup.createPlayer
 import setup.createServer
 import setup.recreate
-import java.util.*
 
 data class ColorDao(
 	@AutoIncrement @Key @Column val id: Int = 0,
