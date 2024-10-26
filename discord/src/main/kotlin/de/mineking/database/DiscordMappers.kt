@@ -24,7 +24,13 @@ enum class SnowflakeType(val getter: (JDA, Long) -> ISnowflake?) {
 	}
 }
 
-internal inline fun <reified T> DatabaseConnection.registerDiscordMappers(bot: JDA, mapper: TypeMapper<T?, *>, enumMapper: TypeMapper<Enum<*>?, *>?, crossinline converter: (T) -> Long, crossinline extractor: (ISnowflake?) -> T?) {
+internal inline fun <reified T> DatabaseConnection.registerDiscordMappers(
+	bot: JDA,
+	enumMapper: TypeMapper<Enum<*>?, *>? = null,
+	mapper: TypeMapper<T?, *>,
+	crossinline converter: (T) -> Long,
+	crossinline extractor: (ISnowflake?) -> T?
+) {
 	data["bot"] = bot
 
 	if (enumMapper != null) {
@@ -67,5 +73,14 @@ internal inline fun <reified T> DatabaseConnection.registerDiscordMappers(bot: J
 	typeMappers += typeMapper<User?, T?>(mapper, { it?.let { bot.getUserById(converter(it)) } }, extractor)
 }
 
-fun DatabaseConnection.registerDiscordLongMappers(bot: JDA, longType: TypeMapper<Long?, *>, enumType: TypeMapper<Enum<*>?, *>? = null) = registerDiscordMappers(bot, longType, enumType, { it }) { it?.idLong }
-fun DatabaseConnection.registerDiscordStringMappers(bot: JDA, stringType: TypeMapper<String?, *>, enumType: TypeMapper<Enum<*>?, *>? = null) = registerDiscordMappers(bot, stringType, enumType, { it.toLong() }) { it?.id }
+fun DatabaseConnection.registerDiscordLongMappers(
+	bot: JDA,
+	longType: TypeMapper<Long?, *>,
+	enumType: TypeMapper<Enum<*>?, *>? = null
+) = registerDiscordMappers(bot, enumType, longType, { it }) { it?.idLong }
+
+fun DatabaseConnection.registerDiscordStringMappers(
+	bot: JDA,
+	stringType: TypeMapper<String?, *>,
+	enumType: TypeMapper<Enum<*>?, *>? = null
+) = registerDiscordMappers(bot, enumType, stringType, { it.toLong() }) { it?.id }

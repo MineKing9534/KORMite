@@ -1,5 +1,7 @@
 package de.mineking.database
 
+import net.kyori.adventure.text.format.NamedTextColor
+import net.kyori.adventure.text.format.TextColor
 import org.bukkit.Location
 import org.bukkit.Server
 import org.bukkit.World
@@ -14,15 +16,23 @@ import kotlin.reflect.typeOf
 @Retention(AnnotationRetention.RUNTIME)
 annotation class LocationWorldColumn(val name: String)
 
-fun DatabaseConnection.registerMinecraftMappers(server: Server, uuidType: TypeMapper<UUID?, *>, arrayType: TypeMapper<*, Array<*>?>, doubleType: TypeMapper<Double?, *>) {
+fun DatabaseConnection.registerMinecraftMappers(
+	server: Server,
+	textType: TypeMapper<String?, *>? = null,
+	uuidType: TypeMapper<UUID?, *>? = null,
+	arrayType: TypeMapper<*, Array<*>?>? = null,
+	doubleType: TypeMapper<Double?, *>? = null
+) {
 	data["server"] = server
 
-	typeMappers += typeMapper(uuidType, { it?.let { server.getOfflinePlayer(it) } }, { it?.uniqueId })
+	if (uuidType != null) typeMappers += typeMapper(uuidType, { it?.let { server.getOfflinePlayer(it) } }, { it?.uniqueId })
+	if (textType != null) typeMappers += typeMapper(textType, { it?.let { NamedTextColor.NAMES.value(it) } }, { it?.let { NamedTextColor.NAMES.key(it) } })
+	if (textType != null) typeMappers += typeMapper<TextColor?, String?>(textType, { it?.let { TextColor.fromHexString(it) } }, { it?.asHexString() })
 
-	val worldMapper = typeMapper(uuidType, { it?.let { server.getWorld(it) } }, { it?.uid })
-	typeMappers += worldMapper
+	val worldMapper = if (uuidType != null) typeMapper(uuidType, { it?.let { server.getWorld(it) } }, { it?.uid }) else null
+	if (worldMapper != null) typeMappers += worldMapper
 
-	typeMappers += object : TypeMapper<Location?, Array<Double>?> {
+	if (worldMapper != null && doubleType != null && arrayType != null) typeMappers += object : TypeMapper<Location?, Array<Double>?> {
 		override fun accepts(manager: DatabaseConnection, property: KProperty<*>?, type: KType): Boolean = type.isSubtypeOf(typeOf<Location?>())
 		override fun getType(column: ColumnData<*, *>?, table: TableStructure<*>, type: KType): DataType = arrayType.getType(column, table, typeOf<Array<Double>>())
 
