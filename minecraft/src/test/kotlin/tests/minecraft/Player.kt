@@ -30,7 +30,7 @@ class PlayerTest {
 	)
 
 	init {
-		connection.registerMinecraftMappers(createServer(players = players), PostgresMappers.UUID_MAPPER, PostgresMappers.ARRAY, PostgresMappers.DOUBLE)
+		connection.registerMinecraftMappers(createServer(players = players), PostgresMappers.STRING, PostgresMappers.UUID_MAPPER, PostgresMappers.ARRAY, PostgresMappers.DOUBLE)
 		table = connection.getTable(name = "player_test") { PlayerDao() }
 
 		table.recreate()

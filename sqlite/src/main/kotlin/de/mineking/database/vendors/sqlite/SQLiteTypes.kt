@@ -5,14 +5,17 @@ import com.google.gson.ToNumberStrategy
 import de.mineking.database.*
 import org.jdbi.v3.core.argument.Argument
 import org.jdbi.v3.core.statement.StatementContext
+import java.awt.Color
 import java.io.ByteArrayInputStream
 import java.io.ByteArrayOutputStream
 import java.io.ObjectInputStream
 import java.io.ObjectOutputStream
 import java.sql.*
+import java.sql.Date
 import java.time.Instant
 import java.time.LocalDate
 import java.time.LocalDateTime
+import java.util.*
 import kotlin.reflect.KProperty
 import kotlin.reflect.KType
 import kotlin.reflect.jvm.javaType
@@ -76,6 +79,9 @@ object SQLiteMappers {
 	val INSTANT = typeMapper<Instant?>(SQLiteType.INTEGER, { set, name -> set.getTimestamp(name).toInstant() }, { value, statement, position -> statement.setTimestamp(position, value?.let { Timestamp.from(it) }) })
 	val LOCAL_DATE_TIME = typeMapper<LocalDateTime?>(SQLiteType.INTEGER, { set, name -> set.getTimestamp(name).toLocalDateTime() }, { value, statement, position -> statement.setTimestamp(position, value?.let { Timestamp.valueOf(it) }) })
 	val LOCAL_DATE = typeMapper<LocalDate?>(SQLiteType.INTEGER, { set, name -> set.getDate(name).toLocalDate() }, { value, statement, position -> statement.setDate(position, value?.let { Date.valueOf(it) }) })
+
+	val LOCALE = typeMapper(STRING, { it?.let { Locale.forLanguageTag(it) } }, { it?.toLanguageTag() })
+	val COLOR = typeMapper(INTEGER, { it?.let { Color(it, true) }  }, { it?.rgb })
 
 	val ARRAY = object : TypeMapper<Any?, ByteArray> {
 		fun Any.asArray(): Array<*> = when (this) {

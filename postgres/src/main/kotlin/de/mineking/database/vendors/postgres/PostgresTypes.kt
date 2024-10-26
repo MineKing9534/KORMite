@@ -6,6 +6,7 @@ import de.mineking.database.*
 import org.jdbi.v3.core.argument.Argument
 import org.jdbi.v3.core.statement.StatementContext
 import org.postgresql.util.PGobject
+import java.awt.Color
 import java.math.BigDecimal
 import java.math.BigInteger
 import java.sql.*
@@ -87,6 +88,9 @@ object PostgresMappers {
 	val OFFSET_DATE_TIME = typeMapper<OffsetDateTime?>(PostgresType.TIMESTAMPTZ, { set, name -> set.getObject(name, OffsetDateTime::class.java) }, { value, statement, position -> statement.setTimestamp(position, value?.let { Timestamp.valueOf(it.toLocalDateTime()) }) })
 	val ZONED_DATE_TIME = typeMapper<ZonedDateTime?>(PostgresType.TIMESTAMPTZ, { set, name -> set.getObject(name, OffsetDateTime::class.java).toZonedDateTime() }, { value, statement, position -> statement.setTimestamp(position, value?.let { Timestamp.valueOf(it.toLocalDateTime()) }) })
 	val LOCAL_DATE = typeMapper<LocalDate?>(PostgresType.DATE, { set, name -> set.getDate(name).toLocalDate() }, { value, statement, position -> statement.setDate(position, value?.let { Date.valueOf(it) }) })
+
+	val LOCALE = typeMapper(STRING, { it?.let { Locale.forLanguageTag(it) } }, { it?.toLanguageTag() })
+	val COLOR = typeMapper(INTEGER, { it?.let { Color(it, true) }  }, { it?.rgb })
 
 	val ARRAY = object : TypeMapper<Any?, Array<*>?> {
 		fun Any.asArray(): Array<*> = when (this) {

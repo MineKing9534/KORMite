@@ -1,7 +1,6 @@
 package de.mineking.database
 
 import org.jdbi.v3.core.argument.Argument
-import javax.swing.text.html.StyleSheet.BoxPainter
 import kotlin.reflect.KType
 import kotlin.reflect.full.isSubtypeOf
 import kotlin.reflect.jvm.jvmErasure
