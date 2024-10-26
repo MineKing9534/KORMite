@@ -33,7 +33,7 @@ class LocationTest {
 	)
 
 	init {
-		connection.registerMinecraftMappers(createServer(worlds = worlds), PostgresMappers.UUID_MAPPER, PostgresMappers.ARRAY, PostgresMappers.DOUBLE)
+		connection.registerMinecraftMappers(createServer(worlds = worlds), PostgresMappers.STRING, PostgresMappers.UUID_MAPPER, PostgresMappers.ARRAY, PostgresMappers.DOUBLE)
 		table = connection.getTable(name = "location_test") { LocationDao() }
 
 		table.recreate()
