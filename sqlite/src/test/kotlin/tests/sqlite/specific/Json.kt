@@ -35,6 +35,6 @@ class JsonTest {
 
 	@Test
 	fun selectSingle() {
-		assertEquals(linkedMapOf("a" to "b", "b" to "a"), table.select<LinkedHashMap<String, String>>(property("map1")).first())
+		assertEquals(linkedMapOf("a" to "b", "b" to "a"), table.selectValue(property(JsonDao::map1)).first())
 	}
 }

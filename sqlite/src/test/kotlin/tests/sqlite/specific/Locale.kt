@@ -27,6 +27,6 @@ class LocaleTest {
 
 	@Test
 	fun selectAll() {
-		assertEquals(Locale.GERMAN, table.select<Locale>(property("locale")).first())
+		assertEquals(Locale.GERMAN, table.selectValue(property(LocaleDao::locale)).first())
 	}
 }

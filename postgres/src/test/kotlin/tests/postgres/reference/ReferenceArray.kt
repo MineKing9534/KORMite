@@ -69,7 +69,7 @@ class ReferenceArrayTest {
 
 	@Test
 	fun selectContains() {
-		assertEquals(1, referenceTable.selectRowCount(where = property("books") contains value(romeoAndJulia)))
-		assertEquals(2, referenceTable.selectRowCount(where = property("books") contains value(hamlet)))
+		assertEquals(1, referenceTable.selectRowCount(where = property(ReferenceArrayDao::books) contains value(romeoAndJulia)))
+		assertEquals(2, referenceTable.selectRowCount(where = property(ReferenceArrayDao::books) contains value(hamlet)))
 	}
 }

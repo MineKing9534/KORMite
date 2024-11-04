@@ -2,6 +2,7 @@ package de.mineking.database
 
 import de.mineking.database.Where.Companion.combine
 import org.jdbi.v3.core.argument.Argument
+import kotlin.reflect.KProperty
 
 fun interface Order {
     fun get(): String
@@ -11,7 +12,10 @@ fun interface Order {
 }
 
 fun ascendingBy(name: String) = Order { "\"$name\" asc" }
+fun ascendingBy(property: KProperty<*>) = ascendingBy(property.name)
+
 fun descendingBy(name: String) = Order { "\"$name\" desc" }
+fun descendingBy(property: KProperty<*>) = descendingBy(property.name)
 
 interface Where {
     companion object {
@@ -72,26 +76,26 @@ fun <T: Any> identifyObject(table: TableStructure<T>, obj: T): Where {
     return allOf(keys.map { unsafeNode(it.name) isEqualTo value(it.get(obj), it.type) })
 }
 
-fun Where(node: Node): Where = object : Where {
+fun Where(node: Node<*>): Where = object : Where {
     override fun get(table: TableStructure<*>): String = node.format(table)
     override fun values(table: TableStructure<*>): Map<String, Argument> = node.values(table, node.columnContext(table)?.column)
 }
 
-infix fun Node.isEqualTo(other: Node) = Where(this + " = " + other)
-infix fun Node.isNotEqualTo(other: Node) = Where(this + " != " + other)
+infix fun Node<*>.isEqualTo(other: Node<*>) = Where(this + " = " + other)
+infix fun Node<*>.isNotEqualTo(other: Node<*>) = Where(this + " != " + other)
 
-infix fun Node.isLike(other: String) = Where(this + " like '" + other + "'")
+infix fun Node<*>.isLike(other: String) = Where(this + " like '" + other + "'")
 
-fun Node.isIn(nodes: Array<Node>) = Where(this + " in (" + nodes.join() + ")")
-fun Node.isIn(nodes: Collection<Node>) = isIn(nodes.toTypedArray())
+fun Node<*>.isIn(nodes: Array<Node<*>>) = Where(this + " in (" + nodes.join() + ")")
+fun Node<*>.isIn(nodes: Collection<Node<*>>) = isIn(nodes.toTypedArray())
 
-infix fun Node.isGreaterThan(other: Node) = Where(this + " > " + other)
-infix fun Node.isGreaterThanOrEqual(other: Node) = Where(this + " >= " + other)
+infix fun Node<*>.isGreaterThan(other: Node<*>) = Where(this + " > " + other)
+infix fun Node<*>.isGreaterThanOrEqual(other: Node<*>) = Where(this + " >= " + other)
 
-infix fun Node.isLowerThan(other: Node) = Where(this + " < " + other)
-infix fun Node.isLowerThanOrEqual(other: Node) = Where(this + " <= " + other)
+infix fun Node<*>.isLowerThan(other: Node<*>) = Where(this + " < " + other)
+infix fun Node<*>.isLowerThanOrEqual(other: Node<*>) = Where(this + " <= " + other)
 
-fun Node.isBetween(a: Node, b: Node) = Where(this + " between " + a + " and " + b)
+fun Node<*>.isBetween(a: Node<*>, b: Node<*>) = Where(this + " between " + a + " and " + b)
 
-fun Node.isNull(): Where = Where(this + " is null")
-fun Node.isNotNull(): Where = Where(this + " is not null")
+fun Node<*>.isNull(): Where = Where(this + " is null")
+fun Node<*>.isNotNull(): Where = Where(this + " is not null")

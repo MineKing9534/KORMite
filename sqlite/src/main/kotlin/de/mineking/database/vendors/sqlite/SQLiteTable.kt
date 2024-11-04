@@ -91,38 +91,53 @@ class SQLiteTable<T: Any>(
 		${ offset?.let { "offset $it" } ?: "" } 
 	""".trim().replace("\\s+".toRegex(), " ")
 
-	override fun select(vararg columns: String, where: Where, order: Order?, limit: Int?, offset: Int?): QueryResult<T> {
-		fun createColumnList(columns: Collection<ColumnData<*, *>>, prefix: Array<String> = emptyArray()): List<Pair<String, String>> {
+	override fun select(vararg columns: Node<*>, where: Where, order: Order?, limit: Int?, offset: Int?): QueryResult<T> {
+		fun convert(columns: Collection<ColumnData<*, *>>): List<Node<Any>> = columns.flatMap { column -> when (column) {
+			is DirectColumnData -> convert(column.getChildren().filter { it.shouldCreate() }) + property(column.property.name)
+			is VirtualColumnData -> listOf(property("${ column.parent.property.name }.${ column.simpleName }"))
+			else -> error("")
+		} }
+		fun createColumnList(columns: Collection<Node<*>>, context: TableStructure<*>, prefix: Array<String> = emptyArray()): List<Pair<String, Pair<String, String>>> {
 			if (columns.isEmpty()) return emptyList()
-			return columns
-				.filterIsInstance<DirectColumnData<*, *>>()
-				.filter { it.reference != null }
-				.filter { !it.type.isArray() }
-				.flatMap { createColumnList(it.reference!!.structure.getAllColumns(), prefix + it.name) } +
-					columns.map { (prefix.joinToString(".").takeIf { it.isNotBlank() } ?: structure.name) to it.name }
+
+			return columns.flatMap {
+				val column = it.columnContext(context)!!.column
+
+				listOf(it.format(context) {
+					val temp = it.context.toMutableList()
+					if (temp.isNotEmpty()) temp.removeAt(0)
+					temp.addAll(0, prefix.toList())
+
+					it.copy(context = temp.toTypedArray()).build()
+				} to ((prefix.joinToString(".").takeIf { it.isNotBlank() } ?: structure.name) to column.name)) +
+						if (column is DirectColumnData && column.reference != null && !column.type.isArray()) createColumnList(convert(column.reference!!.structure.getAllColumns()), column.reference!!.structure, prefix + column.name)
+						else emptyList()
+			}
 		}
 
 		val columnList = createColumnList(
-			if (columns.isEmpty()) structure.getAllColumns()
-			else columns.map { parseColumnSpecification(it, structure).column }.toSet()
+			if (columns.isEmpty()) convert(structure.getAllColumns())
+			else columns.toSet(),
+			structure
 		)
 
-		val sql = createSelect(columnList.joinToString { "\"${ it.first }\".\"${ it.second }\" as \"${ it.first }.${ it.second }\"" }, where, order, limit, offset)
+		val sql = createSelect(columnList.joinToString { (value, name) -> "$value as \"${ name.first }.${ name.second }\"" }, where, order, limit, offset)
 		return object : SimpleQueryResult<T> {
 			override fun <O> execute(handler: (ResultIterable<T>) -> O): O = structure.manager.execute { handler(it.createQuery(sql)
+				.bindMap(columns.flatMap { it.values(structure, it.columnContext(structure)?.column).entries }.associate { it.toPair() })
 				.bindMap(where.values(structure))
 				.map { set, _ ->
 					val instance = instance()
-					parseResult(ReadContext(instance, structure, set, columnList.map { "${ it.first }.${ it.second }" }))
+					parseResult(ReadContext(instance, structure, set, columnList.map { (_, name) -> "${ name.first }.${ name.second }" }))
 					instance
 				}
 			) }
 		}
 	}
 
-	override fun <C> select(target: Node, type: KType, where: Where, order: Order?, limit: Int?, offset: Int?): QueryResult<C> {
+	override fun <C> selectValue(target: Node<C>, type: KType, where: Where, order: Order?, limit: Int?, offset: Int?): QueryResult<C> {
 		val column = target.columnContext(structure)
-		val mapper = structure.manager.getTypeMapper<C, Any>(type, column?.column?.getRootColumn()?.property) ?: throw IllegalArgumentException("No suitable TypeMapper found")
+		val mapper = structure.manager.getTypeMapper<C, Any>(type, column?.column?.getRootColumn()?.property) ?: throw IllegalArgumentException("No suitable TypeMapper found for $type")
 
 		fun createColumnList(columns: List<ColumnData<*, *>>, prefix: Array<String> = emptyArray()): List<Pair<String, String>> {
 			if (columns.isEmpty()) return emptyList()
@@ -194,19 +209,20 @@ class SQLiteTable<T: Any>(
 		}
 	}
 
-	override fun update(column: String, value: Node, where: Where): UpdateResult<Int > {
-		val spec = parseColumnSpecification(column, structure)
+	override fun <T> update(column: Node<T>, value: Node<T>, where: Where): UpdateResult<Int > {
+		val spec = column.columnContext(structure)!!
 
 		require(spec.context.isEmpty()) { "Cannot update reference, update in the table directly" }
 		require(!spec.column.getRootColumn().key) { "Cannot update key" }
 
 		val sql = """
 			update ${ structure.name } 
-			set ${ spec.build(false) } = ${ value.format(structure) }
+			set ${ column.format(structure) { it.build(prefix = false) } } = ${ value.format(structure) }
 			${ where.format(structure) } 
 		""".trim().replace("\\s+".toRegex(), " ")
 
 		return createResult { structure.manager.execute { it.createUpdate(sql)
+			.bindMap(column.values(structure, spec.column))
 			.bindMap(value.values(structure, spec.column))
 			.bindMap(where.values(structure))
 			.execute()

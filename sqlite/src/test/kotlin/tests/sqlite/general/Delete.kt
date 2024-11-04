@@ -38,7 +38,7 @@ class DeleteTest {
 
     @Test
     fun deleteCondition() {
-        assertEquals(2, table.delete(where = property("age").isBetween(value(18), value(25))))
+        assertEquals(2, table.delete(where = property(UserDao::age).isBetween(value(18), value(25))))
         assertEquals(3, table.selectRowCount())
     }
 }

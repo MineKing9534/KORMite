@@ -1,9 +1,6 @@
 package tests.sqlite.general
 
-import de.mineking.database.isEqualTo
-import de.mineking.database.property
-import de.mineking.database.select
-import de.mineking.database.value
+import de.mineking.database.*
 import de.mineking.database.vendors.sqlite.SQLiteConnection
 import org.junit.jupiter.api.Test
 import setup.ConsoleSqlLogger
@@ -34,13 +31,13 @@ class UpdateTest {
 
     @Test
     fun updateName() {
-        assertEquals(1, table.update("name", value("Test"), where = property("id") isEqualTo value(1)).value)
-        assertEquals("Test", table.select<String>(property("name"), where = property("id") isEqualTo value(1)).first())
+        assertEquals(1, table.update(UserDao::name, value("Test"), where = property(UserDao::id) isEqualTo value(1)).value)
+        assertEquals("Test", table.selectValue(property(UserDao::name), where = property(UserDao::id) isEqualTo value(1)).first())
     }
 
     @Test
     fun updateConflict() {
-        val result = table.update("email", value("max@example.com"), where = property("id") isEqualTo value(1))
+        val result = table.update(UserDao::email, value("max@example.com"), where = property(UserDao::id) isEqualTo value(1))
 
         assertTrue(result.isError())
         assertTrue(result.uniqueViolation)

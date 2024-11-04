@@ -42,9 +42,9 @@ class ColorTest {
 
 	@Test
 	fun selectColumn() {
-		assertEquals(TextColor.color(0x00ff00), table.select<TextColor>(property("color"), limit = 1).first())
-		assertEquals(NamedTextColor.GREEN, table.select<NamedTextColor>(property("namedColor"), limit = 1).first())
+		assertEquals(TextColor.color(0x00ff00), table.selectValue(property(ColorDao::color), limit = 1).first())
+		assertEquals(NamedTextColor.GREEN, table.selectValue(property(ColorDao::namedColor), limit = 1).first())
 
-		assertEquals(1, table.selectRowCount(where = property("color") isEqualTo value(TextColor.color(0x00ff00))))
+		assertEquals(1, table.selectRowCount(where = property(ColorDao::color) isEqualTo value(TextColor.color(0x00ff00))))
 	}
 }

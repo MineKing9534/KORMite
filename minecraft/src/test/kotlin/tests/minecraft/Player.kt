@@ -52,9 +52,9 @@ class PlayerTest {
 
 	@Test
 	fun selectColumn() {
-		assertEquals(id1, table.select<OfflinePlayer>(property("player"), limit = 1).first().uniqueId)
+		assertEquals(id1, table.selectValue(property(PlayerDao::player), limit = 1).first().uniqueId)
 
-		assertEquals(1, table.selectRowCount(where = property("player") isEqualTo value(id1)))
-		assertEquals(1, table.selectRowCount(where = property("player") isEqualTo value(createPlayer(id1))))
+		assertEquals(1, table.selectRowCount(where = property(PlayerDao::player) isEqualTo value(id1)))
+		assertEquals(1, table.selectRowCount(where = property(PlayerDao::player) isEqualTo value(createPlayer(id1))))
 	}
 }

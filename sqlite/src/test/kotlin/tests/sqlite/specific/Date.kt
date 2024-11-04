@@ -33,7 +33,7 @@ class DateTest {
 
 	@Test
 	fun selectAll() {
-		assertEquals(time.truncatedTo(ChronoUnit.MILLIS), table.select<Instant>(property("time")).first().truncatedTo(ChronoUnit.MILLIS))
-		assertEquals(date, table.select<LocalDate>(property("date")).first())
+		assertEquals(time.truncatedTo(ChronoUnit.MILLIS), table.selectValue(property(DateDao::time)).first().truncatedTo(ChronoUnit.MILLIS))
+		assertEquals(date, table.selectValue(property(DateDao::date)).first())
 	}
 }

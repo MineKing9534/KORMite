@@ -43,12 +43,12 @@ class UpsertTest {
 	@Test
 	fun update() {
 		assertTrue(table.upsert(entries[0].copy(name = "Test")).isSuccess())
-		assertEquals("Test", table.select<String>(property("name"), where = property("id1") isEqualTo value(1)).first())
+		assertEquals("Test", table.selectValue(property(UpsertDao::name), where = property(UpsertDao::id1) isEqualTo value(1)).first())
 	}
 
 	@Test
 	fun notUpdated() {
 		assertTrue(table.upsert(entries[0].copy(email = "alex@example.com")).isError())
-		assertEquals("tom@example.com", table.select<String>(property("email"), where = property("id1") isEqualTo value(1)).first())
+		assertEquals("tom@example.com", table.selectValue(property(UpsertDao::email), where = property(UpsertDao::id1) isEqualTo value(1)).first())
 	}
 }

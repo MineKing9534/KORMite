@@ -46,12 +46,12 @@ class SnowflakeTest {
 
 	@Test
 	fun selectColumn() {
-		assertEquals(guilds[0], table.select<Guild>(property("snowflake")).first())
+		assertEquals(guilds[0], table.selectValue(property(SnowflakeDao::snowflake)).first())
 	}
 
 	@Test
 	fun selectCondition() {
-		assertEquals(1, table.selectRowCount(where = property("snowflake") isEqualTo value(guilds[0])))
-		assertEquals(0, table.selectRowCount(where = property("snowflake") isEqualTo value(guilds[1])))
+		assertEquals(1, table.selectRowCount(where = property(SnowflakeDao::snowflake) isEqualTo value(guilds[0])))
+		assertEquals(0, table.selectRowCount(where = property(SnowflakeDao::snowflake) isEqualTo value(guilds[1])))
 	}
 }
