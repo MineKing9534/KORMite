@@ -289,4 +289,4 @@ kotlin {
     }
 }
 ```
-Alternatively you can pass the name of the property as parameter to @Parameter (e.g. `@Parameter("id")`)
+Alternatively you can pass the name of the property as parameter to @Parameter (e.g. `@Parameter(name = "id")`)
