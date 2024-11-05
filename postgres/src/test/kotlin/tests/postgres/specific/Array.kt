@@ -82,7 +82,7 @@ class ArrayTest {
 
 	@Test
 	fun updateCondition() {
-		assertTrue(table.update(property(ArrayDao::stringList)[0], value("e")).isSuccess())
+		assertTrue(table.update(property(ArrayDao::stringList)[0] to value("e")).isSuccess())
 		assertEquals(2, table.selectRowCount(where = property(ArrayDao::stringList)[0] isEqualTo value("e")))
 	}
 }

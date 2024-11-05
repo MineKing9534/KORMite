@@ -9,7 +9,6 @@ import org.jdbi.v3.core.statement.Update
 import org.postgresql.util.PSQLState
 import java.sql.SQLException
 import kotlin.reflect.KClass
-import kotlin.reflect.KProperty
 import kotlin.reflect.KType
 
 class PostgresTable<T: Any>(
@@ -210,21 +209,20 @@ class PostgresTable<T: Any>(
 		}
 	}
 
-	override fun <T> update(column: Node<T>, value: Node<T>, where: Where): UpdateResult<Int > {
-		val spec = column.columnContext(structure)!!
+	override fun update(vararg columns: Pair<Node<*>, Node<*>>, where: Where): UpdateResult<Int > {
+		val specs = columns.associate { (column, value) -> (column to column.columnContext(structure)!!) to (value to value.columnContext(structure)) }
 
-		require(spec.context.isEmpty()) { "Cannot update reference, update in the table directly" }
-		require(!spec.column.getRootColumn().key) { "Cannot update key" }
+		require(specs.all { (column) -> column.second.context.isEmpty() }) { "Cannot update reference, update in the table directly" }
+		require(specs.none { (column) -> column.second.column.getRootColumn().key }) { "Cannot update key" }
 
 		val sql = """
 			update ${ structure.name } 
-			set ${ column.format(structure) { it.build(prefix = false) }} = ${ value.format(structure) }
+			set ${ specs.entries.joinToString { (column, value) -> "${ column.first.format(structure) { it.build(prefix = false) } } = ${ value.first.format(structure) }" } }
 			${ where.format(structure) } 
 		""".trim().replace("\\s+".toRegex(), " ")
 
 		return createResult { structure.manager.execute { it.createUpdate(sql)
-			.bindMap(column.values(structure, spec.column))
-			.bindMap(value.values(structure, spec.column))
+			.bindMap(specs.flatMap { (column, value) -> column.first.values(structure, column.second.column).entries + value.first.values(structure, value.second?.column ?: column.second.column).entries }.associate { it.toPair() })
 			.bindMap(where.values(structure))
 			.execute()
 		} }

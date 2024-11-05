@@ -31,13 +31,13 @@ class UpdateTest {
 
     @Test
     fun updateName() {
-        assertEquals(1, table.update(UserDao::name, value("Test"), where = property(UserDao::id) isEqualTo value(1)).value)
+        assertEquals(1, table.update(property(UserDao::name) to value("Test"), where = property(UserDao::id) isEqualTo value(1)).value)
         assertEquals("Test", table.selectValue(property(UserDao::name), where = property(UserDao::id) isEqualTo value(1)).first())
     }
 
     @Test
     fun updateConflict() {
-        val result = table.update(UserDao::email, value("max@example.com"), where = property(UserDao::id) isEqualTo value(1))
+        val result = table.update(property(UserDao::email) to value("max@example.com"), where = property(UserDao::id) isEqualTo value(1))
 
         assertTrue(result.isError())
         assertTrue(result.uniqueViolation)

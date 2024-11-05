@@ -44,19 +44,21 @@ class NullTest {
 	}
 
 	@Test
+	@Suppress("UNCHECKED_CAST")
 	fun updateNullError() {
 		fun checkResult(result: UpdateResult<*>) {
 			assertTrue(result.isError())
 			assertTrue(result.notNullViolation)
 		}
 
-		checkResult(table.update(NullDao::name, value(null), where = property(NullDao::id) isEqualTo value(1)))
-		checkResult(table.update(NullDao::name, nullValue(), where = property(NullDao::id) isEqualTo value(1)))
+		//Updating to null values with nun-null types will actually cause compile-time type problems without the unchecked casts
+		checkResult(table.update(property(NullDao::name) to (value<String?>(null) as Node<String>), where = property(NullDao::id) isEqualTo value(1)))
+		checkResult(table.update(property(NullDao::name) to (nullValue<String>() as Node<String>), where = property(NullDao::id) isEqualTo value(1)))
 	}
 
 	@Test
 	fun updateNull() {
-		val result = table.update(NullDao::test, nullValue(), where = property(NullDao::id) isEqualTo value(1))
+		val result = table.update(property(NullDao::test) to nullValue(), where = property(NullDao::id) isEqualTo value(1))
 
 		assertTrue(result.isSuccess())
 		assertEquals(1, result.value)

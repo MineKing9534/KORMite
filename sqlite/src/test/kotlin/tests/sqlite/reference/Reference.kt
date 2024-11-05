@@ -103,7 +103,7 @@ class ReferenceTest {
 
 	@Test
 	fun updateReference() {
-		bookTable.update(BookDao::publisher, value(publisherB), where = property(BookDao::title) isEqualTo value("The Hobbit"))
+		bookTable.update(property(BookDao::publisher) to value(publisherB), where = property(BookDao::title) isEqualTo value("The Hobbit"))
 		assertEquals(publisherB, bookTable.selectValue(property(BookDao::publisher), where = property(BookDao::title) isEqualTo value("The Hobbit")).first())
 	}
 }

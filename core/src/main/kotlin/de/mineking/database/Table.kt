@@ -25,8 +25,7 @@ interface Table<T: Any> {
 	fun select(where: Where = Where.EMPTY, order: Order? = null, limit: Int? = null, offset: Int? = null): QueryResult<T> = select(columns = emptyArray<KProperty<*>>(), where, order, limit, offset)
 
 	fun update(obj: T): UpdateResult<T>
-	fun <T> update(column: Node<T>, value: Node<T>, where: Where = Where.EMPTY): UpdateResult<Int>
-	fun <T> update(column: KProperty<T>, value: Node<T>, where: Where = Where.EMPTY): UpdateResult<Int> = update(property(column), value, where)
+	fun update(vararg columns: Pair<Node<*>, Node<*>>, where: Where = Where.EMPTY): UpdateResult<Int>
 
 	fun insert(obj: T): UpdateResult<T>
 	fun upsert(obj: T): UpdateResult<T>
@@ -57,50 +56,56 @@ abstract class TableImplementation<T: Any>(
 	override fun invoke(proxy: Any?, method: Method?, args: Array<out Any?>?): Any? {
 		require(method != null)
 
-		if (method.isAnnotationPresent(Select::class.java)) {
-			val parameters = if (args == null) emptyMap() else method.parameters
-				.filter { it.isAnnotationPresent(Parameter::class.java) }
-				.mapIndexed { index, value -> index to value }
-				.associate { (index, param) -> (param.getAnnotation(Parameter::class.java)!!.name.takeIf { it.isNotBlank() } ?: param.name) to args[index] }
+		when {
+			method.isAnnotationPresent(Select::class.java) -> {
+				val parameters = if (args == null) emptyMap() else method.parameters
+					.filter { it.isAnnotationPresent(Parameter::class.java) }
+					.mapIndexed { index, value -> index to value }
+					.associate { (index, param) -> (param.getAnnotation(Parameter::class.java)!!.name.takeIf { it.isNotBlank() } ?: param.name) to args[index] }
 
-			val condition = allOf(parameters.map { (name, value) -> property<Any>(name) isEqualTo value(value) })
-			val result = select(where = condition)
+				val condition = allOf(parameters.map { (name, value) -> property<Any>(name) isEqualTo value(value) })
+				val result = select(where = condition)
 
-			return when {
-				method.returnType == QueryResult::class.java -> result
-				method.returnType == List::class.java -> result.list()
-				method.kotlinFunction?.returnType?.isMarkedNullable == true -> result.findFirst()
-				else -> result.first()
-			}
-		} else if (method.isAnnotationPresent(Insert::class.java)) {
-			val obj = instance()
-
-			if (args != null) method.parameters
-				.filter { it.isAnnotationPresent(Parameter::class.java) }
-				.mapIndexed { index, value -> index to value }
-				.forEach { (index, param) ->
-					val name = param.getAnnotation(Parameter::class.java)!!.name.takeIf { it.isNotBlank() } ?: param.name
-
-					@Suppress("UNCHECKED_CAST")
-					val column = structure.getColumnFromCode(name) as DirectColumnData<T, Any>? ?: error("Column $name not found")
-					val value = args[index]
-
-					column.set(obj, value)
+				return when {
+					method.returnType == QueryResult::class.java -> result
+					method.returnType == List::class.java -> result.list()
+					method.kotlinFunction?.returnType?.isMarkedNullable == true -> result.findFirst()
+					else -> result.first()
 				}
-
-			val result = insert(obj)
-			return when {
-				method.returnType == UpdateResult::class.java -> result
-				else -> result.getOrThrow()
 			}
-		} else if (method.isAnnotationPresent(Delete::class.java)) {
-			val parameters = if (args == null) emptyMap() else method.parameters
-				.filter { it.isAnnotationPresent(Parameter::class.java) }
-				.mapIndexed { index, value -> index to value }
-				.associate { (index, param) -> (param.getAnnotation(Parameter::class.java)!!.name.takeIf { it.isNotBlank() } ?: param.name) to args[index] }
 
-			val condition = allOf(parameters.map { (name, value) -> property<Any>(name) isEqualTo value(value) })
-			return delete(where = condition)
+			method.isAnnotationPresent(Insert::class.java) -> {
+				val obj = instance()
+
+				if (args != null) method.parameters
+					.filter { it.isAnnotationPresent(Parameter::class.java) }
+					.mapIndexed { index, value -> index to value }
+					.forEach { (index, param) ->
+						val name = param.getAnnotation(Parameter::class.java)!!.name.takeIf { it.isNotBlank() } ?: param.name
+
+						@Suppress("UNCHECKED_CAST")
+						val column = structure.getColumnFromCode(name) as DirectColumnData<T, Any>? ?: error("Column $name not found")
+						val value = args[index]
+
+						column.set(obj, value)
+					}
+
+				val result = insert(obj)
+				return when {
+					method.returnType == UpdateResult::class.java -> result
+					else -> result.getOrThrow()
+				}
+			}
+
+			method.isAnnotationPresent(Delete::class.java) -> {
+				val parameters = if (args == null) emptyMap() else method.parameters
+					.filter { it.isAnnotationPresent(Parameter::class.java) }
+					.mapIndexed { index, value -> index to value }
+					.associate { (index, param) -> (param.getAnnotation(Parameter::class.java)!!.name.takeIf { it.isNotBlank() } ?: param.name) to args[index] }
+
+				val condition = allOf(parameters.map { (name, value) -> property<Any>(name) isEqualTo value(value) })
+				return delete(where = condition)
+			}
 		}
 
 		return try {
