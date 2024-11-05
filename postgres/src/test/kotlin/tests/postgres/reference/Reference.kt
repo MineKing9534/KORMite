@@ -78,19 +78,19 @@ class ReferenceTest {
 
 	@Test
 	fun selectSingleReference() {
-		assertEquals(2, bookTable.select(where = property("author->name") isEqualTo value("William Shakespeare")).list().size)
-		assertEquals(3, bookTable.select(where = property("author->name") isEqualTo value("J.R.R. Tolkien")).list().size)
+		assertEquals(2, bookTable.select(where = property(BookDao::author, AuthorDao::name) isEqualTo value("William Shakespeare")).list().size)
+		assertEquals(3, bookTable.select(where = property(BookDao::author, AuthorDao::name) isEqualTo value("J.R.R. Tolkien")).list().size)
 	}
 
 	@Test
 	fun selectDoubleReference() {
-		assertEquals(2, bookTable.select(where = property("author->publisher->name") isEqualTo value("A")).list().size)
-		assertEquals(3, bookTable.select(where = property("author->publisher->name") isEqualTo value("B")).list().size)
+		assertEquals(2, bookTable.select(where = property(BookDao::author, AuthorDao::publisher, PublisherDao::name) isEqualTo value("A")).list().size)
+		assertEquals(3, bookTable.select(where = property(BookDao::author, AuthorDao::publisher, PublisherDao::name) isEqualTo value("B")).list().size)
 	}
 
 	@Test
 	fun selectSingle() {
-		val result = bookTable.select<String>(upperCase(property("title")), where = property("publisher") isNotEqualTo property("author->publisher")).list()
+		val result = bookTable.selectValue(property(BookDao::title).uppercase(), where = property(BookDao::publisher) isNotEqualTo property(BookDao::author, AuthorDao::publisher)).list()
 
 		assertEquals(1, result.size)
 		assertEquals("THE HOBBIT", result.first())
@@ -98,12 +98,12 @@ class ReferenceTest {
 
 	@Test
 	fun selectReference() {
-		assertEquals(tolkien, bookTable.select<AuthorDao>(property("author"), where = property("title") isEqualTo value("The Hobbit")).first())
+		assertEquals(tolkien, bookTable.selectValue(property(BookDao::author), where = property(BookDao::title) isEqualTo value("The Hobbit")).first())
 	}
 
 	@Test
 	fun updateReference() {
-		bookTable.update("publisher", value(publisherB), where = property("title") isEqualTo value("The Hobbit"))
-		assertEquals(publisherB, bookTable.select<PublisherDao>(property("publisher"), where = property("title") isEqualTo value("The Hobbit")).first())
+		bookTable.update(BookDao::publisher, value(publisherB), where = property(BookDao::title) isEqualTo value("The Hobbit"))
+		assertEquals(publisherB, bookTable.selectValue(property(BookDao::publisher), where = property(BookDao::title) isEqualTo value("The Hobbit")).first())
 	}
 }

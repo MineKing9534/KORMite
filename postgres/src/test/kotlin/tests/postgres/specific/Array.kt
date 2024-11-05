@@ -1,8 +1,10 @@
 package tests.postgres.specific
 
 import de.mineking.database.*
+import de.mineking.database.vendors.postgres.size
 import de.mineking.database.vendors.postgres.PostgresConnection
 import de.mineking.database.vendors.postgres.contains
+import de.mineking.database.vendors.postgres.get
 import org.junit.jupiter.api.Assertions.assertArrayEquals
 import org.junit.jupiter.api.Test
 import setup.ConsoleSqlLogger
@@ -15,7 +17,7 @@ data class ArrayDao(
 	@AutoIncrement @Key @Column val id: Int = 0,
 	@Column val a: Int = 0,
 	@Column val stringList: List<String> = emptyList(),
-	@Column val arrayList: Array<List<String>> = emptyArray()
+	@Column val arrayList: List<Array<String>> = emptyList()
 )
 
 class ArrayTest {
@@ -28,13 +30,13 @@ class ArrayTest {
 		table.insert(ArrayDao(
 			a = 0,
 			stringList = listOf("a", "b", "c"),
-			arrayList = arrayOf(listOf("a", "b"), listOf("c", "d"), listOf("e"))
+			arrayList = listOf(arrayOf("a", "b"), arrayOf("c", "d"), arrayOf("e"))
 		))
 
 		table.insert(ArrayDao(
 			a = 5,
 			stringList = listOf("d", "e", "f"),
-			arrayList = emptyArray()
+			arrayList = emptyList()
 		))
 
 		connection.driver.setSqlLogger(ConsoleSqlLogger)
@@ -48,31 +50,39 @@ class ArrayTest {
 		assertContentEquals(listOf("a", "b", "c"), result.stringList)
 
 		assertEquals(3, result.arrayList.size)
-		assertArrayEquals(arrayOf(listOf("a", "b"), listOf("c", "d"), listOf("e")), result.arrayList)
+		assertArrayEquals(arrayOf(arrayOf("a", "b"), arrayOf("c", "d"), arrayOf("e")), result.arrayList.toTypedArray())
 	}
 
 	@Test
 	fun selectContains() {
-		assertEquals(1, table.selectRowCount(where = property("stringList") contains value("c")))
+		assertEquals(1, table.selectRowCount(where = property(ArrayDao::stringList) contains value("c")))
 
-		assertEquals(1, table.selectRowCount(where = value(arrayOf(1, 5)) contains property("a")))
-		assertEquals(2, table.selectRowCount(where = value(arrayOf(0, 5)) contains property("a")))
+		assertEquals(1, table.selectRowCount(where = value(listOf(1, 5)) contains property(ArrayDao::a)))
+		assertEquals(2, table.selectRowCount(where = value(listOf(0, 5)) contains property(ArrayDao::a)))
+	}
+
+	@Test
+	fun selectLength() {
+		assertEquals(3, table.selectValue(property(ArrayDao::stringList).size).first())
+		assertEquals(3, table.selectValue(property(ArrayDao::arrayList).size).first())
 	}
 
 	@Test
 	fun selectIndex() {
-		assertEquals("b", table.select<String>(property("stringList[1]")).first())
-		assertEquals("a", table.select<String>(property("stringList[a]")).first())
+		assertEquals("a", table.selectValue(property(ArrayDao::stringList)[property(ArrayDao::a)]).first())
+		assertEquals("a", table.selectValue(property<String>("stringList[a]")).first())
+
+		assertEquals("b", table.selectValue(property(ArrayDao::stringList)[1]).first())
 	}
 
 	@Test
 	fun indexCondition() {
-		assertEquals(1, table.selectRowCount(where = property("stringList[0]") isEqualTo value("a")))
+		assertEquals(1, table.selectRowCount(where = property(ArrayDao::stringList)[0] isEqualTo value("a")))
 	}
 
 	@Test
 	fun updateCondition() {
-		assertTrue(table.update("stringList[0]", value("e")).isSuccess())
-		assertEquals(2, table.selectRowCount(where = property("stringList[0]") isEqualTo value("e")))
+		assertTrue(table.update(property(ArrayDao::stringList)[0], value("e")).isSuccess())
+		assertEquals(2, table.selectRowCount(where = property(ArrayDao::stringList)[0] isEqualTo value("e")))
 	}
 }

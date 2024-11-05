@@ -29,7 +29,7 @@ class NullTest {
 
 	@Test
 	fun selectAll() {
-		val result = table.select<String?>(property("test")).list()
+		val result = table.selectValue(property(NullDao::test)).list()
 
 		assertEquals(2, result.size)
 
@@ -39,8 +39,8 @@ class NullTest {
 
 	@Test
 	fun selectIsNull() {
-		assertEquals("not-null", table.select<String>(property("name"), where = property("test").isNotNull()).first())
-		assertEquals("null", table.select<String>(property("name"), where = property("test").isNull()).first())
+		assertEquals("not-null", table.selectValue(property(NullDao::name), where = property(NullDao::test).isNotNull()).first())
+		assertEquals("null", table.selectValue(property(NullDao::name), where = property(NullDao::test).isNull()).first())
 	}
 
 	@Test
@@ -50,17 +50,17 @@ class NullTest {
 			assertTrue(result.notNullViolation)
 		}
 
-		checkResult(table.update("name", value<String?>(null), where = property("id") isEqualTo value(1)))
-		checkResult(table.update("name", nullValue(), where = property("id") isEqualTo value(1)))
+		checkResult(table.update(NullDao::name, value<String?>(null), where = property(NullDao::id) isEqualTo value(1)))
+		checkResult(table.update(NullDao::name, nullValue(), where = property(NullDao::id) isEqualTo value(1)))
 	}
 
 	@Test
 	fun updateNull() {
-		val result = table.update("test", nullValue(), where = property("id") isEqualTo value(1))
+		val result = table.update(NullDao::test, nullValue(), where = property(NullDao::id) isEqualTo value(1))
 
 		assertTrue(result.isSuccess())
 		assertEquals(1, result.value)
 
-		assertEquals(null, table.select<String?>(property("test"), where = property("id") isEqualTo value(1)).first())
+		assertEquals(null, table.selectValue(property(NullDao::test), where = property(NullDao::id) isEqualTo value(1)).first())
 	}
 }

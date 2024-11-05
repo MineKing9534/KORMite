@@ -4,12 +4,9 @@ import org.jdbi.v3.core.kotlin.useHandleUnchecked
 import java.lang.reflect.InvocationHandler
 import java.lang.reflect.InvocationTargetException
 import java.lang.reflect.Method
-import kotlin.reflect.KClass
-import kotlin.reflect.KProperty1
-import kotlin.reflect.KType
+import kotlin.reflect.*
 import kotlin.reflect.jvm.javaField
 import kotlin.reflect.jvm.kotlinFunction
-import kotlin.reflect.typeOf
 
 interface Table<T: Any> {
 	val structure: TableStructure<T>
@@ -21,11 +18,15 @@ interface Table<T: Any> {
 	fun dropTable() = structure.manager.driver.useHandleUnchecked { it.createUpdate("drop table ${ structure.name }").execute() }
 
 	fun selectRowCount(where: Where = Where.EMPTY): Int
-	fun select(vararg columns: String, where: Where = Where.EMPTY, order: Order? = null, limit: Int? = null, offset: Int? = null): QueryResult<T>
-	fun <C> select(target: Node, type: KType, where: Where = Where.EMPTY, order: Order? = null, limit: Int? = null, offset: Int? = null): QueryResult<C>
+	fun <C> selectValue(target: Node<C>, type: KType, where: Where = Where.EMPTY, order: Order? = null, limit: Int? = null, offset: Int? = null): QueryResult<C>
+
+	fun select(vararg columns: Node<*>, where: Where = Where.EMPTY, order: Order? = null, limit: Int? = null, offset: Int? = null): QueryResult<T>
+	fun select(vararg columns: KProperty<*>, where: Where = Where.EMPTY, order: Order? = null, limit: Int? = null, offset: Int? = null): QueryResult<T> = select(columns = columns.map { property(it) }.toTypedArray(), where, order, limit, offset)
+	fun select(where: Where = Where.EMPTY, order: Order? = null, limit: Int? = null, offset: Int? = null): QueryResult<T> = select(columns = emptyArray<KProperty<*>>(), where, order, limit, offset)
 
 	fun update(obj: T): UpdateResult<T>
-	fun update(column: String, value: Node, where: Where = Where.EMPTY): UpdateResult<Int>
+	fun <T> update(column: Node<T>, value: Node<T>, where: Where = Where.EMPTY): UpdateResult<Int>
+	fun <T> update(column: KProperty<T>, value: Node<T>, where: Where = Where.EMPTY): UpdateResult<Int> = update(property(column), value, where)
 
 	fun insert(obj: T): UpdateResult<T>
 	fun upsert(obj: T): UpdateResult<T>
@@ -34,7 +35,7 @@ interface Table<T: Any> {
 	fun delete(obj: T) = delete(identifyObject(obj))
 }
 
-inline fun <reified T> Table<*>.select(target: Node, where: Where = Where.EMPTY, order: Order? = null, limit: Int? = null, offset: Int? = null): QueryResult<T> = select(target, typeOf<T>(), where, order, limit, offset)
+inline fun <reified T> Table<*>.selectValue(target: Node<T>, where: Where = Where.EMPTY, order: Order? = null, limit: Int? = null, offset: Int? = null): QueryResult<T> = selectValue(target, typeOf<T>(), where, order, limit, offset)
 
 abstract class TableImplementation<T: Any>(
 	val type: KClass<*>,

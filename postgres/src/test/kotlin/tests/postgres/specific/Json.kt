@@ -36,11 +36,11 @@ class JsonTest {
 
 	@Test
 	fun selectSingle() {
-		assertEquals(linkedMapOf("a" to "b", "b" to "a"), table.select<LinkedHashMap<String, String>>(property("map1")).first())
+		assertEquals(linkedMapOf("a" to "b", "b" to "a"), table.selectValue(property(JsonDao::map1)).first())
 	}
 
 	@Test
 	fun selectChild() {
-		assertEquals("b", table.select<String>(property("map1").json("a")).first())
+		assertEquals("b", table.selectValue(property(JsonDao::map1).json<String>("a")).first())
 	}
 }
