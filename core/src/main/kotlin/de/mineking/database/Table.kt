@@ -63,7 +63,7 @@ abstract class TableImplementation<T: Any>(
 				.mapIndexed { index, value -> index to value }
 				.associate { (index, param) -> (param.getAnnotation(Parameter::class.java)!!.name.takeIf { it.isNotBlank() } ?: param.name) to args[index] }
 
-			val condition = allOf(parameters.map { (name, value) -> property(name) isEqualTo value(value) })
+			val condition = allOf(parameters.map { (name, value) -> property<Any>(name) isEqualTo value(value) })
 			val result = select(where = condition)
 
 			return when {
@@ -99,7 +99,7 @@ abstract class TableImplementation<T: Any>(
 				.mapIndexed { index, value -> index to value }
 				.associate { (index, param) -> (param.getAnnotation(Parameter::class.java)!!.name.takeIf { it.isNotBlank() } ?: param.name) to args[index] }
 
-			val condition = allOf(parameters.map { (name, value) -> property(name) isEqualTo value(value) })
+			val condition = allOf(parameters.map { (name, value) -> property<Any>(name) isEqualTo value(value) })
 			return delete(where = condition)
 		}
 
