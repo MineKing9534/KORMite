@@ -8,35 +8,8 @@ import kotlin.reflect.KClass
 import kotlin.reflect.KProperty1
 import kotlin.reflect.KType
 import kotlin.reflect.jvm.javaField
+import kotlin.reflect.jvm.kotlinFunction
 import kotlin.reflect.typeOf
-
-@Target(AnnotationTarget.FIELD)
-@Retention(AnnotationRetention.RUNTIME)
-annotation class Column(val name: String = "")
-
-@Target(AnnotationTarget.FIELD)
-@Retention(AnnotationRetention.RUNTIME)
-annotation class AutoIncrement
-
-@Target(AnnotationTarget.FIELD)
-@Retention(AnnotationRetention.RUNTIME)
-annotation class AutoGenerate(val generator: String = "")
-
-@Target(AnnotationTarget.FIELD)
-@Retention(AnnotationRetention.RUNTIME)
-annotation class Key
-
-@Target(AnnotationTarget.FIELD)
-@Retention(AnnotationRetention.RUNTIME)
-annotation class Unique(val name: String = "")
-
-@Target(AnnotationTarget.FIELD)
-@Retention(AnnotationRetention.RUNTIME)
-annotation class Reference(val table: String)
-
-@Target(AnnotationTarget.FIELD)
-@Retention(AnnotationRetention.RUNTIME)
-annotation class Json(val binary: Boolean = false)
 
 interface Table<T: Any> {
 	val structure: TableStructure<T>
@@ -81,10 +54,58 @@ abstract class TableImplementation<T: Any>(
 	}
 
 	override fun invoke(proxy: Any?, method: Method?, args: Array<out Any?>?): Any? {
+		require(method != null)
+
+		if (method.isAnnotationPresent(Select::class.java)) {
+			val parameters = if (args == null) emptyMap() else method.parameters
+				.filter { it.isAnnotationPresent(Parameter::class.java) }
+				.mapIndexed { index, value -> index to value }
+				.associate { (index, param) -> (param.getAnnotation(Parameter::class.java)!!.name.takeIf { it.isNotBlank() } ?: param.name) to args[index] }
+
+			val condition = allOf(parameters.map { (name, value) -> property(name) isEqualTo value(value) })
+			val result = select(where = condition)
+
+			return when {
+				method.returnType == QueryResult::class.java -> result
+				method.returnType == List::class.java -> result.list()
+				method.kotlinFunction?.returnType?.isMarkedNullable == true -> result.findFirst()
+				else -> result.first()
+			}
+		} else if (method.isAnnotationPresent(Insert::class.java)) {
+			val obj = instance()
+
+			if (args != null) method.parameters
+				.filter { it.isAnnotationPresent(Parameter::class.java) }
+				.mapIndexed { index, value -> index to value }
+				.forEach { (index, param) ->
+					val name = param.getAnnotation(Parameter::class.java)!!.name.takeIf { it.isNotBlank() } ?: param.name
+
+					@Suppress("UNCHECKED_CAST")
+					val column = structure.getColumnFromCode(name) as DirectColumnData<T, Any>? ?: error("Column $name not found")
+					val value = args[index]
+
+					column.set(obj, value)
+				}
+
+			val result = insert(obj)
+			return when {
+				method.returnType == UpdateResult::class.java -> result
+				else -> result.getOrThrow()
+			}
+		} else if (method.isAnnotationPresent(Delete::class.java)) {
+			val parameters = if (args == null) emptyMap() else method.parameters
+				.filter { it.isAnnotationPresent(Parameter::class.java) }
+				.mapIndexed { index, value -> index to value }
+				.associate { (index, param) -> (param.getAnnotation(Parameter::class.java)!!.name.takeIf { it.isNotBlank() } ?: param.name) to args[index] }
+
+			val condition = allOf(parameters.map { (name, value) -> property(name) isEqualTo value(value) })
+			return delete(where = condition)
+		}
+
 		return try {
-			javaClass.getMethod(method!!.name, *method.parameterTypes).invoke(this, *(args ?: emptyArray()))
+			javaClass.getMethod(method.name, *method.parameterTypes).invoke(this, *(args ?: emptyArray()))
 		} catch(_: NoSuchMethodException) {
-			type.java.classes.find { it.simpleName == "DefaultImpls" }?.getMethod(method!!.name, type.java, *method.parameterTypes)?.invoke(null, proxy, *(args ?: emptyArray()))
+			type.java.classes.find { it.simpleName == "DefaultImpls" }?.getMethod(method.name, type.java, *method.parameterTypes)?.invoke(null, proxy, *(args ?: emptyArray()))
 		} catch(e: IllegalAccessException) {
 			throw RuntimeException(e)
 		} catch(e: InvocationTargetException) {

@@ -7,3 +7,10 @@ dependencies {
     implementation(kotlin("reflect"))
     implementation("com.google.code.gson:gson:2.10.1")
 }
+
+kotlin {
+    compilerOptions {
+        //Required for AnnotationTable
+        javaParameters = true
+    }
+}
