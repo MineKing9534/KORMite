@@ -27,6 +27,6 @@ class ColorTest {
 
 	@Test
 	fun selectAll() {
-		assertEquals(Color.GREEN, table.select<Color>(property("color")).first())
+		assertEquals(Color.GREEN, table.selectValue(property(ColorDao::color)).first())
 	}
 }

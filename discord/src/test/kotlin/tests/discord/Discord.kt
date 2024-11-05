@@ -85,12 +85,12 @@ class DiscordTest {
 
 	@Test
 	fun selectColumn() {
-		assertEquals(guilds[0], table.select<Guild>(property("guild")).first())
+		assertEquals(guilds[0], table.selectValue(property(DiscordDao::guild)).first())
 	}
 
 	@Test
 	fun selectCondition() {
-		assertEquals(1, table.selectRowCount(where = property("guild") isEqualTo value(guilds[0])))
-		assertEquals(0, table.selectRowCount(where = property("guild") isEqualTo value(guilds[1])))
+		assertEquals(1, table.selectRowCount(where = property(DiscordDao::guild) isEqualTo value(guilds[0])))
+		assertEquals(0, table.selectRowCount(where = property(DiscordDao::guild) isEqualTo value(guilds[1])))
 	}
 }

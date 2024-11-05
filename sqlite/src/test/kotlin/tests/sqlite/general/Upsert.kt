@@ -4,6 +4,7 @@ import de.mineking.database.*
 import de.mineking.database.vendors.sqlite.SQLiteConnection
 import org.junit.jupiter.api.Test
 import setup.ConsoleSqlLogger
+import setup.UserDao
 import setup.recreate
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
@@ -44,12 +45,12 @@ class UpsertTest {
 	@Test
 	fun update() {
 		assertTrue(table.upsert(entries[0].copy(name = "Test")).isSuccess())
-		assertEquals("Test", table.select<String>(property("name"), where = property("id1") isEqualTo value(1)).first())
+		assertEquals("Test", table.selectValue(property(UpsertDao::name), where = property(UpsertDao::id1) isEqualTo value(1)).first())
 	}
 
 	@Test
 	fun notUpdated() {
 		assertTrue(table.upsert(entries[0].copy(email = "alex@example.com")).isError())
-		assertEquals("tom@example.com", table.select<String>(property("email"), where = property("id1") isEqualTo value(1)).first())
+		assertEquals("tom@example.com", table.selectValue(property(UpsertDao::email), where = property(UpsertDao::id1) isEqualTo value(1)).first())
 	}
 }

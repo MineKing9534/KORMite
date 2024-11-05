@@ -41,6 +41,6 @@ class EnumTest {
 
 	@Test
 	fun selectSingle() {
-		assertEquals(TestEnum.A, table.select<TestEnum>(property("single")).first())
+		assertEquals(TestEnum.A, table.selectValue(property(EnumDao::single)).first())
 	}
 }

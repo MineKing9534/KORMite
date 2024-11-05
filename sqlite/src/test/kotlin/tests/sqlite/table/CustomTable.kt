@@ -15,9 +15,9 @@ import kotlin.test.assertTrue
 
 interface UserTable : Table<UserDao> {
     fun createUser(name: String, email: String, age: Int): UserDao = insert(UserDao(name = name, email = email, age = age)).getOrThrow()
-    fun getUserByEmail(email: String): UserDao? = select(where = property("email") isEqualTo value(email)).findFirst()
+    fun getUserByEmail(email: String): UserDao? = select(where = property(UserDao::email) isEqualTo value(email)).findFirst()
 
-    fun updateName(email: String, name: String) = (update("name", value(name), where = property("email") isEqualTo value(email)).value ?: 0) > 0
+    fun updateName(email: String, name: String) = (update(UserDao::name, value(name), where = property(UserDao::email) isEqualTo value(email)).value ?: 0) > 0
 }
 
 class CustomTableTest {

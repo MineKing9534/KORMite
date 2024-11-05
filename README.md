@@ -85,7 +85,7 @@ In many cases, you need to specify conditions on what to select or delete. There
 fun main() {
 	//Your connection and table declaration...
 	
-	table.select(where = (property("name") isEqualTo value("Max")) and (property("age").isBetween(value(18), value(30))))
+	table.select(where = (property(UserDao::name) isEqualTo value("Max")) and (property(UserDao::age).isBetween(value(18), value(30))))
 }
 ```
 
@@ -96,14 +96,17 @@ A node represents either a database column (`property`) or a constant passed as 
 Nodes cna also be appended together using the `+` operator.
 
 ##### property
-A property node will reference a database column. Note: you have to specify the kotlin property name, even if you passed a custom name in `@Column`.
+A property node will reference a database column. You can simply create a property node by calling `property(YouDaoClass::yourProperty)` (Referencing the kotlin property).
+This way the references will automatically infer the property type and stay always sync to your Dao-Classes.
+
+You can also reference properties by name (`property<Type>("yourProperty")`). Note: you have to specify the kotlin property name, even if you passed a custom name in `@Column`.
 
 There is also a special syntax for accessing more complex columns:
 
 | Name           | Example        | Description                                                                                                     |
 |----------------|----------------|-----------------------------------------------------------------------------------------------------------------|
 | Array Index    | array[0]       | Access an index of an array. This is zero based (like in kotlin) as opposed to how it behaves by default in SQL |
-| Reference      | user->name     | Access a referenced tables' column (See [References](#references))                                              |
+| Reference      | user->name     | Access a referenced tables' column (See [References](#references)).                                             |
 | Virtual Column | location.world | Access a virtual child of this column (See [Virtual Columns](#virtual-columns))                                 |
 
 
@@ -115,7 +118,21 @@ All values are passed using prepared statement, so you are safe to use them with
 Nodes can easily be converted to a where condition. You can simply call `Where(node)`. 
 However, in most cases you shouldn't use this but instead make use of the default functions.
 
-For example `Where(property("test") + " isEqualTo " + value(1))` can be written as `property("test") isEqualTo value(1)`, because all default operations have (infix) functions available.
+For example `Where(property(UserDao::age) + " isEqualTo " + value(1))` can be written as `property(UserDao::age) isEqualTo value(1)`, because all default operations have (infix) functions available.
+
+### SQL Functions
+Sometimes you want to use some SQL functions when selecting values or other operations. KORMite simply allows you to use SQL functions with the following syntax: `"yourFunction"(node1, node2, ...)`.
+Foe example to get the uppercase value of a string using the SQL `uppper` function you can do `"upper"(property(UserDao::name))`. This will be translated to `upper("users"."name")` (This will work for both value and property nodes).
+
+For the most basic SQL functions there are also default extension functions available. Instead of `"upper"(property(UserDao::name))` you can write `property(UserDao::name).uppercase()`. These extension functions are type sensitive tho, so you can only call the uppercase extension function on String properties.
+
+#### Postgres
+There are also some Postgres SQL features supported by default (only when importing the KORMite-postgres module as well): 
+- Array Indexing (`value(listOf(1, 2))[0]`, also supports nodes as indices. Note: The indexing is zero based and NOT 1 based like in SQL)
+- Array contains check (`value(listOf(1, 2)) contains value(1)`. Supports any combination of value and property nodes)
+- Array size (`value(listOf(1, 2)).size`)
+
+And a few more...
 
 ### Single-Column access
 There are also situations where you want to only select or update a single column, without handling the entire object for the row.
@@ -124,11 +141,31 @@ There are also situations where you want to only select or update a single colum
 fun main() {
     //Your connection and table declaration...
 	
-    val names = table.select(property("name"), where = property("age") isGreaterThan value(5)).list() //This will only select the name column. You can also specify conditions and all parameters that the normal select supports
-    val upperCase = table.select(upperCase(property("name"))).list() //You can also specify complex nodes in this case. This allows manipulation of the data on the database like calling functions
-    //upperCase(property("name2)) is translated to `upper("name")` in SQL. You can also call custom SQL functions using "yourFunction"(node)
+    val names = table.selectValue(property(UserDao::name), where = property(UserDao::age) isGreaterThan value(5)).list() //This will only select the name column. You can also specify conditions and all parameters that the normal select supports
     
-    table.update("name", value("Test"), where = property("age") isGreaterThan value(5)) //Update only the name column. You can also optionally specify a condition here 
+    table.update(UserDao::name, value("Test"), where = property(UserDao::age) isGreaterThan value(5)) //Update only the name column. You can also optionally specify a condition here 
+}
+```
+
+### Multi-Column access
+You can also select only specific columns and still let them be automatically be converted to you Dao Class:
+```kotlin
+fun main() {
+    //Your connection declaration...
+    
+    val user = table.select(property(UserDao::name)).first()
+    assertEquals("Max", user.name)
+    assertEquals(0, user.age) //The age is 0 because the column was not selected so the value provided in the instance creator is not changed
+}
+```
+
+This also allows you to modify you classes before selecting. For example:
+```kotlin
+fun main() {
+    //Your connection declaration...
+    
+    val user = table.select(property(UserDao::name).uppercase()).first()
+    assertEquals("MAX", user.name) //Because we selected the uppercase value of the property (executed by the SQL host), the users name will now be MAX instead of Max
 }
 ```
 
@@ -182,8 +219,8 @@ fun main() {
     val author = authorTable.insert(AuthorDao(name = "Test Author")).value!!
     val book = bookTable.insert(BookDao(name = "Test Book", author = author)).value!!
     
-    assertEquals(author, bookTable.select<AuthorDao>(property("author")).first())
-    assertEquals("Test Author", bookTable.select<String>(property("author->name")).first())
+    assertEquals(author, bookTable.selectValue(property(BookDao::author)).first())
+    assertEquals("Test Author", bookTable.select(property(BookDao::author, AuthorDao::name)).first())
 }
 ```
 
@@ -195,8 +232,8 @@ An example are `Location`s in Minecraft, where you might want to store the locat
 fun main() {
     //Your connection and table declaration...
 	
-    val world = table.select<World>(property("location.world")).first() //Select only the world
-    table.update("location.world", value(world2)) //Update only the world
+    val world = table.selectValue(property<World>("location.world")).first() //Select only the world
+    table.update(property<World>("location.world"), value(world2)) //Update only the world
 }
 ```
 

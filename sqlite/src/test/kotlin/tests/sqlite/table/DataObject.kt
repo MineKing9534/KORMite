@@ -49,14 +49,14 @@ class DataObjectTest {
 		val result = table.select().list()
 
 		assertEquals(2, result.size)
-		assertEquals(2, result[0].selectReferring(referenceTable, "reference").list().size)
-		assertEquals(3, result[1].selectReferring(referenceTable, "reference").list().size)
+		assertEquals(2, result[0].selectReferring(referenceTable, DataObjectReferenceDao::reference).list().size)
+		assertEquals(3, result[1].selectReferring(referenceTable, DataObjectReferenceDao::reference).list().size)
 	}
 
 	@Test
 	fun update() {
 		assertTrue(referenceTable.update(references[1].copy(reference = 1)).isSuccess())
 
-		assertEquals(3, table.select(where = property("name") isEqualTo value("A")).first().selectReferring(referenceTable, "reference").list().size)
+		assertEquals(3, table.select(where = property(DataObjectDao::name) isEqualTo value("A")).first().selectReferring(referenceTable, DataObjectReferenceDao::reference).list().size)
 	}
 }

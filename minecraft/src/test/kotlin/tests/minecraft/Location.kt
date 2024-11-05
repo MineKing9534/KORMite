@@ -55,17 +55,17 @@ class LocationTest {
 
 	@Test
 	fun coordinates() {
-		assertEquals(1, table.selectRowCount(where = property("location1[0]") isEqualTo property("location1.x")))
-		assertEquals(0.0, table.select<Double>(property("location1.x")).first())
+		assertEquals(1, table.selectRowCount(where = property<Double>("location1[0]") isEqualTo property<Double>("location1.x")))
+		assertEquals(0.0, table.selectValue(property<Double>("location1.x")).first())
 	}
 
 	@Test
 	fun selectColumn() {
-		assertEquals(Location(worlds[0], 0.0, 5.0, 0.0), table.select<Location>(property("location1")).first())
+		assertEquals(Location(worlds[0], 0.0, 5.0, 0.0), table.selectValue(property(LocationDao::location1)).first())
 
-		assertEquals(id1, table.select<World>(property("location1.world")).first().uid)
+		assertEquals(id1, table.selectValue(property<World>("location1.world")).first().uid)
 
-		assertEquals(id2, table.select<World>(property("worldTest")).first().uid)
-		assertEquals(id2, table.select<World>(property("location2.world")).first().uid)
+		assertEquals(id2, table.selectValue(property(LocationDao::worldTest)).first().uid)
+		assertEquals(id2, table.selectValue(property<World>("location2.world")).first().uid)
 	}
 }
