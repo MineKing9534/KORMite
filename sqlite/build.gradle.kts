@@ -10,3 +10,10 @@ dependencies {
     testImplementation("ch.qos.logback:logback-classic:1.5.8")
     implementation("io.github.microutils:kotlin-logging-jvm:2.0.11")
 }
+
+kotlin {
+    compilerOptions {
+        //Required for AnnotationTable
+        javaParameters = true
+    }
+}

@@ -6,34 +6,7 @@ import java.lang.reflect.InvocationTargetException
 import java.lang.reflect.Method
 import kotlin.reflect.*
 import kotlin.reflect.jvm.javaField
-
-@Target(AnnotationTarget.FIELD)
-@Retention(AnnotationRetention.RUNTIME)
-annotation class Column(val name: String = "")
-
-@Target(AnnotationTarget.FIELD)
-@Retention(AnnotationRetention.RUNTIME)
-annotation class AutoIncrement
-
-@Target(AnnotationTarget.FIELD)
-@Retention(AnnotationRetention.RUNTIME)
-annotation class AutoGenerate(val generator: String = "")
-
-@Target(AnnotationTarget.FIELD)
-@Retention(AnnotationRetention.RUNTIME)
-annotation class Key
-
-@Target(AnnotationTarget.FIELD)
-@Retention(AnnotationRetention.RUNTIME)
-annotation class Unique(val name: String = "")
-
-@Target(AnnotationTarget.FIELD)
-@Retention(AnnotationRetention.RUNTIME)
-annotation class Reference(val table: String)
-
-@Target(AnnotationTarget.FIELD)
-@Retention(AnnotationRetention.RUNTIME)
-annotation class Json(val binary: Boolean = false)
+import kotlin.reflect.jvm.kotlinFunction
 
 interface Table<T: Any> {
 	val structure: TableStructure<T>
@@ -52,8 +25,7 @@ interface Table<T: Any> {
 	fun select(where: Where = Where.EMPTY, order: Order? = null, limit: Int? = null, offset: Int? = null): QueryResult<T> = select(columns = emptyArray<KProperty<*>>(), where, order, limit, offset)
 
 	fun update(obj: T): UpdateResult<T>
-	fun <T> update(column: Node<T>, value: Node<T>, where: Where = Where.EMPTY): UpdateResult<Int>
-	fun <T> update(column: KProperty<T>, value: Node<T>, where: Where = Where.EMPTY): UpdateResult<Int> = update(property(column), value, where)
+	fun update(vararg columns: Pair<Node<*>, Node<*>>, where: Where = Where.EMPTY): UpdateResult<Int>
 
 	fun insert(obj: T): UpdateResult<T>
 	fun upsert(obj: T): UpdateResult<T>
@@ -82,10 +54,74 @@ abstract class TableImplementation<T: Any>(
 	}
 
 	override fun invoke(proxy: Any?, method: Method?, args: Array<out Any?>?): Any? {
+		require(method != null)
+
+		fun createCondition() = allOf(if (args == null) emptyList() else method.parameters
+			.mapIndexed { index, value -> index to value }
+			.filter { (_, it) -> it.isAnnotationPresent(KeyParameter::class.java) }
+			.map { (index, param) -> property<Any>(param.getAnnotation(KeyParameter::class.java)!!.name.takeIf { it.isNotBlank() } ?: param.name) + " ${ param.getAnnotation(KeyParameter::class.java)!!.operation } " + value(args[index]) }
+			.map { Where(it) }
+		)
+
+		when {
+			method.isAnnotationPresent(Select::class.java) -> {
+				val result = select(where = createCondition())
+
+				return when {
+					method.returnType == QueryResult::class.java -> result
+					method.returnType == List::class.java -> result.list()
+					method.kotlinFunction?.returnType?.isMarkedNullable == true -> result.findFirst()
+					else -> result.first()
+				}
+			}
+
+			method.isAnnotationPresent(Insert::class.java) || method.isAnnotationPresent(Upsert::class.java) -> {
+				require(args != null)
+
+				val obj = instance()
+
+				method.parameters
+					.mapIndexed { index, value -> index to value }
+					.filter { (_, it) -> it.isAnnotationPresent(Parameter::class.java) }
+					.forEach { (index, param) ->
+						val name = param.getAnnotation(Parameter::class.java)!!.name.takeIf { it.isNotBlank() } ?: param.name
+
+						@Suppress("UNCHECKED_CAST")
+						val column = structure.getColumnFromCode(name) as DirectColumnData<T, Any>? ?: error("Column $name not found")
+						val value = args[index]
+
+						column.set(obj, value)
+					}
+
+				val result = if (method.isAnnotationPresent(Insert::class.java)) insert(obj) else upsert(obj)
+				return when {
+					method.returnType == UpdateResult::class.java -> result
+					else -> result.getOrThrow()
+				}
+			}
+
+			method.isAnnotationPresent(Update::class.java) -> {
+				require(args != null)
+
+				val updates = method.parameters
+					.mapIndexed { index, value -> index to value }
+					.filter { (_, it) -> it.isAnnotationPresent(Parameter::class.java) }
+					.map { (index, param) -> property<Any>(param.getAnnotation(Parameter::class.java)!!.name.takeIf { it.isNotBlank() } ?: param.name) to value(args[index]) }
+
+				val result = update(columns = updates.toTypedArray(), where = createCondition())
+				return when {
+					method.returnType == UpdateResult::class.java -> result
+					else -> result.getOrThrow()
+				}
+			}
+
+			method.isAnnotationPresent(Delete::class.java) -> return delete(where = createCondition())
+		}
+
 		return try {
-			javaClass.getMethod(method!!.name, *method.parameterTypes).invoke(this, *(args ?: emptyArray()))
+			javaClass.getMethod(method.name, *method.parameterTypes).invoke(this, *(args ?: emptyArray()))
 		} catch(_: NoSuchMethodException) {
-			type.java.classes.find { it.simpleName == "DefaultImpls" }?.getMethod(method!!.name, type.java, *method.parameterTypes)?.invoke(null, proxy, *(args ?: emptyArray()))
+			type.java.classes.find { it.simpleName == "DefaultImpls" }?.getMethod(method.name, type.java, *method.parameterTypes)?.invoke(null, proxy, *(args ?: emptyArray()))
 		} catch(e: IllegalAccessException) {
 			throw RuntimeException(e)
 		} catch(e: InvocationTargetException) {

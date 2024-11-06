@@ -82,6 +82,9 @@ fun unsafeNode(string: String, values: Map<String, Argument> = emptyMap()) = obj
 	override fun values(table: TableStructure<*>, column: ColumnData<*, *>?): Map<String, Argument> = values
 }
 
+@Suppress("UNCHECKED_CAST")
+infix fun <T> Node<T>.to(other: Node<T>) = ((this as Any) to other) as Pair<Node<T>, Node<T>>
+
 interface Node<T> {
 	companion object {
 		val EMPTY = unsafeNode("")
