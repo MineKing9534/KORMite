@@ -75,7 +75,7 @@ abstract class TableImplementation<T: Any>(
 				}
 			}
 
-			method.isAnnotationPresent(Insert::class.java) -> {
+			method.isAnnotationPresent(Insert::class.java) || method.isAnnotationPresent(Upsert::class.java) -> {
 				require(args != null)
 
 				val obj = instance()
@@ -93,7 +93,7 @@ abstract class TableImplementation<T: Any>(
 						column.set(obj, value)
 					}
 
-				val result = insert(obj)
+				val result = if (method.isAnnotationPresent(Insert::class.java)) insert(obj) else upsert(obj)
 				return when {
 					method.returnType == UpdateResult::class.java -> result
 					else -> result.getOrThrow()
