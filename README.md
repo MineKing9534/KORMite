@@ -252,16 +252,22 @@ interface UserTable : Table<UserDao> {
     fun getAllUsers(): List<UserDao>
     
     @Select //You can also select a single element. The return type of the function will determine this behavior
-    fun getUserByName(@Parameter name: String): UserDao? //All parameters with the @Parameter annotation will be used as a where condition when selecting (All of the parameters have to match)
+    fun getUserByName(@KeyParameter name: String): UserDao? //All parameters with the @KeyParameter annotation will be used as a where condition when selecting (All of the parameters have to match)
     
     @Insert //You can create insert statement functions with @Insert
     fun createUser(@Parameter name: String, @Parameter age: Int): UserDao //All method parameters annotated with @Parameter will be passed to the insert. All properties that are not defined here will have the value they have after the instance was created by your instance creator
     
     @Delete //You can create delete statement functions with @Delete
-    fun deleteUser(@Parameter id: Int): Int //As above, all parameters will be used as condition. For example a delete function without any parameters will delete all rows
+    fun deleteUser(@KeyParameter id: Int): Int //As above, all parameters with @KeyParameter will be used as condition. For example a delete function without any parameters will delete all rows
     
     //Custom function
     fun getAdults() = select(where = property(UserDao::age) isGreaterThan value(18))
+    
+    @Select
+    fun getOlderThan(@Parameter(name = "age", operation = " > ") minAge: Int): List<UserDao> //Will select all users older than minAge. You can pass a custom comparison operation as parameter to the @KeyParameter annotation. The default is " = "
+    
+    @Update
+    fun updateName(@KeyParameter id: Int, @Parameter name: String): Int //You can combine @KeyParameter and @Parameter in @Update. As above, @KeyParameter will be used as condition while the parameters with @Parameter will update the respective columns in the rows matching the condition
 }
 
 fun main() {
@@ -278,6 +284,9 @@ fun main() {
     
     table.deleteUser(tom.id)
     assertEquals(1, table.getAllUsers().size)
+    
+    assertEquals(1, table.updateName(alex.id, "Test"))
+    assertEquals("Test", table.getAllUsers().first().name)
 }
 ```
 
@@ -289,4 +298,4 @@ kotlin {
     }
 }
 ```
-Alternatively you can pass the name of the property as parameter to @Parameter (e.g. `@Parameter(name = "id")`)
+Alternatively you can pass the name of the property as parameter to @Parameter (e.g. `@Parameter(name = "id")`). The same applies to @KeyParameter
