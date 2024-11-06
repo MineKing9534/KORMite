@@ -58,8 +58,8 @@ abstract class TableImplementation<T: Any>(
 
 		fun createCondition() = allOf(if (args == null) emptyList() else method.parameters
 			.mapIndexed { index, value -> index to value }
-			.filter { (_, it) -> it.isAnnotationPresent(KeyParameter::class.java) }
-			.map { (index, param) -> property<Any>(param.getAnnotation(KeyParameter::class.java)!!.name.takeIf { it.isNotBlank() } ?: param.name) + " ${ param.getAnnotation(KeyParameter::class.java)!!.operation } " + value(args[index]) }
+			.filter { (_, it) -> it.isAnnotationPresent(Condition::class.java) }
+			.map { (index, param) -> property<Any>(param.getAnnotation(Condition::class.java)!!.name.takeIf { it.isNotBlank() } ?: param.name) + " ${ param.getAnnotation(Condition::class.java)!!.operation } " + value(args[index]) }
 			.map { Where(it) }
 		)
 

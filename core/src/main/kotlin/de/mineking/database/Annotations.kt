@@ -36,7 +36,7 @@ annotation class Parameter(val name: String = "")
 
 @Target(AnnotationTarget.VALUE_PARAMETER)
 @Retention(AnnotationRetention.RUNTIME)
-annotation class KeyParameter(val name: String = "", val operation: String = " = ")
+annotation class Condition(val name: String = "", val operation: String = " = ")
 
 @Target(AnnotationTarget.FUNCTION)
 @Retention(AnnotationRetention.RUNTIME)
