@@ -13,16 +13,19 @@ interface AnnotationTable : Table<UserDao> {
     fun getAllUsers(): List<UserDao>
 
     @Select
-    fun getUserByEmail(@Parameter email: String): UserDao?
+    fun getUserByEmail(@KeyParameter email: String): UserDao?
 
     @Insert
     fun createUser(@Parameter name: String, @Parameter email: String, @Parameter age: Int): UserDao
 
     @Delete
-    fun deleteUser(@Parameter email: String): Int
+    fun deleteUser(@KeyParameter email: String): Int
 
     @Delete
-    fun deleteUser(@Parameter id: Int): Int
+    fun deleteUser(@KeyParameter id: Int): Int
+
+    @Update
+    fun update(@KeyParameter id: Int, @Parameter name: String): Int
 }
 
 class AnnotationTableTest {
@@ -62,5 +65,13 @@ class AnnotationTableTest {
         assertEquals(1, table.deleteUser(1))
 
         assertEquals(3, table.selectRowCount())
+    }
+
+    @Test
+    fun update() {
+        assertEquals(0, table.update(0, "Test"))
+        assertEquals(1, table.update(1, "Test"))
+
+        assertEquals("Test", table.getUserByEmail("tom@example.com")?.name)
     }
 }

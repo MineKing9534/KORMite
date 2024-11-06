@@ -34,6 +34,10 @@ annotation class Json(val binary: Boolean = false)
 @Retention(AnnotationRetention.RUNTIME)
 annotation class Parameter(val name: String = "")
 
+@Target(AnnotationTarget.VALUE_PARAMETER)
+@Retention(AnnotationRetention.RUNTIME)
+annotation class KeyParameter(val name: String = "", val operation: String = " = ")
+
 @Target(AnnotationTarget.FUNCTION)
 @Retention(AnnotationRetention.RUNTIME)
 annotation class Select
@@ -41,6 +45,10 @@ annotation class Select
 @Target(AnnotationTarget.FUNCTION)
 @Retention(AnnotationRetention.RUNTIME)
 annotation class Insert
+
+@Target(AnnotationTarget.FUNCTION)
+@Retention(AnnotationRetention.RUNTIME)
+annotation class Update
 
 @Target(AnnotationTarget.FUNCTION)
 @Retention(AnnotationRetention.RUNTIME)

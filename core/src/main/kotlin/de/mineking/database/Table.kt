@@ -56,15 +56,16 @@ abstract class TableImplementation<T: Any>(
 	override fun invoke(proxy: Any?, method: Method?, args: Array<out Any?>?): Any? {
 		require(method != null)
 
+		fun createCondition() = allOf(if (args == null) emptyList() else method.parameters
+			.mapIndexed { index, value -> index to value }
+			.filter { (_, it) -> it.isAnnotationPresent(KeyParameter::class.java) }
+			.map { (index, param) -> property<Any>(param.getAnnotation(KeyParameter::class.java)!!.name.takeIf { it.isNotBlank() } ?: param.name) + " ${ param.getAnnotation(KeyParameter::class.java)!!.operation } " + value(args[index]) }
+			.map { Where(it) }
+		)
+
 		when {
 			method.isAnnotationPresent(Select::class.java) -> {
-				val parameters = if (args == null) emptyMap() else method.parameters
-					.filter { it.isAnnotationPresent(Parameter::class.java) }
-					.mapIndexed { index, value -> index to value }
-					.associate { (index, param) -> (param.getAnnotation(Parameter::class.java)!!.name.takeIf { it.isNotBlank() } ?: param.name) to args[index] }
-
-				val condition = allOf(parameters.map { (name, value) -> property<Any>(name) isEqualTo value(value) })
-				val result = select(where = condition)
+				val result = select(where = createCondition())
 
 				return when {
 					method.returnType == QueryResult::class.java -> result
@@ -75,11 +76,13 @@ abstract class TableImplementation<T: Any>(
 			}
 
 			method.isAnnotationPresent(Insert::class.java) -> {
+				require(args != null)
+
 				val obj = instance()
 
-				if (args != null) method.parameters
-					.filter { it.isAnnotationPresent(Parameter::class.java) }
+				method.parameters
 					.mapIndexed { index, value -> index to value }
+					.filter { (_, it) -> it.isAnnotationPresent(Parameter::class.java) }
 					.forEach { (index, param) ->
 						val name = param.getAnnotation(Parameter::class.java)!!.name.takeIf { it.isNotBlank() } ?: param.name
 
@@ -97,15 +100,22 @@ abstract class TableImplementation<T: Any>(
 				}
 			}
 
-			method.isAnnotationPresent(Delete::class.java) -> {
-				val parameters = if (args == null) emptyMap() else method.parameters
-					.filter { it.isAnnotationPresent(Parameter::class.java) }
-					.mapIndexed { index, value -> index to value }
-					.associate { (index, param) -> (param.getAnnotation(Parameter::class.java)!!.name.takeIf { it.isNotBlank() } ?: param.name) to args[index] }
+			method.isAnnotationPresent(Update::class.java) -> {
+				require(args != null)
 
-				val condition = allOf(parameters.map { (name, value) -> property<Any>(name) isEqualTo value(value) })
-				return delete(where = condition)
+				val updates = method.parameters
+					.mapIndexed { index, value -> index to value }
+					.filter { (_, it) -> it.isAnnotationPresent(Parameter::class.java) }
+					.map { (index, param) -> property<Any>(param.getAnnotation(Parameter::class.java)!!.name.takeIf { it.isNotBlank() } ?: param.name) to value(args[index]) }
+
+				val result = update(columns = updates.toTypedArray(), where = createCondition())
+				return when {
+					method.returnType == UpdateResult::class.java -> result
+					else -> result.getOrThrow()
+				}
 			}
+
+			method.isAnnotationPresent(Delete::class.java) -> return delete(where = createCondition())
 		}
 
 		return try {
