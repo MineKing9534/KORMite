@@ -15,6 +15,8 @@ version = "1.1.0"
 val release = System.getenv("RELEASE") == "true"
 
 allprojects {
+	version = rootProject.version
+
 	apply(plugin = "org.jetbrains.kotlin.jvm")
 	apply(plugin = "com.adarshr.test-logger")
 	apply(plugin = "test-report-aggregation")
