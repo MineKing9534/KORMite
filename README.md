@@ -143,7 +143,7 @@ fun main() {
 	
     val names = table.selectValue(property(UserDao::name), where = property(UserDao::age) isGreaterThan value(5)).list() //This will only select the name column. You can also specify conditions and all parameters that the normal select supports
     
-    table.update(UserDao::name, value("Test"), where = property(UserDao::age) isGreaterThan value(5)) //Update only the name column. You can also optionally specify a condition here 
+    table.update(property(UserDao::name) to value("Test"), where = property(UserDao::age) isGreaterThan value(5)) //Update only the name column. You can also optionally specify a condition here 
 }
 ```
 
@@ -233,7 +233,7 @@ fun main() {
     //Your connection and table declaration...
 	
     val world = table.selectValue(property<World>("location.world")).first() //Select only the world
-    table.update(property<World>("location.world"), value(world2)) //Update only the world
+    table.update(property<World>("location.world") to value(world2)) //Update only the world
 }
 ```
 
