@@ -15,7 +15,7 @@ repositories {
 }
 
 dependencies {
-    implementation("de.mineking:KORMite-core:VERSION")
+    implementation("de.mineking.KORMite:KORMite-core:VERSION")
 }
 ```
 
@@ -31,7 +31,7 @@ dependencies {
 
 <dependencies>
     <dependency>
-        <groupId>de.mineking</groupId>
+        <groupId>de.mineking.KORMite</groupId>
         <artifactId>KORMite-core</artifactId>
         <version>VERSION</version>
     </dependency>

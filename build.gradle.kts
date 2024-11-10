@@ -26,6 +26,11 @@ allprojects {
 		mavenCentral()
 	}
 
+	java {
+        withJavadocJar()
+        withSourcesJar()
+    }
+
 	dependencies {
 		testReportAggregation(project(":postgres"))
 		testReportAggregation(project(":sqlite"))
