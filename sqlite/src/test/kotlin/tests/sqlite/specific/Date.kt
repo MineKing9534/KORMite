@@ -1,9 +1,9 @@
 package tests.sqlite.specific
 
 import de.mineking.database.*
-import de.mineking.database.vendors.sqlite.SQLiteConnection
 import org.junit.jupiter.api.Test
 import setup.ConsoleSqlLogger
+import setup.createConnection
 import setup.recreate
 import java.time.Instant
 import java.time.LocalDate
@@ -17,7 +17,7 @@ data class DateDao(
 )
 
 class DateTest {
-	val connection = SQLiteConnection("test.db")
+	val connection = createConnection()
 	val table = connection.getTable(name = "date_test") { DateDao() }
 
 	val time = Instant.now()

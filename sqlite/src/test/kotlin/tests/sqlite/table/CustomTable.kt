@@ -4,9 +4,9 @@ import de.mineking.database.Table
 import de.mineking.database.isEqualTo
 import de.mineking.database.property
 import de.mineking.database.value
-import de.mineking.database.vendors.sqlite.SQLiteConnection
 import setup.ConsoleSqlLogger
 import setup.UserDao
+import setup.createConnection
 import setup.recreate
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -21,7 +21,7 @@ interface UserTable : Table<UserDao> {
 }
 
 class CustomTableTest {
-    val connection = SQLiteConnection("test.db")
+    val connection = createConnection()
     val table = connection.getTable<_, UserTable>(name = "basic_test") { UserDao() }
 
     init {

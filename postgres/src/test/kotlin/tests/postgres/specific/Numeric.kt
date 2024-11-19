@@ -3,9 +3,9 @@ package tests.postgres.specific
 import de.mineking.database.AutoIncrement
 import de.mineking.database.Column
 import de.mineking.database.Key
-import de.mineking.database.vendors.postgres.PostgresConnection
 import org.junit.jupiter.api.Test
 import setup.ConsoleSqlLogger
+import setup.createConnection
 import setup.recreate
 import java.math.BigDecimal
 import java.math.BigInteger
@@ -23,7 +23,7 @@ data class NumericDao(
 )
 
 class NumericTest {
-	val connection = PostgresConnection("localhost:5432/test", user = "test", password = "test")
+	val connection = createConnection()
 	val table = connection.getTable(name = "numeric_test") { NumericDao() }
 
 	init {

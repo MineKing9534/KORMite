@@ -1,7 +1,6 @@
 package tests.discord
 
 import de.mineking.database.*
-import de.mineking.database.vendors.postgres.PostgresConnection
 import de.mineking.database.vendors.postgres.PostgresMappers
 import net.dv8tion.jda.api.entities.*
 import net.dv8tion.jda.api.entities.channel.middleman.MessageChannel
@@ -9,10 +8,7 @@ import net.dv8tion.jda.api.entities.emoji.CustomEmoji
 import net.dv8tion.jda.api.entities.emoji.RichCustomEmoji
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Test
-import setup.ConsoleSqlLogger
-import setup.createJDA
-import setup.createSnowflake
-import setup.recreate
+import setup.*
 
 data class DiscordDao(
 	@AutoIncrement @Key @Column val id: Int = 0,
@@ -26,7 +22,7 @@ data class DiscordDao(
 )
 
 class DiscordTest {
-	val connection = PostgresConnection("localhost:5432/test", user = "test", password = "test")
+	val connection = createConnection()
 	val table: Table<DiscordDao>
 
 	val guilds = listOf(

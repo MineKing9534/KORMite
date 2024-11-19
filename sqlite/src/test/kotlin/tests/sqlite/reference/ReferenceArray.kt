@@ -4,9 +4,9 @@ import de.mineking.database.AutoIncrement
 import de.mineking.database.Column
 import de.mineking.database.Key
 import de.mineking.database.Reference
-import de.mineking.database.vendors.sqlite.SQLiteConnection
 import org.junit.jupiter.api.Test
 import setup.ConsoleSqlLogger
+import setup.createConnection
 import setup.recreate
 import kotlin.test.assertContentEquals
 
@@ -16,7 +16,7 @@ data class ReferenceArrayDao(
 )
 
 class ReferenceArrayTest {
-	val connection = SQLiteConnection("test.db")
+	val connection = createConnection()
 	val publisherTable = connection.getTable(name = "publisher_test") { PublisherDao() }
 	val authorTable = connection.getTable(name = "author_test") { AuthorDao() }
 	val bookTable = connection.getTable(name = "book_test") { BookDao() }

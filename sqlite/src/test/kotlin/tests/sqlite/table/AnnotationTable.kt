@@ -1,9 +1,9 @@
 package tests.sqlite.table
 
 import de.mineking.database.*
-import de.mineking.database.vendors.sqlite.SQLiteConnection
 import setup.ConsoleSqlLogger
 import setup.UserDao
+import setup.createConnection
 import setup.recreate
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -29,7 +29,7 @@ interface AnnotationTable : Table<UserDao> {
 }
 
 class AnnotationTableTest {
-    val connection = SQLiteConnection("test.db")
+    val connection = createConnection()
     val table = connection.getTable<_, AnnotationTable>(name = "basic_test") { UserDao() }
 
     init {

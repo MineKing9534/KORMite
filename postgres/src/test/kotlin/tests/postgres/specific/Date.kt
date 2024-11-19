@@ -1,9 +1,9 @@
 package tests.postgres.specific
 
 import de.mineking.database.*
-import de.mineking.database.vendors.postgres.PostgresConnection
 import org.junit.jupiter.api.Test
 import setup.ConsoleSqlLogger
+import setup.createConnection
 import setup.recreate
 import java.time.Instant
 import java.time.LocalDate
@@ -17,7 +17,7 @@ data class DateDao(
 )
 
 class DateTest {
-	val connection = PostgresConnection("localhost:5432/test", user = "test", password = "test")
+	val connection = createConnection()
 	val table = connection.getTable(name = "date_test") { DateDao() }
 
 	val time = Instant.now()

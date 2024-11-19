@@ -1,9 +1,9 @@
 package tests.sqlite.reference
 
 import de.mineking.database.*
-import de.mineking.database.vendors.sqlite.SQLiteConnection
 import org.junit.jupiter.api.Test
 import setup.ConsoleSqlLogger
+import setup.createConnection
 import setup.recreate
 import kotlin.test.assertContentEquals
 import kotlin.test.assertEquals
@@ -28,7 +28,7 @@ data class BookDao(
 )
 
 class ReferenceTest {
-	val connection = SQLiteConnection("test.db")
+	val connection = createConnection()
 	val publisherTable = connection.getTable(name = "publisher_test") { PublisherDao() }
 	val authorTable = connection.getTable(name = "author_test") { AuthorDao() }
 	val bookTable = connection.getTable(name = "book_test") { BookDao() }

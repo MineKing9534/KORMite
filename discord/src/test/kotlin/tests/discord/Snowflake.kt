@@ -1,16 +1,12 @@
 package tests.discord
 
 import de.mineking.database.*
-import de.mineking.database.vendors.postgres.PostgresConnection
 import de.mineking.database.vendors.postgres.PostgresMappers
 import net.dv8tion.jda.api.entities.Guild
 import net.dv8tion.jda.api.entities.ISnowflake
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Test
-import setup.ConsoleSqlLogger
-import setup.createJDA
-import setup.createSnowflake
-import setup.recreate
+import setup.*
 
 data class SnowflakeDao(
 	@AutoIncrement @Key @Column val id: Int = 0,
@@ -18,7 +14,7 @@ data class SnowflakeDao(
 )
 
 class SnowflakeTest {
-	val connection = PostgresConnection("localhost:5432/test", user = "test", password = "test")
+	val connection = createConnection()
 	val table: Table<SnowflakeDao>
 
 	val guilds = listOf(

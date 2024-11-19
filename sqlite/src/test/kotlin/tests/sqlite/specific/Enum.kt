@@ -1,9 +1,9 @@
 package tests.sqlite.specific
 
 import de.mineking.database.*
-import de.mineking.database.vendors.sqlite.SQLiteConnection
 import org.junit.jupiter.api.Test
 import setup.ConsoleSqlLogger
+import setup.createConnection
 import setup.recreate
 import java.util.*
 import kotlin.test.assertContains
@@ -17,7 +17,7 @@ data class EnumDao(
 )
 
 class EnumTest {
-	val connection = SQLiteConnection("test.db")
+	val connection = createConnection()
 	val table = connection.getTable(name = "enum_test") { EnumDao() }
 
 	init {

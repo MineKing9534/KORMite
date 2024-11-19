@@ -1,15 +1,11 @@
 package tests.minecraft
 
 import de.mineking.database.*
-import de.mineking.database.vendors.postgres.PostgresConnection
 import de.mineking.database.vendors.postgres.PostgresMappers
 import org.bukkit.OfflinePlayer
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Test
-import setup.ConsoleSqlLogger
-import setup.createPlayer
-import setup.createServer
-import setup.recreate
+import setup.*
 import java.util.*
 
 data class PlayerDao(
@@ -18,7 +14,7 @@ data class PlayerDao(
 )
 
 class PlayerTest {
-	val connection = PostgresConnection("localhost:5432/test", user = "test", password = "test")
+	val connection = createConnection()
 	val table: Table<PlayerDao>
 
 	val id1 = UUID.randomUUID()

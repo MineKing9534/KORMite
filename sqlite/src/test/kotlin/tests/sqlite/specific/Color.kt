@@ -1,9 +1,9 @@
 package tests.sqlite.specific
 
 import de.mineking.database.*
-import de.mineking.database.vendors.sqlite.SQLiteConnection
 import org.junit.jupiter.api.Test
 import setup.ConsoleSqlLogger
+import setup.createConnection
 import setup.recreate
 import java.awt.Color
 import kotlin.test.assertEquals
@@ -14,7 +14,7 @@ data class ColorDao(
 )
 
 class ColorTest {
-	val connection = SQLiteConnection("test.db")
+	val connection = createConnection()
 	val table = connection.getTable(name = "color_test") { ColorDao() }
 
 	init {
