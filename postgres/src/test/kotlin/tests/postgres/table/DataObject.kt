@@ -1,8 +1,8 @@
 package tests.postgres.table
 
 import de.mineking.database.*
-import de.mineking.database.vendors.postgres.PostgresConnection
 import setup.ConsoleSqlLogger
+import setup.createConnection
 import setup.recreate
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -22,7 +22,7 @@ data class DataObjectDao(
 }
 
 class DataObjectTest {
-	val connection = PostgresConnection("localhost:5432/test", user = "test", password = "test")
+	val connection = createConnection()
 	val referenceTable = connection.getTable(name = "data_object_reference_test") { DataObjectReferenceDao() }
 	val table = connection.getTable(name = "data_object_test") { DataObjectDao(this) }
 

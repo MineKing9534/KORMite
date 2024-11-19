@@ -3,10 +3,10 @@ package tests.sqlite.specific
 import de.mineking.database.AutoIncrement
 import de.mineking.database.Column
 import de.mineking.database.Key
-import de.mineking.database.vendors.sqlite.SQLiteConnection
 import org.junit.jupiter.api.Assertions.assertArrayEquals
 import org.junit.jupiter.api.Test
 import setup.ConsoleSqlLogger
+import setup.createConnection
 import setup.recreate
 import kotlin.test.assertContentEquals
 import kotlin.test.assertEquals
@@ -20,7 +20,7 @@ data class ArrayDao(
 )
 
 class ArrayTest {
-	val connection = SQLiteConnection("test.db")
+	val connection = createConnection()
 	val table = connection.getTable(name = "array_test") { ArrayDao() }
 
 	init {

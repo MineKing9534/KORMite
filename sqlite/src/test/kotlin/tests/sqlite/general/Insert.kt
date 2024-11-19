@@ -1,16 +1,16 @@
 package tests.sqlite.general
 
-import de.mineking.database.vendors.sqlite.SQLiteConnection
 import org.junit.jupiter.api.Test
 import setup.ConsoleSqlLogger
 import setup.UserDao
+import setup.createConnection
 import setup.recreate
 import kotlin.test.assertContentEquals
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 
 class InsertTest {
-    val connection = SQLiteConnection("test.db")
+    val connection = createConnection()
     val table = connection.getTable(name = "basic_test") { UserDao() }
 
     val users = listOf(

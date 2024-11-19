@@ -4,11 +4,11 @@ import de.mineking.database.AutoIncrement
 import de.mineking.database.Column
 import de.mineking.database.Key
 import de.mineking.database.Reference
-import de.mineking.database.vendors.sqlite.SQLiteConnection
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import setup.ConsoleSqlLogger
 import setup.UserDao
+import setup.createConnection
 import setup.recreate
 import kotlin.test.assertContentEquals
 import kotlin.test.assertEquals
@@ -20,7 +20,7 @@ data class DeletedReferenceDao(
 )
 
 class DeletedReferenceTest {
-	val connection = SQLiteConnection("test.db")
+	val connection = createConnection()
 	val userTable = connection.getTable(name = "basic_test") { UserDao() }
 	val referenceTable = connection.getTable(name = "deleted_reference_test") { DeletedReferenceDao() }
 

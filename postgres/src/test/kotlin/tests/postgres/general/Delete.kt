@@ -3,15 +3,15 @@ package tests.postgres.general
 import de.mineking.database.isBetween
 import de.mineking.database.property
 import de.mineking.database.value
-import de.mineking.database.vendors.postgres.PostgresConnection
 import org.junit.jupiter.api.Test
 import setup.ConsoleSqlLogger
 import setup.UserDao
+import setup.createConnection
 import setup.recreate
 import kotlin.test.assertEquals
 
 class DeleteTest {
-    val connection = PostgresConnection("localhost:5432/test", user = "test", password = "test")
+    val connection = createConnection()
     val table = connection.getTable(name = "basic_test") { UserDao() }
 
     val users = listOf(

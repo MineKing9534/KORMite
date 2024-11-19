@@ -1,14 +1,14 @@
 package tests.postgres.general
 
-import de.mineking.database.vendors.postgres.PostgresConnection
 import org.junit.jupiter.api.Test
 import setup.ConsoleSqlLogger
 import setup.UserDao
+import setup.createConnection
 import setup.recreate
 import kotlin.test.assertEquals
 
 class TransactionTest {
-	val connection = PostgresConnection("localhost:5432/test", user = "test", password = "test")
+	val connection = createConnection()
 	val table = connection.getTable(name = "basic_test") { UserDao() }
 
 	init {

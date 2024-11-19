@@ -1,10 +1,10 @@
 package tests.postgres.specific
 
 import de.mineking.database.*
-import de.mineking.database.vendors.postgres.PostgresConnection
 import de.mineking.database.vendors.postgres.json
 import org.junit.jupiter.api.Test
 import setup.ConsoleSqlLogger
+import setup.createConnection
 import setup.recreate
 import kotlin.test.assertEquals
 
@@ -15,7 +15,7 @@ data class JsonDao(
 )
 
 class JsonTest {
-	val connection = PostgresConnection("localhost:5432/test", user = "test", password = "test")
+	val connection = createConnection()
 	val table = connection.getTable(name = "json_test") { JsonDao() }
 
 	init {

@@ -1,16 +1,12 @@
 package tests.minecraft
 
 import de.mineking.database.*
-import de.mineking.database.vendors.postgres.PostgresConnection
 import de.mineking.database.vendors.postgres.PostgresMappers
 import org.bukkit.Location
 import org.bukkit.World
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Test
-import setup.ConsoleSqlLogger
-import setup.createServer
-import setup.createWorld
-import setup.recreate
+import setup.*
 import java.util.*
 
 data class LocationDao(
@@ -21,7 +17,7 @@ data class LocationDao(
 )
 
 class LocationTest {
-	val connection = PostgresConnection("localhost:5432/test", user = "test", password = "test")
+	val connection = createConnection()
 	val table: Table<LocationDao>
 
 	val id1 = UUID.randomUUID()

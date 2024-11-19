@@ -1,10 +1,10 @@
 package tests.postgres.reference
 
 import de.mineking.database.*
-import de.mineking.database.vendors.postgres.PostgresConnection
 import de.mineking.database.vendors.postgres.contains
 import org.junit.jupiter.api.Test
 import setup.ConsoleSqlLogger
+import setup.createConnection
 import setup.recreate
 import kotlin.test.assertContentEquals
 import kotlin.test.assertEquals
@@ -15,7 +15,7 @@ data class ReferenceArrayDao(
 )
 
 class ReferenceArrayTest {
-	val connection = PostgresConnection("localhost:5432/test", user = "test", password = "test")
+	val connection = createConnection()
 	val publisherTable = connection.getTable(name = "publisher_test") { PublisherDao() }
 	val authorTable = connection.getTable(name = "author_test") { AuthorDao() }
 	val bookTable = connection.getTable(name = "book_test") { BookDao() }

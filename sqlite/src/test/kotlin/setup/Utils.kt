@@ -1,9 +1,12 @@
 package setup
 
 import de.mineking.database.Table
+import de.mineking.database.vendors.sqlite.SQLiteConnection
 import mu.KotlinLogging
 import org.jdbi.v3.core.statement.SqlLogger
 import org.jdbi.v3.core.statement.StatementContext
+
+fun createConnection() = SQLiteConnection("test.db")
 
 object ConsoleSqlLogger : SqlLogger {
 	val logger = KotlinLogging.logger {}

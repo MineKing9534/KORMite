@@ -4,9 +4,9 @@ import de.mineking.database.AutoIncrement
 import de.mineking.database.Column
 import de.mineking.database.Key
 import de.mineking.database.Unique
-import de.mineking.database.vendors.postgres.PostgresConnection
 import org.junit.jupiter.api.Test
 import setup.ConsoleSqlLogger
+import setup.createConnection
 import setup.recreate
 import kotlin.test.assertTrue
 
@@ -18,7 +18,7 @@ data class UniqueDao(
 )
 
 class UniqueTest {
-    val connection = PostgresConnection("localhost:5432/test", user = "test", password = "test")
+    val connection = createConnection()
     val table = connection.getTable(name = "complex_unique_test") { UniqueDao() }
 
     init {

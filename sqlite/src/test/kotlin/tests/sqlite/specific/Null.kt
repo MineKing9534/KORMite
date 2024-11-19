@@ -1,9 +1,9 @@
 package tests.sqlite.specific
 
 import de.mineking.database.*
-import de.mineking.database.vendors.sqlite.SQLiteConnection
 import org.junit.jupiter.api.Test
 import setup.ConsoleSqlLogger
+import setup.createConnection
 import setup.recreate
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
@@ -15,7 +15,7 @@ data class NullDao(
 )
 
 class NullTest {
-	val connection = SQLiteConnection("test.db")
+	val connection = createConnection()
 	val table = connection.getTable(name = "null_test") { NullDao() }
 
 	init {

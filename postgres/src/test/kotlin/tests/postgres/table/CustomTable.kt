@@ -4,9 +4,9 @@ import de.mineking.database.Table
 import de.mineking.database.isEqualTo
 import de.mineking.database.property
 import de.mineking.database.value
-import de.mineking.database.vendors.postgres.PostgresConnection
 import setup.ConsoleSqlLogger
 import setup.UserDao
+import setup.createConnection
 import setup.recreate
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -21,7 +21,7 @@ interface UserTable : Table<UserDao> {
 }
 
 class CustomTableTest {
-    val connection = PostgresConnection("localhost:5432/test", user = "test", password = "test")
+    val connection = createConnection()
     val table = connection.getTable<_, UserTable>(name = "basic_test") { UserDao() }
 
     init {

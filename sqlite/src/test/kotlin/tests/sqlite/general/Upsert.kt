@@ -1,10 +1,9 @@
 package tests.sqlite.general
 
 import de.mineking.database.*
-import de.mineking.database.vendors.sqlite.SQLiteConnection
 import org.junit.jupiter.api.Test
 import setup.ConsoleSqlLogger
-import setup.UserDao
+import setup.createConnection
 import setup.recreate
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
@@ -18,7 +17,7 @@ data class UpsertDao(
 )
 
 class UpsertTest {
-	val connection = SQLiteConnection("test.db")
+	val connection = createConnection()
 	val table = connection.getTable(name = "upsert_test") { UpsertDao() }
 
 	val entries = listOf(

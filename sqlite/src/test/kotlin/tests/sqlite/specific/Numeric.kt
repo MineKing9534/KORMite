@@ -3,9 +3,9 @@ package tests.sqlite.specific
 import de.mineking.database.AutoIncrement
 import de.mineking.database.Column
 import de.mineking.database.Key
-import de.mineking.database.vendors.sqlite.SQLiteConnection
 import org.junit.jupiter.api.Test
 import setup.ConsoleSqlLogger
+import setup.createConnection
 import setup.recreate
 import kotlin.test.assertEquals
 
@@ -19,7 +19,7 @@ data class NumericDao(
 )
 
 class NumericTest {
-	val connection = SQLiteConnection("test.db")
+	val connection = createConnection()
 	val table = connection.getTable(name = "numeric_test") { NumericDao() }
 
 	init {

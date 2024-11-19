@@ -1,13 +1,13 @@
 package tests.minecraft
 
 import de.mineking.database.*
-import de.mineking.database.vendors.postgres.PostgresConnection
 import de.mineking.database.vendors.postgres.PostgresMappers
 import net.kyori.adventure.text.format.NamedTextColor
 import net.kyori.adventure.text.format.TextColor
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Test
 import setup.ConsoleSqlLogger
+import setup.createConnection
 import setup.createServer
 import setup.recreate
 
@@ -18,7 +18,7 @@ data class ColorDao(
 )
 
 class ColorTest {
-	val connection = PostgresConnection("localhost:5432/test", user = "test", password = "test")
+	val connection = createConnection()
 	val table: Table<ColorDao>
 
 	init {
