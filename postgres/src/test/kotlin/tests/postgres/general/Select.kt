@@ -11,7 +11,7 @@ import kotlin.test.assertContains
 import kotlin.test.assertEquals
 
 class SelectTest {
-	val connection = PostgresConnection("localhost:5432/slime", user = "test", password = "test")
+	val connection = PostgresConnection("localhost:5432/test", user = "test", password = "test")
 	val table = connection.getTable(name = "basic_test") { UserDao() }
 
 	val users = listOf(
