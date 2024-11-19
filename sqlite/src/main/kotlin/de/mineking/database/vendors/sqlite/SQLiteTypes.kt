@@ -90,7 +90,7 @@ object SQLiteMappers {
 			else -> error("Invalid type")
 		}
 
-		fun Collection<*>.createArray(component: KType) = (this as java.util.Collection<*>).toArray { java.lang.reflect.Array.newInstance(component.jvmErasure.java, it) as Array<*> }
+		fun Collection<*>.createArray(component: KType) = if (component.jvmErasure.java.isPrimitive) toTypedArray() else (this as java.util.Collection<*>).toArray { java.lang.reflect.Array.newInstance(component.jvmErasure.java, it) as Array<*> }
 
 		override fun accepts(manager: DatabaseConnection, property: KProperty<*>?, type: KType): Boolean = type.isArray()
 		override fun getType(column: ColumnData<*, *>?, table: TableStructure<*>, type: KType): DataType =

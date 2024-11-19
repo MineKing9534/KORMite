@@ -14,8 +14,9 @@ import kotlin.test.assertEquals
 data class ArrayDao(
 	@AutoIncrement @Key @Column val id: Int = 0,
 	@Column val a: Int = 0,
+	@Column val intList: List<Int> = listOf(), //Just to ensure correct io for this
 	@Column val stringList: List<String> = emptyList(),
-	@Column val arrayList: Array<List<String>> = emptyArray()
+	@Column val arrayList: List<Array<String>> = emptyList()
 )
 
 class ArrayTest {
@@ -28,13 +29,13 @@ class ArrayTest {
 		table.insert(ArrayDao(
 			a = 0,
 			stringList = listOf("a", "b", "c"),
-			arrayList = arrayOf(listOf("a", "b"), listOf("c", "d"), listOf("e"))
+			arrayList = listOf(arrayOf("a", "b"), arrayOf("c", "d"), arrayOf("e"))
 		))
 
 		table.insert(ArrayDao(
 			a = 5,
 			stringList = listOf("d", "e", "f"),
-			arrayList = emptyArray()
+			arrayList = emptyList()
 		))
 
 		connection.driver.setSqlLogger(ConsoleSqlLogger)
@@ -48,6 +49,6 @@ class ArrayTest {
 		assertContentEquals(listOf("a", "b", "c"), result.stringList)
 
 		assertEquals(3, result.arrayList.size)
-		assertArrayEquals(arrayOf(listOf("a", "b"), listOf("c", "d"), listOf("e")), result.arrayList)
+		assertArrayEquals(arrayOf(arrayOf("a", "b"), arrayOf("c", "d"), arrayOf("e")), result.arrayList.toTypedArray())
 	}
 }
