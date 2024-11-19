@@ -17,7 +17,7 @@ internal val CURRENT_TRANSACTION: ThreadLocal<Handle> = ThreadLocal()
 inline fun <reified T: Annotation> KProperty<*>.getDatabaseAnnotation(): T? = this.javaField?.getAnnotation(T::class.java)
 inline fun <reified T: Annotation> KProperty<*>.hasDatabaseAnnotation(): Boolean = getDatabaseAnnotation<T>() != null
 
-inline fun <reified T> createDummy() = Proxy.newProxyInstance(DatabaseConnection::class.java.classLoader, arrayOf(T::class.java)) { _, _, _ -> }
+inline fun <reified T> createDummy() = Proxy.newProxyInstance(DatabaseConnection::class.java.classLoader, arrayOf(T::class.java)) { _, _, _ -> } as T
 
 abstract class DatabaseConnection(
     @Suppress("UNUSED") val driver: Jdbi,
