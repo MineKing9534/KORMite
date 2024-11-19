@@ -16,6 +16,7 @@ import kotlin.test.assertTrue
 data class ArrayDao(
 	@AutoIncrement @Key @Column val id: Int = 0,
 	@Column val a: Int = 0,
+	@Column val intList: List<Int> = listOf(), //Just to ensure correct io for this
 	@Column val stringList: List<String> = emptyList(),
 	@Column val arrayList: List<Array<String>> = emptyList()
 )
