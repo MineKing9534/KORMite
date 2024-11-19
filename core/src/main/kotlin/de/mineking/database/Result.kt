@@ -18,10 +18,7 @@ interface QueryResult<T> {
     fun list(): List<T>
 
     fun first(): T
-    fun findFirst(): T? {
-        return try { first() }
-        catch (_: NoSuchElementException) { null }
-    }
+    fun findFirst(): T?
 
     fun stream(): Stream<T>
     fun <R> withStream(handler: (Stream<T>) -> R): R = stream().use(handler)
@@ -32,6 +29,7 @@ interface SimpleQueryResult<T>: QueryResult<T> {
 
     override fun list(): List<T> = execute { it.list() }
     override fun first(): T = execute { it.first() }
+    override fun findFirst(): T? = execute { it.findFirst().orElse(null) }
 
     /**
      * Note: The returned stream has to be closed by the user!

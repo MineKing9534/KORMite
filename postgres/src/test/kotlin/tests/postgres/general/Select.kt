@@ -3,6 +3,7 @@ package tests.postgres.general
 import de.mineking.database.*
 import de.mineking.database.vendors.postgres.PostgresConnection
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.assertThrows
 import setup.ConsoleSqlLogger
 import setup.UserDao
 import setup.recreate
@@ -10,7 +11,7 @@ import kotlin.test.assertContains
 import kotlin.test.assertEquals
 
 class SelectTest {
-	val connection = PostgresConnection("localhost:5432/test", user = "test", password = "test")
+	val connection = PostgresConnection("localhost:5432/slime", user = "slime", password = "password")
 	val table = connection.getTable(name = "basic_test") { UserDao() }
 
 	val users = listOf(
@@ -37,6 +38,24 @@ class SelectTest {
 	@Test
 	fun selectAll() {
 		assertEquals(5, table.select().list().size)
+	}
+
+	@Test
+	fun first() {
+		val result1 = table.select()
+		assertEquals(users[0], result1.first())
+
+		val result2 = table.select(where = Where.NONE)
+		assertThrows<IllegalStateException> { result2.first() }
+	}
+
+	@Test
+	fun findFirst() {
+		val result1 = table.select()
+		assertEquals(users[0], result1.findFirst())
+
+		val result2 = table.select(where = Where.NONE)
+		assertEquals(null, result2.findFirst())
 	}
 
 	@Test
