@@ -40,7 +40,7 @@ class ReferenceTest {
 	val tolkien = AuthorDao(name = "J.R.R. Tolkien", publisher = publisherB)
 
 	val hamlet = BookDao(title = "Hamlet", year = 1601, author = shakespeare, publisher = null)
-	val romeoAndJulia = BookDao(title = "Romeo and Julia", year = 1595, author = shakespeare, publisher = publisherA)
+	val romeoAndJuliet = BookDao(title = "Romeo and Juliet", year = 1595, author = shakespeare, publisher = publisherA)
 
 	val hobbit = BookDao(title = "The Hobbit", year = 1937, author = tolkien, publisher = publisherA)
 	val lotr = BookDao(title = "The Lord of the Rings", year = 1949, author = tolkien, publisher = publisherB)
@@ -58,7 +58,7 @@ class ReferenceTest {
 		authorTable.insert(tolkien)
 
 		bookTable.insert(hamlet)
-		bookTable.insert(romeoAndJulia)
+		bookTable.insert(romeoAndJuliet)
 
 		bookTable.insert(hobbit)
 		bookTable.insert(lotr)
@@ -73,7 +73,7 @@ class ReferenceTest {
 
 		assertEquals(5, result.size)
 
-		assertContentEquals(listOf(hamlet, romeoAndJulia, hobbit, lotr, silmarillion), result)
+		assertContentEquals(listOf(hamlet, romeoAndJuliet, hobbit, lotr, silmarillion), result)
 	}
 
 	@Test

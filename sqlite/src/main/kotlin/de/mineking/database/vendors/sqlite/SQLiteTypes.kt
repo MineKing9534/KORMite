@@ -145,9 +145,8 @@ object SQLiteMappers {
 
 				val ids = array.map { key.mapper.readFromBinary(column, key.type, it, context, name) }
 				val rows = column.reference!!.select(where = property<Any>(key.name).isIn(ids.map { value(it, key.type) })).list().associateBy { key.get(it) }
-				println(rows)
 
-				return type.createCollection(ids.map { rows[it] }.asArray())
+				return type.createCollection(ids.map { rows[it] }.createArray(component))
 			}
 		}
 

@@ -153,8 +153,9 @@ object PostgresMappers {
 		override fun parse(column: DirectColumnData<*, *>?, type: KType, value: Array<*>?, context: ReadContext, name: String): Any? {
 			if (value == null) return null
 
+			val component = type.component()
+
 			if (column?.reference == null) {
-				val component = type.component()
 				val mapper = context.table.manager.getTypeMapper<Any?, Any?>(component, if (column is DirectColumnData) column.property else null) ?: throw IllegalArgumentException("No TypeMapper found for $component")
 
 				return type.createCollection(value
@@ -168,7 +169,7 @@ object PostgresMappers {
 
 				val rows = column.reference!!.select(where = value(value.filterNotNull(), List::class.createType(arguments = listOf(KTypeProjection(KVariance.INVARIANT, key.type)))) contains property(key.name)).list().associateBy { key.get(it) }
 
-				return type.createCollection(value.map { rows[it] }.asArray())
+				return type.createCollection(value.map { rows[it] }.createArray(component))
 			}
 		}
 	}
