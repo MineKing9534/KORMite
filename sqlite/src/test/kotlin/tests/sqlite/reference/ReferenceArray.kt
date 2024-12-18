@@ -12,7 +12,8 @@ import kotlin.test.assertContentEquals
 
 data class ReferenceArrayDao(
 	@AutoIncrement @Key @Column val id: Int = 0,
-	@Reference("book_test") @Column val books: List<BookDao?> = emptyList()
+	@Reference("book_test") @Column val books: List<BookDao?> = emptyList(),
+	@Reference("book_test") @Column val book_array: Array<out BookDao?> = emptyArray()
 )
 
 class ReferenceArrayTest {
@@ -29,11 +30,14 @@ class ReferenceArrayTest {
 	val tolkien = AuthorDao(name = "J.R.R. Tolkien", publisher = publisherB)
 
 	val hamlet = BookDao(title = "Hamlet", year = 1601, author = shakespeare, publisher = null)
-	val romeoAndJulia = BookDao(title = "Romeo and Julia", year = 1595, author = shakespeare, publisher = publisherA)
+	val romeoAndJuliet = BookDao(title = "Romeo and Juliet", year = 1595, author = shakespeare, publisher = publisherA)
 
 	val hobbit = BookDao(title = "The Hobbit", year = 1937, author = tolkien, publisher = publisherA)
 	val lotr = BookDao(title = "The Lord of the Rings", year = 1949, author = tolkien, publisher = publisherB)
 	val silmarillion = BookDao(title = "Silmarillion", year = 1977, author = tolkien, publisher = publisherB)
+
+	val firstTestList = arrayOf(hamlet, romeoAndJuliet, null, hamlet)
+	val secondTestList = arrayOf(hobbit, lotr, silmarillion, lotr, hobbit, hamlet)
 
 	init {
 		publisherTable.recreate()
@@ -48,14 +52,14 @@ class ReferenceArrayTest {
 		authorTable.insert(tolkien)
 
 		bookTable.insert(hamlet)
-		bookTable.insert(romeoAndJulia)
+		bookTable.insert(romeoAndJuliet)
 
 		bookTable.insert(hobbit)
 		bookTable.insert(lotr)
 		bookTable.insert(silmarillion)
 
-		referenceTable.insert(ReferenceArrayDao(books = listOf(hamlet, romeoAndJulia, null, hamlet)))
-		referenceTable.insert(ReferenceArrayDao(books = listOf(hobbit, lotr, silmarillion, lotr, hobbit, hamlet)))
+		referenceTable.insert(ReferenceArrayDao(books = firstTestList.toList(), book_array = firstTestList))
+		referenceTable.insert(ReferenceArrayDao(books = secondTestList.toList(), book_array = secondTestList))
 
 		connection.driver.setSqlLogger(ConsoleSqlLogger)
 	}
@@ -64,7 +68,10 @@ class ReferenceArrayTest {
 	fun selectAll() {
 		val result = referenceTable.select().list()
 
-		assertContentEquals(listOf(hamlet, romeoAndJulia, null, hamlet), result[0].books)
-		assertContentEquals(listOf(hobbit, lotr, silmarillion, lotr, hobbit, hamlet), result[1].books)
+		assertContentEquals(firstTestList.toList(), result[0].books)
+		assertContentEquals(firstTestList.toList(), result[0].book_array.toList())
+
+		assertContentEquals(secondTestList.toList(), result[1].books)
+		assertContentEquals(secondTestList.toList(), result[1].book_array.toList())
 	}
 }

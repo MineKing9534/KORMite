@@ -9,7 +9,7 @@ import org.jdbi.v3.core.statement.StatementContext
 fun createConnection() = SQLiteConnection("test.db")
 
 object ConsoleSqlLogger : SqlLogger {
-	val logger = KotlinLogging.logger {}
+	private val logger = KotlinLogging.logger {}
 
 	override fun logBeforeExecution(context: StatementContext?) {
 		logger.info(context!!.renderedSql)
