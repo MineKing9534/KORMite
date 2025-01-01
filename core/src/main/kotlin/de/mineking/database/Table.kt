@@ -35,6 +35,8 @@ interface Table<T: Any> {
 	fun delete(obj: T) = delete(identifyObject(obj))
 }
 
+fun <T> Table<*>.data(name: String) = structure.manager.data<T>(name)
+
 inline fun <reified T> Table<*>.selectValue(target: Node<T>, where: Where = Where.EMPTY, order: Order? = null, limit: Int? = null, offset: Int? = null): QueryResult<T> = selectValue(target, typeOf<T>(), where, order, limit, offset)
 
 abstract class TableImplementation<T: Any>(
