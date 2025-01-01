@@ -379,6 +379,7 @@ data class TableStructure<T: Any>(
 	val manager: DatabaseConnection,
 	val name: String,
 	val namingStrategy: NamingStrategy,
+	val type: KClass<T>,
 	val columns: List<DirectColumnData<T, *>>
 ) {
 	fun getColumnFromDatabase(name: String): ColumnData<T, *>? = getAllColumns().find { it.name == name }

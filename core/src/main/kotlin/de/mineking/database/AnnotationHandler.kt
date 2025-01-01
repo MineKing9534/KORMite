@@ -52,11 +52,11 @@ object DefaultAnnotationHandlers {
 
     val SELECT = annotationHandler<Select> { type, function, args, _ ->
         val value = select(where = createCondition(function, args))
-        when {
-            type.jvmErasure.java == QueryResult::class.java -> value
-            type.jvmErasure.java == List::class.java -> value.list()
-            type.isMarkedNullable -> value.findFirst()
-            else -> value.first()
+        when (type.jvmErasure.java) {
+            QueryResult::class.java -> value
+            List::class.java -> value.list()
+            structure.type.java -> if (type.isMarkedNullable) value.findFirst() else value.first()
+            else -> error("Cannot produce $type as result")
         }
     }
 
@@ -64,9 +64,10 @@ object DefaultAnnotationHandlers {
         fun <T: Any> execute(table: TableImplementation<T>) = table.insert(createObject(table, function, args))
         val value = execute(this)
 
-        when {
-            type.jvmErasure.java == UpdateResult::class.java -> value
-            else -> value.getOrThrow()
+        when (type.jvmErasure.java) {
+            UpdateResult::class.java -> value
+            structure.type.java -> if (type.isMarkedNullable) value.value else value.getOrThrow()
+            else -> error("Cannot produce $type as result")
         }
     }
 
@@ -74,9 +75,10 @@ object DefaultAnnotationHandlers {
         fun <T: Any> execute(table: TableImplementation<T>) = table.upsert(createObject(table, function, args))
         val value = execute(this)
 
-        when {
-            type.jvmErasure.java == UpdateResult::class.java -> value
-            else -> value.getOrThrow()
+        when (type.jvmErasure.java) {
+            UpdateResult::class.java -> value
+            structure.type.java -> if (type.isMarkedNullable) value.value else value.getOrThrow()
+            else -> error("Cannot produce $type as result")
         }
     }
 
@@ -87,17 +89,20 @@ object DefaultAnnotationHandlers {
             .map { (index, param) -> property<Any>(param.getAnnotation(Parameter::class.java)!!.name.takeIf { it.isNotBlank() } ?: param.name) to value(args[index]) }
 
         val value = update(columns = updates.toTypedArray(), where = createCondition(function, args))
-        when {
-            type.jvmErasure.java == UpdateResult::class.java -> value
-            else -> value.getOrThrow()
+        when (type.jvmErasure.java) {
+            UpdateResult::class.java -> value
+            Int::class.java -> if (type.isMarkedNullable) value.value else value.getOrThrow()
+            Boolean::class.java -> (if (type.isMarkedNullable) value.value ?: 0 else value.getOrThrow()) > 0
+            else -> error("Cannot produce $type as result")
         }
     }
 
     val DELETE = annotationHandler<Delete> { type, function, args, _ ->
         val value = delete(where = createCondition(function, args))
-        when {
-            type.jvmErasure.java == Boolean::class.java -> value > 0
-            else -> value
+        when (type.jvmErasure.java) {
+            Int::class.java -> value
+            Boolean::class.java -> value > 0
+            else -> error("Cannot produce $type as result")
         }
     }
 }

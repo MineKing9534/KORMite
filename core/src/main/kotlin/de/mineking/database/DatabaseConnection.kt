@@ -45,7 +45,7 @@ abstract class DatabaseConnection(
         namingStrategy: NamingStrategy = defaultNamingStrategy
     ): TableStructure<T> {
         val columns = arrayListOf<DirectColumnData<T, *>>()
-        val table = TableStructure(this, name, namingStrategy, columns)
+        val table = TableStructure(this, name, namingStrategy, type, columns)
 
         fun <C> createColumn(property: KProperty1<T, C>): DirectColumnData<T, C> {
             val nameOverride = property.getDatabaseAnnotation<Column>()?.name?.takeIf { it.isNotBlank() }
