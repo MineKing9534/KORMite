@@ -25,6 +25,7 @@ abstract class DatabaseConnection(
 ) {
     val data: MutableMap<String, Any> = mutableMapOf()
     val typeMappers: MutableList<TypeMapper<*, *>> = arrayListOf()
+    val annotationHandlers: MutableList<AnnotationHandler> = DefaultAnnotationHandlers::class.memberProperties.map { it.get(DefaultAnnotationHandlers) as AnnotationHandler }.toMutableList()
 
     var autoGenerate: (ColumnData<*, *>) -> String = { error("No default autogenerate configured") }
 
