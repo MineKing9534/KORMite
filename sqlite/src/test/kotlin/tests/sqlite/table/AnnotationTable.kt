@@ -1,6 +1,7 @@
 package tests.sqlite.table
 
 import de.mineking.database.*
+import org.junit.jupiter.api.Assertions.assertTrue
 import setup.ConsoleSqlLogger
 import setup.UserDao
 import setup.createConnection
@@ -22,7 +23,7 @@ interface AnnotationTable : Table<UserDao> {
     fun deleteUser(@Condition email: String): Int
 
     @Delete
-    fun deleteUser(@Condition id: Int): Int
+    fun deleteUser(@Condition id: Int): Boolean
 
     @Update
     fun update(@Condition id: Int, @Parameter name: String): Int
@@ -62,7 +63,7 @@ class AnnotationTableTest {
     @Test
     fun delete() {
         assertEquals(1, table.deleteUser("alex@example.com"))
-        assertEquals(1, table.deleteUser(1))
+        assertTrue(table.deleteUser(1))
 
         assertEquals(3, table.selectRowCount())
     }

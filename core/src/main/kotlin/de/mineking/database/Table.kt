@@ -348,7 +348,13 @@ abstract class TableImplementation<T: Any>(
 				}
 			}
 
-			method.isAnnotationPresent(Delete::class.java) -> return delete(where = createCondition())
+			method.isAnnotationPresent(Delete::class.java) -> {
+				val result = delete(where = createCondition())
+				return when {
+					method.returnType == Boolean::class.java -> result > 0
+					else -> result
+				}
+			}
 		}
 
 		return try {
