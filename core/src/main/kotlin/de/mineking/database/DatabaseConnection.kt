@@ -25,6 +25,7 @@ abstract class DatabaseConnection(
 ) {
     val data: MutableMap<String, Any> = mutableMapOf()
     val typeMappers: MutableList<TypeMapper<*, *>> = arrayListOf()
+    val annotationHandlers: MutableList<AnnotationHandler> = DefaultAnnotationHandlers::class.memberProperties.map { it.get(DefaultAnnotationHandlers) as AnnotationHandler }.toMutableList()
 
     var autoGenerate: (ColumnData<*, *>) -> String = { error("No default autogenerate configured") }
 
@@ -44,7 +45,7 @@ abstract class DatabaseConnection(
         namingStrategy: NamingStrategy = defaultNamingStrategy
     ): TableStructure<T> {
         val columns = arrayListOf<DirectColumnData<T, *>>()
-        val table = TableStructure(this, name, namingStrategy, columns)
+        val table = TableStructure(this, name, namingStrategy, type, columns)
 
         fun <C> createColumn(property: KProperty1<T, C>): DirectColumnData<T, C> {
             val nameOverride = property.getDatabaseAnnotation<Column>()?.name?.takeIf { it.isNotBlank() }

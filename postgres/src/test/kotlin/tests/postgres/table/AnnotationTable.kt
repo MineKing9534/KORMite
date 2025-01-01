@@ -27,6 +27,9 @@ interface AnnotationTable : Table<UserDao> {
 
     @Update
     fun update(@Condition id: Int, @Parameter name: String): Int
+
+    @Select
+    fun modifiedSelect(): Set<UserDao> = execute<List<UserDao>>().toSet()
 }
 
 class AnnotationTableTest {
@@ -74,5 +77,10 @@ class AnnotationTableTest {
         assertEquals(1, table.update(1, "Test"))
 
         assertEquals("Test", table.getUserByEmail("tom@example.com")?.name)
+    }
+
+    @Test
+    fun modifiedSelect() {
+        assertEquals(table.getAllUsers().toSet(), table.modifiedSelect())
     }
 }

@@ -288,84 +288,35 @@ abstract class TableImplementation<T: Any>(
 
 	override fun invoke(proxy: Any?, method: Method?, args: Array<out Any?>?): Any? {
 		require(method != null)
+		val args = args ?: emptyArray()
 
-		fun createCondition() = allOf(if (args == null) emptyList() else method.parameters
-			.mapIndexed { index, value -> index to value }
-			.filter { (_, it) -> it.isAnnotationPresent(Condition::class.java) }
-			.map { (index, param) -> property<Any>(param.getAnnotation(Condition::class.java)!!.name.takeIf { it.isNotBlank() } ?: param.name) + " ${ param.getAnnotation(Condition::class.java)!!.operation } " + value(args[index]) }
-			.map { Where(it) }
-		)
-
-		when {
-			method.isAnnotationPresent(Select::class.java) -> {
-				val result = select(where = createCondition())
-
-				return when {
-					method.returnType == QueryResult::class.java -> result
-					method.returnType == List::class.java -> result.list()
-					method.kotlinFunction?.returnType?.isMarkedNullable == true -> result.findFirst()
-					else -> result.first()
-				}
-			}
-
-			method.isAnnotationPresent(Insert::class.java) || method.isAnnotationPresent(Upsert::class.java) -> {
-				require(args != null)
-
-				val obj = instance()
-
-				method.parameters
-					.mapIndexed { index, value -> index to value }
-					.filter { (_, it) -> it.isAnnotationPresent(Parameter::class.java) }
-					.forEach { (index, param) ->
-						val name = param.getAnnotation(Parameter::class.java)!!.name.takeIf { it.isNotBlank() } ?: param.name
-
-						@Suppress("UNCHECKED_CAST")
-						val column = structure.getColumnFromCode(name) as DirectColumnData<T, Any>? ?: error("Column $name not found")
-						val value = args[index]
-
-						column.set(obj, value)
-					}
-
-				val result = if (method.isAnnotationPresent(Insert::class.java)) insert(obj) else upsert(obj)
-				return when {
-					method.returnType == UpdateResult::class.java -> result
-					else -> result.getOrThrow()
-				}
-			}
-
-			method.isAnnotationPresent(Update::class.java) -> {
-				require(args != null)
-
-				val updates = method.parameters
-					.mapIndexed { index, value -> index to value }
-					.filter { (_, it) -> it.isAnnotationPresent(Parameter::class.java) }
-					.map { (index, param) -> property<Any>(param.getAnnotation(Parameter::class.java)!!.name.takeIf { it.isNotBlank() } ?: param.name) to value(args[index]) }
-
-				val result = update(columns = updates.toTypedArray(), where = createCondition())
-				return when {
-					method.returnType == UpdateResult::class.java -> result
-					else -> result.getOrThrow()
-				}
-			}
-
-			method.isAnnotationPresent(Delete::class.java) -> {
-				val result = delete(where = createCondition())
-				return when {
-					method.returnType == Boolean::class.java -> result > 0
-					else -> result
-				}
-			}
+		val annotationHandler = structure.manager.annotationHandlers.find { it.accepts(this, method, args) }
+		if (annotationHandler != null) {
+			ANNOTATION_EXECUTOR.set { annotationHandler.execute(this, it, method, args) }
+			return invokeDefault(type, method, proxy, args) { execute(method.kotlinFunction!!.returnType) }
 		}
 
 		return try {
-			javaClass.getMethod(method.name, *method.parameterTypes).invoke(this, *(args ?: emptyArray()))
+			javaClass.getMethod(method.name, *method.parameterTypes).invoke(this, *args)
 		} catch(_: NoSuchMethodException) {
-			type.java.classes.find { it.simpleName == "DefaultImpls" }?.getMethod(method.name, type.java, *method.parameterTypes)?.invoke(null, proxy, *(args ?: emptyArray()))
+			invokeDefault(type, method, proxy, args) { throw RuntimeException(it) }
 		} catch(e: IllegalAccessException) {
 			throw RuntimeException(e)
 		} catch(e: InvocationTargetException) {
 			throw e.cause!!
 		}
+	}
+}
+
+private fun invokeDefault(type: KClass<*>, method: Method, instance: Any?, args: Array<out Any?>, default: (e: NoSuchMethodException) -> Any?): Any? {
+	return try {
+		type.java.classes.find { it.simpleName == "DefaultImpls" }?.getMethod(method.name, type.java, *method.parameterTypes)?.invoke(null, instance, *args)
+	} catch (e: IllegalAccessException) {
+		throw RuntimeException(e)
+	} catch (e: NoSuchMethodException) {
+		default(e)
+	} catch (e: InvocationTargetException) {
+		throw e.cause!!
 	}
 }
 
@@ -428,6 +379,7 @@ data class TableStructure<T: Any>(
 	val manager: DatabaseConnection,
 	val name: String,
 	val namingStrategy: NamingStrategy,
+	val type: KClass<T>,
 	val columns: List<DirectColumnData<T, *>>
 ) {
 	fun getColumnFromDatabase(name: String): ColumnData<T, *>? = getAllColumns().find { it.name == name }
