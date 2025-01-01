@@ -32,6 +32,9 @@ abstract class DatabaseConnection(
     private val tables = hashMapOf<String, Table<*>>()
 
     @Suppress("UNCHECKED_CAST")
+    fun <T> data(name: String) = data[name] as T
+
+    @Suppress("UNCHECKED_CAST")
     private fun <T: Any, W: Table<T>> createTableInstance(type: KClass<W>, structure: TableStructure<T>, instance: () -> T) = Proxy.newProxyInstance(type.java.classLoader, arrayOf(type.java), createTableImplementation(type, structure, instance)) as W
     protected abstract fun <T: Any> createTableImplementation(type: KClass<*>, structure: TableStructure<T>, instance: () -> T): TableImplementation<T>
 
