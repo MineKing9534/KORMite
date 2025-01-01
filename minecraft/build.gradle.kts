@@ -17,3 +17,12 @@ dependencies {
     testImplementation("ch.qos.logback:logback-classic:1.5.8")
     testImplementation("io.github.microutils:kotlin-logging-jvm:2.0.11")
 }
+
+kotlin {
+    jvmToolchain(21)
+}
+
+java {
+    sourceCompatibility = JavaVersion.VERSION_21
+    targetCompatibility = JavaVersion.VERSION_21
+}
