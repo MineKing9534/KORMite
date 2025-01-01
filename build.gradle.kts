@@ -12,6 +12,7 @@ plugins {
 group = "de.mineking"
 version = "1.3.0"
 
+val jvmVersion = 17
 val release = System.getenv("RELEASE") == "true"
 
 allprojects {
@@ -25,11 +26,6 @@ allprojects {
 	repositories {
 		mavenCentral()
 	}
-
-	java {
-        withJavadocJar()
-        withSourcesJar()
-    }
 
 	dependencies {
 		testReportAggregation(project(":postgres"))
@@ -75,12 +71,15 @@ allprojects {
 	}
 
 	kotlin {
-		jvmToolchain(21)
+		jvmToolchain(jvmVersion)
 	}
 
 	java {
-		sourceCompatibility = JavaVersion.VERSION_21
-		targetCompatibility = JavaVersion.VERSION_21
+		sourceCompatibility = JavaVersion.toVersion(jvmVersion)
+		targetCompatibility = JavaVersion.toVersion(jvmVersion)
+
+		withJavadocJar()
+		withSourcesJar()
 	}
 }
 

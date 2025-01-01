@@ -41,12 +41,12 @@ dependencies {
 ## Vendors
 The core library only contains the infrastructure for type mapping etc. To actually connect to a database and work with it, you also need the dependency for the database vendor you use, that then contains the actual implementation for SQL generation etc.
 
-For PostgreSQL (recommended), you can use `de.mineking:KORMite-postgres:VERSION`.
+For PostgreSQL (recommended), you can use `de.mineking.KORMite:KORMite-postgres:VERSION`.
 
-If you want to use SQLite instead, you can use `de.mineking:KORMite-sqlite:VERSION`.
+If you want to use SQLite instead, you can use `de.mineking.KORMite:KORMite-sqlite:VERSION`.
 
 ## Extensions
-There are extensions for discord and minecraft available that provide TypeMappers for some types for the corresponding platform. You can get these from `de.mineking:KORMite-discord:VERSION` for JDA or `de.mineking:KORMite-minecraft:VERSION` for Paper. 
+There are extensions for discord and minecraft available that provide TypeMappers for some types for the corresponding platform. You can get these from `de.mineking.KORMite:KORMite-discord:VERSION` for JDA or `de.mineking.KORMite:KORMite-minecraft:VERSION` for Paper. 
 
 ## Usage
 The basic usage looks like this:
