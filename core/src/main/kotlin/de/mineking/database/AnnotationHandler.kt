@@ -2,7 +2,11 @@ package de.mineking.database
 
 import java.lang.reflect.Method
 import kotlin.reflect.KType
+import kotlin.reflect.full.findAnnotation
+import kotlin.reflect.full.hasAnnotation
+import kotlin.reflect.full.valueParameters
 import kotlin.reflect.jvm.jvmErasure
+import kotlin.reflect.jvm.kotlinFunction
 import kotlin.reflect.typeOf
 
 val ANNOTATION_EXECUTOR = ThreadLocal<(type: KType) -> Any?>()
@@ -27,24 +31,38 @@ object DefaultAnnotationHandlers {
     fun createCondition(method: Method, args: Array<out Any?>) = allOf(method.parameters
         .mapIndexed { index, value -> index to value }
         .filter { (_, it) -> it.isAnnotationPresent(Condition::class.java) }
-        .map { (index, param) -> property<Any>(param.getAnnotation(Condition::class.java)!!.name.takeIf { it.isNotBlank() } ?: param.name) + param.getAnnotation(Condition::class.java)!!.operation + value(args[index]) }
+        .map { (index, param) ->
+            property<Any>(param.getAnnotation(Condition::class.java)!!.name.takeIf { it.isNotBlank() } ?: param.name) +
+            param.getAnnotation(Condition::class.java)!!.operation +
+            value(args[index], method.kotlinFunction!!.valueParameters[index].type)
+        }
         .map { Where(it) }
     )
 
     fun <T: Any> createObject(table: TableImplementation<T>, method: Method, args: Array<out Any?>): T {
         val obj = table.instance()
 
-        method.parameters
+        method.kotlinFunction!!.valueParameters
             .mapIndexed { index, value -> index to value }
-            .filter { (_, it) -> it.isAnnotationPresent(Parameter::class.java) }
+            .filter { (_, it) -> it.hasAnnotation<Parameter>() }
             .forEach { (index, param) ->
-                val name = param.getAnnotation(Parameter::class.java)!!.name.takeIf { it.isNotBlank() } ?: param.name
+                val name = param.findAnnotation<Parameter>()!!.name.takeIf { it.isNotBlank() } ?: param.name!!
 
                 @Suppress("UNCHECKED_CAST")
-                val column = table.structure.getColumnFromCode(name) as DirectColumnData<Any, Any>? ?: error("Column $name not found")
+                val column = table.structure.getColumnFromCode(name) as DirectColumnData<Any, Any?>? ?: error("Column $name not found")
                 val value = args[index]
 
-                column.set(obj, value)
+                try {
+                    //Try direct
+                    column.set(obj, value)
+                } catch(_: IllegalArgumentException) {
+                    @Suppress("UNCHECKED_CAST")
+                    //Try parsing with column mapper
+                    column.set(obj, (column.mapper as TypeMapper<*, Any?>).parse(column, param.type, value, ReadContext(obj, table.structure, createDummy(), emptyList()), ""))
+                } catch(_: IllegalArgumentException) {
+                    //Try formatting with value mapper
+                    column.set(obj, table.structure.manager.getTypeMapper<Any?, Any>(param.type, null)!!.format(column, table.structure, param.type, value))
+                }
             }
 
         return obj
@@ -88,7 +106,10 @@ object DefaultAnnotationHandlers {
         val updates = function.parameters
             .mapIndexed { index, value -> index to value }
             .filter { (_, it) -> it.isAnnotationPresent(Parameter::class.java) }
-            .map { (index, param) -> property<Any>(param.getAnnotation(Parameter::class.java)!!.name.takeIf { it.isNotBlank() } ?: param.name) to value(args[index]) }
+            .map { (index, param) ->
+                property<Any>(param.getAnnotation(Parameter::class.java)!!.name.takeIf { it.isNotBlank() } ?: param.name) to
+                value(args[index], function.kotlinFunction!!.valueParameters[index].type)
+            }
 
         val value = update(columns = updates.toTypedArray(), where = createCondition(function, args))
         when (type.jvmErasure.java) {
