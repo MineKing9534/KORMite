@@ -1,5 +1,7 @@
 package de.mineking.database
 
+import kotlin.reflect.KClass
+
 @Target(AnnotationTarget.FIELD)
 @Retention(AnnotationRetention.RUNTIME)
 annotation class Column(val name: String = "")
@@ -41,6 +43,10 @@ annotation class Condition(val name: String = "", val operation: String = " = ")
 @Target(AnnotationTarget.FUNCTION)
 @Retention(AnnotationRetention.RUNTIME)
 annotation class Select
+
+@Target(AnnotationTarget.FUNCTION)
+@Retention(AnnotationRetention.RUNTIME)
+annotation class SelectValue(val value: String, val type: KClass<*> = Unit::class, val typeParameters: Array<KClass<*>> = [])
 
 @Target(AnnotationTarget.FUNCTION)
 @Retention(AnnotationRetention.RUNTIME)

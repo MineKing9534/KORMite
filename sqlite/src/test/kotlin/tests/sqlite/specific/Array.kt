@@ -28,12 +28,14 @@ class ArrayTest {
 
 		table.insert(ArrayDao(
 			a = 0,
+			intList = listOf(1, 2, 3),
 			stringList = listOf("a", "b", "c"),
 			arrayList = listOf(arrayOf("a", "b"), arrayOf("c", "d"), arrayOf("e"))
 		))
 
 		table.insert(ArrayDao(
 			a = 5,
+			intList = listOf(1, 2, 3),
 			stringList = listOf("d", "e", "f"),
 			arrayList = emptyList()
 		))

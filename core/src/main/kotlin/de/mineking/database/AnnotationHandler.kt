@@ -2,6 +2,8 @@ package de.mineking.database
 
 import java.lang.reflect.Method
 import kotlin.reflect.KType
+import kotlin.reflect.KTypeProjection
+import kotlin.reflect.full.createType
 import kotlin.reflect.full.findAnnotation
 import kotlin.reflect.full.hasAnnotation
 import kotlin.reflect.full.valueParameters
@@ -73,7 +75,24 @@ object DefaultAnnotationHandlers {
         when (type.jvmErasure.java) {
             QueryResult::class.java -> value
             List::class.java -> value.list()
+            Set::class.java -> value.list().toSet()
             structure.component.java -> if (type.isMarkedNullable) value.findFirst() else value.first()
+            else -> error("Cannot produce $type as result")
+        }
+    }
+
+    val SELECT_VALUE = annotationHandler<SelectValue> { type, function, args, annotation ->
+        val valueType =
+            if (annotation.type == Unit::class) structure.getColumnFromCode(annotation.value)?.type ?: error("Cannot find ${ annotation.value } as column")
+            else annotation.type.createType(annotation.typeParameters.mapIndexed { i, _ -> KTypeProjection.invariant(annotation.typeParameters[i].createType()) })
+        val value = selectValue(unsafeNode(annotation.value), valueType, where = createCondition(function, args))
+
+        if (type == valueType) return@annotationHandler if (type.isMarkedNullable) value.findFirst() else value.first()
+
+        when (type.jvmErasure.java) {
+            QueryResult::class.java -> value
+            List::class.java -> value.list()
+            Set::class.java -> value.list().toSet()
             else -> error("Cannot produce $type as result")
         }
     }

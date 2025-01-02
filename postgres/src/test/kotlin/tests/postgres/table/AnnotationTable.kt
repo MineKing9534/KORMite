@@ -7,31 +7,21 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 
 interface IdentifiableTable<T: Identifiable> : Table<T> {
-    @Select
-    fun getById(@Condition id: Int): T?
+    @Select fun getById(@Condition id: Int): T?
 }
 
 interface AnnotationTable : IdentifiableTable<UserDao> {
-    @Select
-    fun getAllUsers(): List<UserDao>
+    @Insert fun createUser(@Parameter name: String, @Parameter email: String, @Parameter age: Int): UserDao
 
-    @Select
-    fun getUserByEmail(@Condition email: String): UserDao?
+    @Select fun getAllUsers(): List<UserDao>
+    @Select fun getUserByEmail(@Condition email: String): UserDao?
+    @Select fun modifiedSelect(): Set<UserDao> = execute<List<UserDao>>().toSet()
+    @SelectValue("name", String::class) fun selectValue(): List<String>
 
-    @Insert
-    fun createUser(@Parameter name: String, @Parameter email: String, @Parameter age: Int): UserDao
+    @Update fun update(@Condition id: Int, @Parameter name: String): Int
 
-    @Delete
-    fun deleteUser(@Condition email: String): Int
-
-    @Delete
-    fun deleteUser(@Condition id: Int): Boolean
-
-    @Update
-    fun update(@Condition id: Int, @Parameter name: String): Int
-
-    @Select
-    fun modifiedSelect(): Set<UserDao> = execute<List<UserDao>>().toSet()
+    @Delete fun deleteUser(@Condition email: String): Int
+    @Delete fun deleteUser(@Condition id: Int): Boolean
 }
 
 class AnnotationTableTest {
@@ -61,22 +51,24 @@ class AnnotationTableTest {
     }
 
     @Test
-    fun getByEmail() {
-        assertEquals("Tom", table.getUserByEmail("tom@example.com")?.name)
-    }
-
-    @Test
     fun getById() {
         assertEquals("Tom", table.getById(1)?.name)
         assertEquals(null, table.getById(6))
     }
 
     @Test
-    fun delete() {
-        assertEquals(1, table.deleteUser("alex@example.com"))
-        assertTrue(table.deleteUser(1))
+    fun getByEmail() {
+        assertEquals("Tom", table.getUserByEmail("tom@example.com")?.name)
+    }
 
-        assertEquals(3, table.selectRowCount())
+    @Test
+    fun selectValue() {
+        assertEquals(listOf("Tom", "Alex", "Bob", "Eve", "Max"), table.selectValue())
+    }
+
+    @Test
+    fun modifiedSelect() {
+        assertEquals(table.getAllUsers().toSet(), table.modifiedSelect())
     }
 
     @Test
@@ -88,7 +80,10 @@ class AnnotationTableTest {
     }
 
     @Test
-    fun modifiedSelect() {
-        assertEquals(table.getAllUsers().toSet(), table.modifiedSelect())
+    fun delete() {
+        assertEquals(1, table.deleteUser("alex@example.com"))
+        assertTrue(table.deleteUser(1))
+
+        assertEquals(3, table.selectRowCount())
     }
 }
