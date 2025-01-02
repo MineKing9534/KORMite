@@ -2,14 +2,16 @@ package tests.postgres.table
 
 import de.mineking.database.*
 import org.junit.jupiter.api.Assertions.assertTrue
-import setup.ConsoleSqlLogger
-import setup.UserDao
-import setup.createConnection
-import setup.recreate
+import setup.*
 import kotlin.test.Test
 import kotlin.test.assertEquals
 
-interface AnnotationTable : Table<UserDao> {
+interface IdentifiableTable<T: Identifiable> : Table<T> {
+    @Select
+    fun getById(@Condition id: Int): T?
+}
+
+interface AnnotationTable : IdentifiableTable<UserDao> {
     @Select
     fun getAllUsers(): List<UserDao>
 
@@ -61,6 +63,12 @@ class AnnotationTableTest {
     @Test
     fun getByEmail() {
         assertEquals("Tom", table.getUserByEmail("tom@example.com")?.name)
+    }
+
+    @Test
+    fun getById() {
+        assertEquals("Tom", table.getById(1)?.name)
+        assertEquals(null, table.getById(6))
     }
 
     @Test

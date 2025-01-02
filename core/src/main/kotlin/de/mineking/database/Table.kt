@@ -6,6 +6,8 @@ import java.lang.reflect.InvocationHandler
 import java.lang.reflect.InvocationTargetException
 import java.lang.reflect.Method
 import kotlin.reflect.*
+import kotlin.reflect.full.functions
+import kotlin.reflect.full.valueParameters
 import kotlin.reflect.jvm.javaField
 import kotlin.reflect.jvm.kotlinFunction
 
@@ -295,7 +297,11 @@ abstract class TableImplementation<T: Any>(
 		val annotationHandler = structure.manager.annotationHandlers.find { it.accepts(this, method, args) }
 		if (annotationHandler != null) {
 			ANNOTATION_EXECUTOR.set { annotationHandler.execute(this, it, method, args) }
-			return invokeDefault(type, method, proxy, args) { execute(method.kotlinFunction!!.returnType) }
+			return invokeDefault(type, method, proxy, args) {
+				execute(type.functions.firstOrNull {
+					it.name == method.name && it.valueParameters.map { p -> p.type } == method.kotlinFunction?.valueParameters?.map { p -> p.type }
+				}!!.returnType)
+			}
 		}
 
 		return try {
@@ -381,8 +387,8 @@ data class TableStructure<T: Any>(
 	val manager: DatabaseConnection,
 	val name: String,
 	val namingStrategy: NamingStrategy,
-	val type: KClass<T>,
-	val columns: List<DirectColumnData<T, *>>
+	val columns: List<DirectColumnData<T, *>>,
+	val component: KClass<T>
 ) {
 	fun getColumnFromDatabase(name: String): ColumnData<T, *>? = getAllColumns().find { it.name == name }
 	fun getColumnFromCode(name: String): DirectColumnData<T, *>? = columns.find { it.property.name == name }
