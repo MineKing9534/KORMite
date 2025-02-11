@@ -1,14 +1,16 @@
+![[Kotlin CI]](https://github.com/MineKing9534/KORMite/actions/workflows/beta.yml/badge.svg)
+![[Latest Version]](https://maven.mineking.dev/api/badge/latest/releases/de/mineking/KORMite/KORMite-core?prefix=v&name=Latest%20Version&color=0374b5)
+
 # KORMite
-KORMite is a library that aims to abstract database operations to simple kotlin functions. 
-Therefore, the library provides a `Table` interface with methods for database operations. 
-See [Usage](#usage) for a detailed explanation. 
+KORMite is a library that aims to abstract database operations to simple kotlin functions.
+Therefore, the library provides a `Table` interface with methods for database operations.
+See [Usage](#usage) for a detailed explanation.
 
 ## Installation
 KORMite is hosted on a custom repository at [https://maven.mineking.dev](https://maven.mineking.dev/#/releases/de/mineking/KORMite). Replace VERSION with the latest version (without the `v` prefix).
 Alternatively, you can download the artifacts from jitpack (not recommended).
 
 ### Gradle
-
 ```kotlin
 repositories {
     maven("https://maven.mineking.dev/releases")
@@ -20,7 +22,6 @@ dependencies {
 ```
 
 ### Maven
-
 ```xml
 <repositories>
     <repository>
@@ -46,7 +47,7 @@ For PostgreSQL (recommended), you can use `de.mineking.KORMite:KORMite-postgres:
 If you want to use SQLite instead, you can use `de.mineking.KORMite:KORMite-sqlite:VERSION`.
 
 ## Extensions
-There are extensions for discord and minecraft available that provide TypeMappers for some types for the corresponding platform. You can get these from `de.mineking.KORMite:KORMite-discord:VERSION` for JDA or `de.mineking.KORMite:KORMite-minecraft:VERSION` for Paper. 
+There are extensions for discord and minecraft available that provide TypeMappers for some types for the corresponding platform. You can get these from `de.mineking.KORMite:KORMite-discord:VERSION` for JDA or `de.mineking.KORMite:KORMite-minecraft:VERSION` for Paper.
 
 ## Usage
 The basic usage looks like this:
@@ -94,15 +95,15 @@ fun main() {
 }
 ```
 
-Conditions are bases on two parts: `Node`s and `Where`s. 
+Conditions are based on two parts: `Node`s and `Where`s.
 
 #### Nodes
-A node represents either a database column (`property`) or a constant passed as parameter (`value`).
-Nodes cna also be appended together using the `+` operator.
+A node represents either a database column (`property`) or a constant passed as a parameter (`value`).
+Nodes can also be appended together using the `+` operator.
 
 ##### property
 A property node will reference a database column. You can simply create a property node by calling `property(YouDaoClass::yourProperty)` (Referencing the kotlin property).
-This way the references will automatically infer the property type and stay always sync to your Dao-Classes.
+This way the references will automatically infer the property type and always stay synced to your Dao-Classes.
 
 You can also reference properties by name (`property<Type>("yourProperty")`). Note: you have to specify the kotlin property name, even if you passed a custom name in `@Column`.
 
@@ -120,19 +121,19 @@ You can specify any object here. As long as a [TypeMapper](#type-mappers) for th
 All values are passed using prepared statement, so you are safe to use them without having to worry about sql injection.
 
 #### Wheres
-Nodes can easily be converted to a where condition. You can simply call `Where(node)`. 
+Nodes can easily be converted to a where condition. You can simply call `Where(node)`.
 However, in most cases you shouldn't use this but instead make use of the default functions.
 
 For example `Where(property(UserDao::age) + " isEqualTo " + value(1))` can be written as `property(UserDao::age) isEqualTo value(1)`, because all default operations have (infix) functions available.
 
 ### SQL Functions
 Sometimes you want to use some SQL functions when selecting values or other operations. KORMite simply allows you to use SQL functions with the following syntax: `"yourFunction"(node1, node2, ...)`.
-Foe example to get the uppercase value of a string using the SQL `uppper` function you can do `"upper"(property(UserDao::name))`. This will be translated to `upper("users"."name")` (This will work for both value and property nodes).
+Foe example, to get the uppercase value of a string using the SQL `uppper` function you can do `"upper"(property(UserDao::name))`. This will be translated to `upper("users"."name")` (This will work for both value and property nodes).
 
-For the most basic SQL functions there are also default extension functions available. Instead of `"upper"(property(UserDao::name))` you can write `property(UserDao::name).uppercase()`. These extension functions are type sensitive tho, so you can only call the uppercase extension function on String properties.
+For the most basic SQL functions there are also default extension functions available. Instead of `"upper"(property(UserDao::name))` you can write `property(UserDao::name).uppercase()`. These extension functions are type sensitive, so you can only call the uppercase extension function on String properties.
 
 #### Postgres
-There are also some Postgres SQL features supported by default (only when importing the KORMite-postgres module as well): 
+There are also some Postgres SQL features supported by default (only when importing the KORMite-postgres module as well):
 - Array Indexing (`value(listOf(1, 2))[0]`, also supports nodes as indices. Note: The indexing is zero based and NOT 1 based like in SQL)
 - Array contains check (`value(listOf(1, 2)) contains value(1)`. Supports any combination of value and property nodes)
 - Array size (`value(listOf(1, 2)).size`)
@@ -153,7 +154,7 @@ fun main() {
 ```
 
 ### Multi-Column access
-You can also select only specific columns and still let them be automatically be converted to you Dao Class:
+You can also select only specific columns and still let them automatically be converted to you Dao Class:
 ```kotlin
 fun main() {
     //Your connection declaration...
@@ -164,7 +165,7 @@ fun main() {
 }
 ```
 
-This also allows you to modify you classes before selecting. For example:
+This also allows you to modify your classes before selecting. For example:
 ```kotlin
 fun main() {
     //Your connection declaration...
@@ -181,12 +182,11 @@ TypeMappers are used by this library to define how a kotlin property is mapped t
 For the basic types, this library already comes with a set of TypeMappers (otherwise you wouldn't be able to use it for even the simplest cases).
 These include numbers, string, booleans etc.
 
-Enums and arrays are also supported by default. 
-Enums are simply stored as strings. 
-Arrays, Lists and Sets will simply create a column with an array type. Every type will automatically support a corresponding array type by default, even for you custom type mappers.
+Enums and arrays are also supported by default. Enums are simply stored as strings.
+Arrays, Lists and Sets will simply create a column with an array type. Every type will automatically support a corresponding array type by default, even for your custom type mappers.
 
 #### Custom Type Mappers
-you can also register custom TypeMappers for you own classes, to be able to store them as a database column. You can either create an implementation of the TypeMapper interface directly, however, there are two functions to simply the process for easy cases: 
+you can also register custom TypeMappers for your own classes, to be able to store them as a database column. You can either create an implementation of the TypeMapper interface directly, however, there are two functions to simplify the process for easy cases:
 
 ```kotlin
 fun main() {
@@ -230,7 +230,7 @@ fun main() {
 ```
 
 ### Virtual Columns
-Virtual columns can be used to store additional information for a property in a different column in the database. 
+Virtual columns can be used to store additional information for a property in a different column in the database.
 An example are `Location`s in Minecraft, where you might want to store the location itself as an array of doubles and the world as a separate column. (This is already implemented in the minecraft extension)
 
 ```kotlin
@@ -243,11 +243,11 @@ fun main() {
 ```
 
 ### Data Objects
-DataObject is an interface that your row classes can implement to simplify some operations. 
-It allows calling `.insert()`, `.update()` and `.delete()` directly on the object. 
+DataObject is an interface that your row classes can implement to simplify some operations.
+It allows calling `.insert()`, `.update()` and `.delete()` directly on the object.
 It also has the methods `beforeWrite` and `afterRead` that you can override to listen to the corresponding event.
 
-Lastly, it has a utility method that allows you to select a list of rows from another table, that reference this object with some column.
+Lastly, it has a utility method that allows you to select a list of rows from another table which reference this object with some column.
 
 ### Custom Tables
 You can also create custom interfaces that allow you to predefine certain operations that can then be used later:
@@ -300,7 +300,9 @@ fun main() {
 }
 ```
 
-Note: Using the autogenerated functions with annotations required you to keep you parameter names. In gradle you can do this with:
+> [!WARNING]
+> Using the autogenerated functions with annotations requires you to keep you parameter names. In gradle you can do this with:
+
 ```gradle
 kotlin {
     compilerOptions {
@@ -308,4 +310,4 @@ kotlin {
     }
 }
 ```
-Alternatively you can pass the name of the property as parameter to @Parameter (e.g. `@Parameter(name = "id")`). The same applies to @Condition
+Alternatively, you can pass the name of the property as parameter to @Parameter (e.g. `@Parameter(name = "id")`). The same applies to `@Condition`.
