@@ -57,13 +57,13 @@ fun allOf(conditions: Collection<Where>): Where = object : Where {
     override fun values(table: TableStructure<*>): Map<String, Argument> = conditions.filter { it.get(table).isNotBlank() }.flatMap { it.values(table).map { it.key to it.value } }.toMap()
 }
 
-fun anyOf(vararg conditions: Where): Where = allOf(arrayListOf(*conditions))
+fun anyOf(vararg conditions: Where): Where = anyOf(arrayListOf(*conditions))
 fun anyOf(conditions: Collection<Where>): Where = object : Where {
     override fun get(table: TableStructure<*>): String = conditions.filter { it.get(table).isNotBlank() }.joinToString(" or ") { "(${it.get(table)})" }
     override fun values(table: TableStructure<*>): Map<String, Argument> = conditions.filter { it.get(table).isNotBlank() }.flatMap { it.values(table).map { it.key to it.value } }.toMap()
 }
 
-fun noneOf(vararg conditions: Where): Where = allOf(arrayListOf(*conditions))
+fun noneOf(vararg conditions: Where): Where = noneOf(arrayListOf(*conditions))
 fun noneOf(conditions: Collection<Where>): Where = object : Where {
     override fun get(table: TableStructure<*>): String = conditions.filter { it.get(table).isNotBlank() }.joinToString(" and ") { "not (${it.get(table)})" }
     override fun values(table: TableStructure<*>): Map<String, Argument> = conditions.filter { it.get(table).isNotBlank() }.flatMap { it.values(table).map { it.key to it.value } }.toMap()
