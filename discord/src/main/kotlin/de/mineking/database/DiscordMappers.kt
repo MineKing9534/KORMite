@@ -7,6 +7,7 @@ import net.dv8tion.jda.api.entities.emoji.CustomEmoji
 import org.jdbi.v3.core.argument.Argument
 import kotlin.reflect.KProperty
 import kotlin.reflect.KType
+import kotlin.reflect.full.isSubtypeOf
 import kotlin.reflect.typeOf
 
 enum class SnowflakeType(val getter: (JDA, Long) -> ISnowflake?) {
@@ -35,7 +36,7 @@ internal inline fun <reified T> DatabaseConnection.registerDiscordMappers(
 
 	if (enumMapper != null) {
 		typeMappers += object : TypeMapper<ISnowflake, T> {
-			override fun accepts(manager: DatabaseConnection, property: KProperty<*>?, type: KType): Boolean = type == typeOf<ISnowflake>() || type == typeOf<ISnowflake?>()
+			override fun accepts(manager: DatabaseConnection, property: KProperty<*>?, type: KType): Boolean = type.isSubtypeOf(typeOf<ISnowflake?>())
 			override fun getType(column: ColumnData<*, *>?, table: TableStructure<*>, type: KType): DataType = mapper.getType(column, table, type)
 
 			override fun <O : Any> initialize(column: DirectColumnData<O, *>, type: KType) {

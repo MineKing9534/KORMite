@@ -1,5 +1,7 @@
 dependencies {
     implementation(project(":core"))
+    implementation(kotlin("reflect"))
+
     implementation("org.jdbi:jdbi3-core:3.45.4")
     compileOnly("net.dv8tion:JDA:5.1.0")
 
