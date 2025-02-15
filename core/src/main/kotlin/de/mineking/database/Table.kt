@@ -150,9 +150,8 @@ abstract class TableImplementation<T: Any>(
 			return columns
 				.filterIsInstance<DirectColumnData<*, *>>()
 				.filter { it.reference != null }
-				.flatMap { createColumnList(it.reference!!.structure.getAllColumns(), prefix + it.name
-				) } +
-					(columns + columns.flatMap { if (it is DirectColumnData) it.getChildren() else emptyList() }).map { (prefix.joinToString(".").takeIf { it.isNotBlank() } ?: structure.name) to it.name }
+				.flatMap { createColumnList(it.reference!!.structure.getAllColumns(), prefix + it.name) } +
+				(columns + columns.flatMap { if (it is DirectColumnData) it.getChildren() else emptyList() }).map { (prefix.joinToString(".").takeIf { it.isNotBlank() } ?: structure.name) to it.name }
 		}
 
 		val columnList = createColumnList(column?.column?.let { listOf(it) } ?: emptyList())

@@ -183,6 +183,7 @@ object PostgresMappers {
 			val reference = column.table.manager.getCachedTable<Any>(table)
 			column.reference = reference
 
+			require(reference.structure.name != column.table.name) { "Cannot create a self-reference" }
 			require(reference.structure.getKeys().size == 1) { "Can only reference a table with exactly one key" }
 		}
 
