@@ -50,7 +50,7 @@ class DeletedReferenceTest {
 	}
 
 	@Test
-	fun selectAll() {
+	fun select() {
 		val result = referenceTable.select().first()
 		assertEquals(null, result.user as UserDao?)
 		assertContentEquals(listOf("Max", "Eve", "Bob", null, null, null), result.users.map { it?.name })

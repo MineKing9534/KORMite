@@ -135,7 +135,7 @@ object DefaultAnnotationHandlers {
             Unit::class.java -> Unit
             UpdateResult::class.java -> value
             Int::class.java -> if (type.isMarkedNullable) value.value else value.getOrThrow()
-            Boolean::class.java -> (if (type.isMarkedNullable) value.value ?: 0 else value.getOrThrow()) > 0
+            Boolean::class.java -> (value.value ?: 0) > 0
             else -> error("Cannot produce $type as result")
         }
     }
