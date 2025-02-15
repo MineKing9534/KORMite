@@ -95,13 +95,14 @@ abstract class DatabaseConnection(
         val structure = getTableStructure(type, name, namingStrategy)
         val table = createTableInstance(table, structure, instance)
 
-        if (create) table.createTable()
         tables[name] = table
 
-        structure.columns.onEach {
+        structure.columns.forEach {
             fun <A: Any, B> init(column: DirectColumnData<A, B>) = column.mapper.initialize(column, column.type)
             init(it)
         }
+
+        if (create) table.createTable()
 
         return table
     }
