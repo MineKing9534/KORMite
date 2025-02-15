@@ -1,5 +1,6 @@
 package de.mineking.database
 
+import jdk.internal.org.jline.utils.InfoCmp.Capability.columns
 import org.jdbi.v3.core.Handle
 import org.jdbi.v3.core.Jdbi
 import org.jdbi.v3.core.kotlin.inTransactionUnchecked
@@ -68,11 +69,6 @@ abstract class DatabaseConnection(
             .map { createColumn(it) }
             .sortedBy { !it.key }
 
-        columns.onEach {
-            fun <A: Any, B> init(column: DirectColumnData<A, B>) = column.mapper.initialize(column, column.type)
-            init(it)
-        }
-
         require(columns.isNotEmpty()) { "Cannot create table with no columns" }
 
         return table
@@ -99,8 +95,14 @@ abstract class DatabaseConnection(
         val structure = getTableStructure(type, name, namingStrategy)
         val table = createTableInstance(table, structure, instance)
 
-        if (create) table.createTable()
         tables[name] = table
+
+        structure.columns.forEach {
+            fun <A: Any, B> init(column: DirectColumnData<A, B>) = column.mapper.initialize(column, column.type)
+            init(it)
+        }
+
+        if (create) table.createTable()
 
         return table
     }
