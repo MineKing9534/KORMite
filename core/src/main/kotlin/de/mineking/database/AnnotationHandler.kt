@@ -86,7 +86,8 @@ object DefaultAnnotationHandlers {
         val valueType =
             if (annotation.type == Unit::class) structure.getColumnFromCode(annotation.value)?.type ?: error("Cannot find ${ annotation.value } as column")
             else annotation.type.createType(annotation.typeParameters.mapIndexed { i, _ -> KTypeProjection.invariant(annotation.typeParameters[i].createType()) })
-        val value = selectValue(unsafeNode(annotation.value), valueType, where = createCondition(function, args))
+
+        val value = selectValue(property<Any?>(annotation.value), valueType, where = createCondition(function, args))
 
         if (valueType.isSubtypeOf(type)) return@annotationHandler if (type.isMarkedNullable) value.findFirst() else value.first()
 
