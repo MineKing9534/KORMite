@@ -6,6 +6,7 @@ import kotlin.reflect.KTypeProjection
 import kotlin.reflect.full.createType
 import kotlin.reflect.full.findAnnotation
 import kotlin.reflect.full.hasAnnotation
+import kotlin.reflect.full.isSubtypeOf
 import kotlin.reflect.full.valueParameters
 import kotlin.reflect.jvm.jvmErasure
 import kotlin.reflect.jvm.kotlinFunction
@@ -87,7 +88,7 @@ object DefaultAnnotationHandlers {
             else annotation.type.createType(annotation.typeParameters.mapIndexed { i, _ -> KTypeProjection.invariant(annotation.typeParameters[i].createType()) })
         val value = selectValue(unsafeNode(annotation.value), valueType, where = createCondition(function, args))
 
-        if (type == valueType) return@annotationHandler if (type.isMarkedNullable) value.findFirst() else value.first()
+        if (valueType.isSubtypeOf(type)) return@annotationHandler if (type.isMarkedNullable) value.findFirst() else value.first()
 
         when (type.jvmErasure.java) {
             QueryResult::class.java -> value
