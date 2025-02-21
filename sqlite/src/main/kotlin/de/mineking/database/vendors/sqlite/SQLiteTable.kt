@@ -38,12 +38,12 @@ class SQLiteTable<T: Any>(
 
 		structure.manager.driver.useHandleUnchecked { it.createQuery("select * from ${ structure.name } limit 1").execute { supplier, _ ->
 			val meta = supplier.get().resultSet.metaData
-			if (columns.size != meta.columnCount) logger.warn("Number of columns in code and database do not match (Code: ${ columns.size }, Database: ${ meta.columnCount })")
+			if (columns.size != meta.columnCount) logger.warn("[${structure.name}] Number of columns in code and database do not match (Code: ${ columns.size }, Database: ${ meta.columnCount })")
 			else for (i in 1 .. meta.columnCount) {
 				val name = meta.getColumnName(i)
 				val column = structure.getColumnFromDatabase(name)
 
-				if (column == null) logger.warn("Column $name from database not found in code")
+				if (column == null) logger.warn("[${structure.name}] Column $name from database not found in code")
 			}
 		} }
 	}
