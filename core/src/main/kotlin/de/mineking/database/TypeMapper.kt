@@ -18,11 +18,6 @@ interface DataType {
 	val sqlName: String
 
 	companion object {
-		val VALUE = object : DataType {
-			override val sqlName: String get() = error("This DataType cannot be used as type context")
-			override fun toString(): String = "VALUE"
-		}
-
 		fun of(name: String): DataType = object : DataType {
 			override val sqlName: String = name
 			override fun toString(): String = name
@@ -140,4 +135,25 @@ inline fun <reified T> binaryTypeMapper(
 
 	override fun toBinary(column: ColumnData<*, *>?, table: TableStructure<*>, type: KType, value: ByteArray): ByteArray = value
 	override fun fromBinary(column: DirectColumnData<*, *>?, type: KType, value: ByteArray, context: ReadContext, name: String): ByteArray = value
+}
+
+object ValueTypeMapper : SimpleTypeMapper<Any?> {
+	override fun accepts(
+		manager: DatabaseConnection,
+		property: KProperty<*>?,
+		type: KType
+	): Boolean = true
+
+	override fun getType(
+		column: ColumnData<*, *>?,
+		table: TableStructure<*>,
+		type: KType
+	): DataType = error("No suitable TypeMapper found for $type")
+
+	override fun extract(
+		column: DirectColumnData<*, *>?,
+		type: KType,
+		context: ReadContext,
+		name: String
+	): Any? = context.read(name, ResultSet::getObject)
 }

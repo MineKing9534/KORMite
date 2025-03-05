@@ -22,7 +22,7 @@ import kotlin.reflect.jvm.javaType
 import kotlin.reflect.jvm.jvmErasure
 
 object SQLiteMappers {
-	val ANY = typeMapper<Any>(DataType.VALUE, { _, _ -> error("No suitable TypeMapper for insertion found") }, { value, statement, pos -> statement.setObject(pos, value) })
+	val ANY = ValueTypeMapper
 
 	val BOOLEAN = nullSafeTypeMapper<Boolean>(SQLiteType.INTEGER, { set, name -> set.getInt(name) > 0 }, { value, statement, position -> statement.setInt(position, if (value) 1 else 0) })
 	val BYTE_ARRAy = typeMapper<ByteArray?>(SQLiteType.BLOB, { set, name -> set.getBytes(name) })
