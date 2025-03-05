@@ -8,7 +8,7 @@ fun interface Order {
     fun get(): String
     fun format(): String = get().takeIf { it.isNotBlank() }?.let { "order by $it" } ?: ""
 
-    infix fun and(other: Order): Order = Order { "${ this.get() }, ${ other.get() }" }
+    infix fun andThen(other: Order): Order = Order { "${ this.get() }, ${ other.get() }" }
 }
 
 fun ascendingBy(name: String) = Order { "\"$name\" asc" }
@@ -17,7 +17,7 @@ fun ascendingBy(property: KProperty<*>) = ascendingBy(property.name)
 fun descendingBy(name: String) = Order { "\"$name\" desc" }
 fun descendingBy(property: KProperty<*>) = descendingBy(property.name)
 
-interface Where {
+interface Where : Node<Any?> {
     companion object {
         val ALL = unsafe("true")
         val NONE = unsafe("false")
@@ -33,6 +33,9 @@ interface Where {
     fun format(table: TableStructure<*>): String = get(table).takeIf { it.isNotBlank() }?.let { "where $it" } ?: ""
 
     fun values(table: TableStructure<*>): Map<String, Argument> = emptyMap()
+
+    override fun format(table: TableStructure<*>, formatter: (ColumnInfo) -> String) = format(table)
+    override fun values(table: TableStructure<*>, column: ColumnData<*, *>?) = values(table)
 }
 
 infix fun Where.or(other: Where): Where = combine({ when {
@@ -52,19 +55,19 @@ operator fun Where.not(): Where = combine({ "not (${ get(it) })" }, this)
 fun unsafe(string: String) = object : Where { override fun get(table: TableStructure<*>) = string }
 
 fun allOf(vararg conditions: Where): Where = allOf(arrayListOf(*conditions))
-fun allOf(conditions: Collection<Where>): Where = object : Where {
+fun allOf(conditions: Collection<Where>): Where = if (conditions.isEmpty()) Where.EMPTY else object : Where {
     override fun get(table: TableStructure<*>): String = conditions.filter { it.get(table).isNotBlank() }.joinToString(" and ") { "(${it.get(table)})" }
     override fun values(table: TableStructure<*>): Map<String, Argument> = conditions.filter { it.get(table).isNotBlank() }.flatMap { it.values(table).map { it.key to it.value } }.toMap()
 }
 
 fun anyOf(vararg conditions: Where): Where = anyOf(arrayListOf(*conditions))
-fun anyOf(conditions: Collection<Where>): Where = object : Where {
+fun anyOf(conditions: Collection<Where>): Where = if (conditions.isEmpty()) Where.NONE else object : Where {
     override fun get(table: TableStructure<*>): String = conditions.filter { it.get(table).isNotBlank() }.joinToString(" or ") { "(${it.get(table)})" }
     override fun values(table: TableStructure<*>): Map<String, Argument> = conditions.filter { it.get(table).isNotBlank() }.flatMap { it.values(table).map { it.key to it.value } }.toMap()
 }
 
 fun noneOf(vararg conditions: Where): Where = noneOf(arrayListOf(*conditions))
-fun noneOf(conditions: Collection<Where>): Where = object : Where {
+fun noneOf(conditions: Collection<Where>): Where = if (conditions.isEmpty()) Where.EMPTY else object : Where {
     override fun get(table: TableStructure<*>): String = conditions.filter { it.get(table).isNotBlank() }.joinToString(" and ") { "not (${it.get(table)})" }
     override fun values(table: TableStructure<*>): Map<String, Argument> = conditions.filter { it.get(table).isNotBlank() }.flatMap { it.values(table).map { it.key to it.value } }.toMap()
 }
@@ -84,7 +87,8 @@ fun Where(node: Node<*>): Where = object : Where {
 infix fun Node<*>.isEqualTo(other: Node<*>) = Where(this + " = " + other)
 infix fun Node<*>.isNotEqualTo(other: Node<*>) = Where(this + " != " + other)
 
-infix fun Node<*>.isLike(other: String) = Where(this + " like '" + other + "'")
+infix fun Node<*>.isLike(other: Node<String>) = Where(this + " like " + other)
+infix fun Node<*>.isLikeIgnoreCase(other: Node<String>) = Where(this + " ilike " + other)
 
 fun Node<*>.isIn(nodes: Array<Node<*>>) = Where(this + " in (" + nodes.join() + ")")
 fun Node<*>.isIn(nodes: Collection<Node<*>>) = isIn(nodes.toTypedArray())
