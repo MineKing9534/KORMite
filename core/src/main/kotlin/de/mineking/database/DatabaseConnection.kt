@@ -5,6 +5,7 @@ import org.jdbi.v3.core.Jdbi
 import org.jdbi.v3.core.kotlin.inTransactionUnchecked
 import org.jdbi.v3.core.kotlin.withHandleUnchecked
 import java.lang.reflect.Proxy
+import java.util.WeakHashMap
 import kotlin.reflect.KClass
 import kotlin.reflect.KProperty
 import kotlin.reflect.KProperty1
@@ -92,18 +93,25 @@ abstract class DatabaseConnection(
         require(name !in tables) { "Table with that name already registered - Use getCachedTable" }
 
         val structure = getTableStructure(type, name, namingStrategy)
-        val table = createTableInstance(table, structure, instance)
 
-        tables[name] = table
+        lateinit var tableInstance: Table<T>
+        tableInstance = createTableInstance(table, structure) {
+            val instance = instance()
+            SOURCE_TABLE[instance] = tableInstance
+
+            instance
+        }
+
+        tables[name] = tableInstance
 
         structure.columns.forEach {
             fun <A: Any, B> init(column: DirectColumnData<A, B>) = column.mapper.initialize(column, column.type)
             init(it)
         }
 
-        if (create) table.createTable()
+        if (create) tableInstance.createTable()
 
-        return table
+        return tableInstance
     }
 
     @Suppress("UNCHECKED_CAST")
@@ -124,3 +132,7 @@ abstract class DatabaseConnection(
         else driver.withHandleUnchecked { action(it) }
     }
 }
+
+private val SOURCE_TABLE = WeakHashMap<Any, Table<*>>()
+@Suppress("UNCHECKED_CAST")
+val <T> T.sourceTable get() = SOURCE_TABLE[this] as Table<T>? ?: error("Could not find table for $this")
