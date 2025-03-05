@@ -1,6 +1,7 @@
 package de.mineking.database
 
 import org.jdbi.v3.core.argument.Argument
+import org.jdbi.v3.core.kotlin.isKotlinClass
 import kotlin.reflect.KProperty
 import kotlin.reflect.KProperty1
 import kotlin.reflect.KType
@@ -22,7 +23,7 @@ fun Array<out Node<*>>.join(delimiter: Node<*> = unsafeNode(", ")): Node<*> {
 	return result
 }
 
-operator fun String.invoke(vararg params: Node<*>) = unsafeNode(this) + "(" + params.join() + ")"
+operator fun String.invoke(vararg params: Node<*>) = Node.EMPTY + this + "(" + params.join() + ")"
 
 @Suppress("UNCHECKED_CAST")
 fun Node<String>.length() = "length"(this) as Node<Int>
@@ -33,9 +34,19 @@ fun Node<String>.lowercase() = "lower"(this) as Node<String>
 @Suppress("UNCHECKED_CAST")
 fun Node<String>.uppercase() = "upper"(this) as Node<String>
 
-fun abs(node: Node<Number>) = "abs"(node)
+@Suppress("UNCHECKED_CAST")
+fun Node<String>.concat(other: Node<String>) = "concat"(this, other) as Node<String>
 
-fun query(query: String) = Node.EMPTY + "(" + query + ")"
+data class Case<T>(val condition: Where, val value: Node<T>)
+infix fun <T> Where.then(value: Node<T>): Case<T> = Case(this, value)
+
+fun <T> case(vararg cases: Case<T>, default: Node<*>? = null): Node<T> {
+	val caseNodes = cases.map { (where, node) -> Node.EMPTY + "when " + where + " then " + node }.toMutableList()
+	if (default != null) caseNodes += default.let { unsafeNode("else ") + it }
+
+	@Suppress("UNCHECKED_CAST")
+	return (Node.EMPTY + "(case " + caseNodes.toTypedArray().join(unsafeNode(" ")) + " end)") as Node<T>
+}
 
 fun <T> property(name: String): PropertyNode<T> = object : PropertyNode<T> {
 	override fun format(table: TableStructure<*>, formatter: (ColumnInfo) -> String): String = formatter(parseColumnSpecification(name, table))
