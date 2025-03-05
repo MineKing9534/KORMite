@@ -23,7 +23,7 @@ import kotlin.reflect.jvm.javaType
 import kotlin.reflect.jvm.jvmErasure
 
 object PostgresMappers {
-	val ANY = typeMapper<Any>(DataType.VALUE, { _, _ -> error("No suitable TypeMapper for insertion found") }, { value, statement, pos -> statement.setObject(pos, value) })
+	val ANY = ValueTypeMapper
 
 	val BOOLEAN = nullSafeTypeMapper<Boolean>(PostgresType.BOOLEAN, ResultSet::getBoolean)
 	val BYTE_ARRAy = typeMapper<ByteArray?>(PostgresType.BYTE_ARRAY, { set, name -> set.getBytes(name) })
