@@ -17,6 +17,8 @@ interface AnnotationTable : IdentifiableTable<UserDao> {
     @Select fun getUserByEmail(@Condition email: String): UserDao?
     @Select fun modifiedSelect(): Set<UserDao> = execute<List<UserDao>>().toSet()
 
+    @SelectValue("name") fun selectFirst(@Limit limit: Int, order: Order): List<String>
+
     @SelectValue("name") fun selectValue(): List<String>
     @SelectValue("name") fun selectSingleValue(@Condition id: Int): String?
 
@@ -74,6 +76,11 @@ class AnnotationTableTest {
 
         assertEquals("Tom", table.selectSingleValue(1))
         assertEquals(null, table.selectSingleValue(0))
+    }
+
+    @Test
+    fun selectFirst() {
+        assertEquals(listOf("Tom", "Max"), table.selectFirst(2, order = ascendingBy(UserDao::age)))
     }
 
     @Test

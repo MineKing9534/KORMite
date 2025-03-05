@@ -1,6 +1,5 @@
 package de.mineking.database
 
-import jdk.internal.org.jline.utils.InfoCmp.Capability.columns
 import org.jdbi.v3.core.Handle
 import org.jdbi.v3.core.Jdbi
 import org.jdbi.v3.core.kotlin.inTransactionUnchecked
