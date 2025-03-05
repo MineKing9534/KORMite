@@ -1,5 +1,6 @@
 package de.mineking.database
 
+import com.sun.tools.javac.tree.TreeInfo.args
 import java.lang.reflect.Method
 import kotlin.reflect.KType
 import kotlin.reflect.KTypeProjection
@@ -72,7 +73,9 @@ object DefaultAnnotationHandlers {
     }
 
     val SELECT = annotationHandler<Select> { type, function, args, _ ->
-        val value = select(where = createCondition(function, args))
+        val (limit, offset, order, condition) = queryWindow(function, args)
+
+        val value = select(where = createCondition(function, args) and condition, order = order, limit = limit, offset = offset)
         when (type.jvmErasure.java) {
             QueryResult::class.java -> value
             List::class.java -> value.list()
@@ -83,11 +86,13 @@ object DefaultAnnotationHandlers {
     }
 
     val SELECT_VALUE = annotationHandler<SelectValue> { type, function, args, annotation ->
+        val (limit, offset, order, condition) = queryWindow(function, args)
+
         val valueType =
             if (annotation.type == Unit::class) structure.getColumnFromCode(annotation.value)?.type ?: error("Cannot find ${ annotation.value } as column")
             else annotation.type.createType(annotation.typeParameters.mapIndexed { i, _ -> KTypeProjection.invariant(annotation.typeParameters[i].createType()) })
 
-        val value = selectValue(property<Any?>(annotation.value), valueType, where = createCondition(function, args))
+        val value = selectValue(property<Any?>(annotation.value), valueType, where = createCondition(function, args) and condition, order = order, limit = limit, offset = offset)
 
         if (valueType.isSubtypeOf(type)) return@annotationHandler if (type.isMarkedNullable) value.findFirst() else value.first()
 
@@ -151,4 +156,35 @@ object DefaultAnnotationHandlers {
             else -> error("Cannot produce $type as result")
         }
     }
+}
+
+private data class QueryWindow(val limit: Int?, val offset: Int?, val order: Order?, val condition: Where)
+private fun queryWindow(function: Method, args: Array<out Any?>): QueryWindow {
+    val limit = function.parameters
+        .indexOfFirst { it.isAnnotationPresent(Limit::class.java) }
+        .takeIf { it != -1 }
+        ?.let { args[it] as Int }
+
+    val offset = function.parameters
+        .indexOfFirst { it.isAnnotationPresent(Offset::class.java) }
+        .takeIf { it != -1 }
+        ?.let { args[it] as Int }
+
+    var order = null as Order?
+    function.parameters
+        .mapIndexed { index, it -> index to it }
+        .filter { it.second.type == Order::class.java }
+        .map { args[it.first] as Order }
+        .forEach {
+            if (order == null) order = it
+            else order = order andThen it
+        }
+
+    val condition = allOf(function.parameters
+        .mapIndexed { index, it -> index to it }
+        .filter { it.second.type == Where::class.java }
+        .map { args[it.first] as Where }
+    )
+
+    return QueryWindow(limit, offset, order, condition)
 }

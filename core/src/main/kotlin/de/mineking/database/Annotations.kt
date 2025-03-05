@@ -40,6 +40,15 @@ annotation class Parameter(val name: String = "")
 @Retention(AnnotationRetention.RUNTIME)
 annotation class Condition(val name: String = "", val operation: String = " = ")
 
+@Target(AnnotationTarget.VALUE_PARAMETER)
+@Retention(AnnotationRetention.RUNTIME)
+annotation class Limit
+
+@Target(AnnotationTarget.VALUE_PARAMETER)
+@Retention(AnnotationRetention.RUNTIME)
+annotation class Offset
+
+
 @Target(AnnotationTarget.FUNCTION)
 @Retention(AnnotationRetention.RUNTIME)
 annotation class Select
