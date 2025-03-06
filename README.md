@@ -1,7 +1,7 @@
 ![[Kotlin CI]](https://github.com/MineKing9534/KORMite/actions/workflows/beta.yml/badge.svg)
 ![[Latest Version]](https://maven.mineking.dev/api/badge/latest/releases/de/mineking/KORMite/KORMite-core?prefix=v&name=Latest%20Version&color=0374b5)
 
-# KORMite
+# KORMiteParameter
 KORMite is a library that aims to abstract database operations to simple kotlin functions.
 Therefore, the library provides a `Table` interface with methods for database operations.
 See [Usage](#usage) for a detailed explanation.
@@ -273,7 +273,7 @@ interface UserTable : Table<UserDao> {
     
     @Select
     //Will select all users older than minAge. You can pass a custom comparison operation as parameter to the @Condition annotation. The default is " = "
-    fun getOlderThan(@Parameter(name = "age", operation = " > ") minAge: Int): List<UserDao>
+    fun getOlderThan(@Condition(name = "age", operation = " > ") minAge: Int): List<UserDao>
     
     @Update // You can create update statements with @Update
     //You can combine @Condition and @Parameter in @Update. As above, @Condition will be used as condition while the parameters with @Parameter will update the respective columns in the rows matching the condition
