@@ -1,7 +1,7 @@
 ![[Kotlin CI]](https://github.com/MineKing9534/KORMite/actions/workflows/beta.yml/badge.svg)
 ![[Latest Version]](https://maven.mineking.dev/api/badge/latest/releases/de/mineking/KORMite/KORMite-core?prefix=v&name=Latest%20Version&color=0374b5)
 
-# KORMiteParameter
+# KORMite
 KORMite is a library that aims to abstract database operations to simple kotlin functions.
 Therefore, the library provides a `Table` interface with methods for database operations.
 See [Usage](#usage) for a detailed explanation.
