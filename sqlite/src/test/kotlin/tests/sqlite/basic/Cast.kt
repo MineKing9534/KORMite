@@ -1,8 +1,9 @@
-package tests.sqlite.general
+package tests.sqlite.basic
 
-import de.mineking.database.isBetween
+import de.mineking.database.castTo
 import de.mineking.database.property
-import de.mineking.database.value
+import de.mineking.database.selectValue
+import de.mineking.database.vendors.sqlite.SQLiteType
 import org.junit.jupiter.api.Test
 import setup.ConsoleSqlLogger
 import setup.UserDao
@@ -10,7 +11,7 @@ import setup.createConnection
 import setup.recreate
 import kotlin.test.assertEquals
 
-class DeleteTest {
+class CastTest {
     val connection = createConnection()
     val table = connection.getDefaultTable(name = "basic_test") { UserDao() }
 
@@ -31,14 +32,14 @@ class DeleteTest {
     }
 
     @Test
-    fun deleteAll() {
-        assertEquals(5, table.delete())
-        assertEquals(0, table.selectRowCount())
+    fun success() {
+        assertEquals("12", table.selectValue(property(UserDao::age).castTo<String>(SQLiteType.TEXT)).first())
+        assertEquals("12", table.selectValue(property(UserDao::age).castTo<String>()).first())
     }
 
     @Test
-    fun deleteCondition() {
-        assertEquals(2, table.delete(where = property(UserDao::age).isBetween(value(18), value(25))))
-        assertEquals(3, table.selectRowCount())
+    fun fail() {
+        val result = table.selectValue(property(UserDao::name).castTo<Int>()).first()
+        assertEquals(0, result) //SQLite doesn't throw an exception for some reason but uses 0 as fallback integer
     }
 }

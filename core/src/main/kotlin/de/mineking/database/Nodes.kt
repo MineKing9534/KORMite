@@ -50,7 +50,18 @@ fun <T> case(vararg cases: Case<T>, default: Node<*>? = null): Node<T> {
 infix fun <T> Node<out T?>.orDefault(other: Node<T>) = "coalesce"(this, other) as Node<T>
 
 @Suppress("UNCHECKED_CAST")
-infix fun <T> Node<*>.castTo(type: DataType) = this + "::${type.sqlName}" as Node<T>
+fun <T> Node<*>.castTo(type: DataType) = "cast"(this + " as ${type.sqlName}") as Node<T>
+
+inline fun <reified T> Node<*>.castTo() = object : Node<T> by this {
+	override fun format(table: TableStructure<*>, prefix: Boolean): String {
+		val original = this@castTo.format(table, prefix)
+
+		val column = columnContext(table).lastOrNull()
+		val mapper = table.manager.getTypeMapper<T, Any?>(typeOf<T>(), column?.property)
+
+		return "cast($original as ${ mapper.getType(column, table, typeOf<T>()).sqlName })"
+	}
+}
 
 fun <T> property(property: KProperty<*>, vararg reference: KProperty<*>) = PropertyNode<T> { table ->
 	val result = ArrayList<ColumnData<*, *>>(reference.size + 1)

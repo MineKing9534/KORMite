@@ -1,4 +1,4 @@
-package tests.sqlite.general
+package tests.postgres.basic
 
 import org.junit.jupiter.api.Test
 import setup.ConsoleSqlLogger

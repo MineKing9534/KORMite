@@ -1,6 +1,5 @@
 package de.mineking.database
 
-import org.jdbi.v3.core.internal.exceptions.Unchecked.supplier
 import org.jdbi.v3.core.statement.StatementContext
 import java.sql.ResultSet
 import java.sql.SQLException

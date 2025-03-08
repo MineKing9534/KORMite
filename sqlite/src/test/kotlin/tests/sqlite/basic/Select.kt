@@ -1,4 +1,4 @@
-package tests.sqlite.general
+package tests.sqlite.basic
 
 import de.mineking.database.*
 import org.junit.jupiter.api.Test

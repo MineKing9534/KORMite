@@ -42,8 +42,7 @@ class ColumnData<O: Any, C>(
 	val key: Boolean,
 	val autogenerate: Boolean
 ) {
-	var reference: Table<*>? = null
-		internal set
+	val meta = MetaData()
 
 	val type get() = property.returnType
 
@@ -63,3 +62,18 @@ data class TableStructure<T: Any>(
 
 	fun getKeys(): List<ColumnData<T, *>> = columns.filter { it.key }
 }
+
+data class MetaKey<T>(val name: String)
+data class MetaData(private val data: MutableMap<String, Any?> = mutableMapOf()) {
+	@Suppress("UNCHECKED_CAST")
+	operator fun <T> get(key: MetaKey<T>) = data[key.name] as T?
+	operator fun <T> set(key: MetaKey<T>, value: T) = data.put(key.name, value)
+}
+
+
+val REFERENCE_META_KEY = MetaKey<Table<*>>("reference")
+var ColumnData<*, *>.reference: Table<*>?
+	get() = meta[REFERENCE_META_KEY]
+	set(value) {
+		meta[REFERENCE_META_KEY] = value!!
+	}

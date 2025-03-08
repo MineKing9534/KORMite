@@ -1,4 +1,4 @@
-package tests.postgres.general
+package tests.postgres.basic
 
 import de.mineking.database.isBetween
 import de.mineking.database.property

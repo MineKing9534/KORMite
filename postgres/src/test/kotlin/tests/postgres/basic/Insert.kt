@@ -1,15 +1,15 @@
-package tests.postgres.general
+package tests.postgres.basic
 
-import de.mineking.database.*
 import org.junit.jupiter.api.Test
 import setup.ConsoleSqlLogger
 import setup.UserDao
 import setup.createConnection
 import setup.recreate
+import kotlin.test.assertContentEquals
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 
-class UpdateTest {
+class InsertTest {
     val connection = createConnection()
     val table = connection.getDefaultTable(name = "basic_test") { UserDao() }
 
@@ -30,25 +30,33 @@ class UpdateTest {
     }
 
     @Test
-    fun updateName() {
-        assertEquals(1, table.update(property(UserDao::name) to value("Test"), where = property(UserDao::id) isEqualTo value(1)).value)
-        assertEquals("Test", table.selectValue(property(UserDao::name), where = property(UserDao::id) isEqualTo value(1)).first())
+    fun checkIds() {
+        assertContentEquals(1..5, users.map { it.id })
     }
 
     @Test
-    fun updateConflict() {
-        val result = table.update(property(UserDao::email) to value("max@example.com"), where = property(UserDao::id) isEqualTo value(1))
-
-        assertTrue(result.isError())
-        assertTrue(result.uniqueViolation)
-    }
-
-    @Test
-    fun updateObject() {
-        val firstUser = users[0].copy(name = "Test")
-        val result = table.update(firstUser)
+    fun insert() {
+        val obj = UserDao(name = "Test", email = "test@example.com", age = 50)
+        val result = table.insert(obj)
 
         assertTrue(result.isSuccess())
-        assertEquals(firstUser, result.value)
+        assertEquals(obj, result.value)
+        assertEquals(6, obj.id)
+    }
+
+    @Test
+    fun insertCollision() {
+        fun checkResult(obj: UserDao) {
+            val old = obj.copy()
+            val result = table.insert(obj)
+
+            assertTrue(result.isError())
+            assertTrue(result.uniqueViolation)
+
+            assertEquals(old.id, obj.id)
+        }
+
+        checkResult(UserDao(name = "Test", email = "tom@example.com", age = 50))
+        checkResult(UserDao(id = 1, name = "Test", email = "test@example.com", age = 50))
     }
 }
