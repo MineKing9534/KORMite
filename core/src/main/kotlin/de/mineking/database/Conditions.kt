@@ -26,6 +26,8 @@ fun interface Where : Node<Any?> {
         fun combine(string: (TableStructure<*>) -> String, vararg components: Where) = object : Where {
             override fun get(table: TableStructure<*>): String = string(table)
             override fun values(table: TableStructure<*>): Map<String, Argument> = components.filter { it.get(table).isNotBlank() }.flatMap { it.values(table).map { it.key to it.value } }.toMap()
+
+            override fun columns(table: TableStructure<*>) = components.flatMap { it.columns(table) }
         }
     }
 
@@ -82,6 +84,8 @@ fun <T: Any> identifyObject(table: TableStructure<T>, obj: T): Where {
 fun Where(node: Node<*>): Where = object : Where {
     override fun get(table: TableStructure<*>): String = node.format(table)
     override fun values(table: TableStructure<*>): Map<String, Argument> = node.values(table, node.columnContext(table))
+
+    override fun columns(table: TableStructure<*>) = node.columns(table)
 }
 
 infix fun Node<*>.isEqualTo(other: Node<*>) = Where(this + " = " + other)

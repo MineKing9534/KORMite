@@ -30,6 +30,7 @@ interface TypeMapper<T, D> {
 	fun getType(column: ColumnData<*, *>?, table: TableStructure<*>, type: KType): DataType
 
 	fun <O: Any> initialize(column: ColumnData<O, *>, type: KType) {}
+	fun select(query: QueryBuilder<*>, column: ColumnContext) { query.rawNode(property<Any?>(column.map { it.property })) }
 
 	fun format(column: ColumnContext, table: TableStructure<*>, type: KType, value: T): D
 	fun createArgument(column: ColumnContext, table: TableStructure<*>, type: KType, value: D): Argument = object : Argument {
@@ -88,7 +89,7 @@ inline fun <reified T> typeMapper(
 
 	override fun extract(column: ColumnContext, type: KType, context: ReadContext, pos: Int): T = context.read(pos, extractor)
 
-	override fun toString() = typeOf<T>().toString()
+	override fun toString() = "TypeMapper[${ typeOf<T>() }]"
 }
 
 inline fun <reified T> nullSafeTypeMapper(
@@ -103,23 +104,24 @@ inline fun <reified T> nullSafeTypeMapper(
 	else temp
 }, { value, statement, position -> if (value == null) statement.setNull(position, Types.NULL) else inserter(value, statement, position) }, acceptor)
 
-inline fun <reified T, reified D> typeMapper(
-	temporary: TypeMapper<D, *>,
+inline fun <reified T, reified D> delegatedTypeMapper(
+	delegate: TypeMapper<D, *>,
 	crossinline parser: (D) -> T,
 	crossinline formatter: (T) -> D
 ): TypeMapper<T, D> = object : TypeMapper<T, D> {
 	override fun accepts(manager: DatabaseConnection, property: KProperty<*>?, type: KType): Boolean = type.isSubtypeOf(typeOf<T>())
-	override fun getType(column: ColumnData<*, *>?, table: TableStructure<*>, type: KType): DataType = temporary.getType(column, table, type)
+	override fun getType(column: ColumnData<*, *>?, table: TableStructure<*>, type: KType): DataType = delegate.getType(column, table, type)
 
-	override fun <O : Any> initialize(column: ColumnData<O, *>, type: KType) = temporary.initialize(column, type)
+	override fun <O : Any> initialize(column: ColumnData<O, *>, type: KType) = delegate.initialize(column, type)
+	override fun select(query: QueryBuilder<*>, column: ColumnContext) = delegate.select(query, column)
 
 	override fun format(column: ColumnContext, table: TableStructure<*>, type: KType, value: T): D = formatter(value)
-	override fun createArgument(column: ColumnContext, table: TableStructure<*>, type: KType, value: D): Argument = temporary.write(column, table, type, value)
+	override fun createArgument(column: ColumnContext, table: TableStructure<*>, type: KType, value: D): Argument = delegate.write(column, table, type, value)
 
-	override fun extract(column: ColumnContext, type: KType, context: ReadContext, pos: Int): D = temporary.read(column, type, context, pos)
+	override fun extract(column: ColumnContext, type: KType, context: ReadContext, pos: Int): D = delegate.read(column, type, context, pos)
 	override fun parse(column: ColumnContext, type: KType, value: D, context: ReadContext, pos: Int): T = parser(value)
 
-	override fun toString() = typeOf<T>().toString()
+	override fun toString() = "DelegatedTypeMapper[$delegate -> ${ typeOf<T>() }]"
 }
 
 inline fun <reified T> binaryTypeMapper(
@@ -137,6 +139,8 @@ inline fun <reified T> binaryTypeMapper(
 
 	override fun toBinary(column: ColumnContext, table: TableStructure<*>, type: KType, value: ByteArray): ByteArray = value
 	override fun fromBinary(column: ColumnContext, type: KType, value: ByteArray, context: ReadContext, pos: Int): ByteArray = value
+
+	override fun toString() = "BinaryTypeMapper[${ typeOf<T>() }]"
 }
 
 object ValueTypeMapper : SimpleTypeMapper<Any?> {

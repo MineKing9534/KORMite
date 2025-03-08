@@ -26,7 +26,7 @@ abstract class TableImplementation<T: Any>(
     abstract fun createTable()
     fun dropTable() = structure.manager.driver.useHandleUnchecked { it.createUpdate("drop table ${ structure.name }").execute() }
 
-    val mapper = object : TypeMapper<T, Any?> {
+    val mapper = object : TypeMapper<T?, Any?> {
         override fun accepts(manager: DatabaseConnection, property: KProperty<*>?, type: KType): Boolean = property?.getDatabaseAnnotation<Reference>()?.table == structure.name && type.jvmErasure == structure.component
 
         override fun getType(column: ColumnData<*, *>?, table: TableStructure<*>, type: KType): DataType {
@@ -40,10 +40,16 @@ abstract class TableImplementation<T: Any>(
             column.reference = this@TableImplementation
         }
 
-        override fun format(column: ColumnContext, table: TableStructure<*>, type: KType, value: T): Any? {
+        override fun select(query: QueryBuilder<*>, context: ColumnContext) {
+            super.select(query, context)
+            structure.columns.forEach { query.nodes(property<Any?>((context + it).map { it.property })) }
+        }
+
+        override fun format(column: ColumnContext, table: TableStructure<*>, type: KType, value: T?): Any? {
             if (structure.getKeys().size != 1) error("Can only reference type with exactly one key")
 
-            fun <C> format(key: ColumnData<T, C>) = key.mapper.format(column.dropLast(1) + key, table, type, key.get(value))
+            @Suppress("UNCHECKED_CAST")
+            fun <C> format(key: ColumnData<T, C>) = key.mapper.format(column + key, table, type, value?.let { key.get(it) } as C)
             return format(structure.getKeys().first())
         }
 
@@ -52,11 +58,11 @@ abstract class TableImplementation<T: Any>(
 
             if (structure.getKeys().size != 1) error("Can only reference type with exactly one key")
 
-            fun <C> extract(key: ColumnData<T, C>) = key.mapper.extract(column.dropLast(1) + key, type, context, pos)
+            fun <C> extract(key: ColumnData<T, C>) = key.mapper.extract(column + key, type, context, pos)
             return extract(structure.getKeys().first())
         }
 
-        override fun parse(column: ColumnContext, type: KType, value: Any?, context: ReadContext, pos: Int): T {
+        override fun parse(column: ColumnContext, type: KType, value: Any?, context: ReadContext, pos: Int): T? {
             @Suppress("UNCHECKED_CAST")
             val instance = context.instance as T? ?: instance()
 
@@ -65,23 +71,34 @@ abstract class TableImplementation<T: Any>(
                 val index = context.columns.indexOf(columnContext)
                 if (index == -1) return@forEach
 
-                fun <C> set(column: ColumnData<T, C>) = column.set(instance, column.mapper.read(columnContext, it.type, context.nest(it), index + 1))
-                set(it)
+                fun <C> set(column: ColumnData<T, C>): Boolean {
+                    val value = column.mapper.read(columnContext, column.type, context.nest(column), index + 1)
+                    if (column.key && value == null) return false
+
+                    column.set(instance, value)
+                    return true
+                }
+
+                //If key is null parsing is immediately terminated
+                if (!set(it)) return@parse null
             }
 
             return instance
         }
+
+        override fun toString() = "RowTypeMapper[${ structure.component.simpleName } in ${ structure.name }]"
     }
 
     fun <T> query(mapper: TypeMapper<T, *>, position: Int, column: ColumnContext, type: KType) = QueryBuilder<T>(this) { sql, values, columns -> query(sql, type, mapper, values, position, column, columns) }
     fun query() = QueryBuilder<T>(this, this::query)
 
-    fun query(sql: String, parameters: Map<String, Any?> = emptyMap(), columns: List<ColumnContext> = emptyList()): QueryResult<T> = query(sql, structure.component.createType(), mapper, parameters, columns = columns)
+    @Suppress("UNCHECKED_CAST")
+    fun query(sql: String, parameters: Map<String, Any?> = emptyMap(), columns: List<ColumnContext> = emptyList()): QueryResult<T> = query(sql, structure.component.createType(), mapper as TypeMapper<T, *>, parameters, columns = columns)
     fun <T> query(sql: String, type: KType, mapper: TypeMapper<T, *>, parameters: Map<String, Any?> = emptyMap(), position: Int = 1, column: ColumnContext = emptyList(), columns: List<ColumnContext> = emptyList()) = object : QueryResult<T> {
         override fun <R> useIterator(handler: (QueryIterator<T>) -> R): R = structure.manager.execute {
             handler(it.createQuery(sql)
                 .bindMap(parameters)
-                .scanResultSet { set, ctx -> QueryIterator<T>(ReadContext(this@TableImplementation, set.get(), columns), ctx, position, column, type, mapper) }
+                .scanResultSet { set, ctx -> QueryIterator<T>(ReadContext(this@TableImplementation, set.get(), columns, column), ctx, position, column, type, mapper) }
             )
         }
     }
@@ -122,7 +139,9 @@ abstract class TableImplementation<T: Any>(
 
         return update.execute { statement, ctx ->
             val set = statement.get().resultSet
-            QueryIterator<T>(ReadContext(this, set, structure.columns.map { listOf(it) }, instance = obj), ctx, Int.MIN_VALUE, emptyList(), structure.component.createType(), mapper).next()
+
+            @Suppress("UNCHECKED_CAST")
+            QueryIterator<T>(ReadContext(this, set, structure.columns.filter { it.autogenerate }.map { listOf(it) }, instance = obj), ctx, Int.MIN_VALUE, emptyList(), structure.component.createType(), mapper as TypeMapper<T, *>).next()
         }
     }
 
@@ -136,7 +155,7 @@ abstract class TableImplementation<T: Any>(
 
         val sql = """
 			update ${ structure.name }
-			set ${columns.joinToString { "\"${ it.name }\" = :${ it.name }" }}
+			set ${ columns.joinToString { "\"${ it.name }\" = :${ it.name }" } }
 			${ identity.format(structure) }
 			returning *
 		""".trim().replace("\\s+".toRegex(), " ")
@@ -216,9 +235,6 @@ abstract class TableImplementation<T: Any>(
         }
     }
 
-    /**
-     * Does not support reference conditions because join cannot be used in delete (TODO maybe do this without join?)
-     */
     override fun delete(where: Where): Int {
         val sql = "delete from ${ structure.name } ${ where.format(structure) }"
         return structure.manager.execute { it.createUpdate(sql)
@@ -267,27 +283,41 @@ private fun invokeDefault(type: KClass<*>, method: Method, instance: Any?, args:
 
 class QueryBuilder<T>(private val table: TableImplementation<*>, private val query: (String, Map<String, Argument>, List<ColumnContext>) -> QueryResult<T>) : QueryResult<T> {
     private val nodes: MutableList<Node<*>> = arrayListOf()
-    private val joins: MutableList<Pair<TableStructure<*>, Where>> = arrayListOf()
+    private val joins: MutableList<Pair<Pair<TableStructure<*>, String>, Where>> = arrayListOf()
 
     private var limit: Int? = null
     private var offset: Int? = null
     private var order: Order? = null
     private var condition: Where = Where.EMPTY
 
-    fun nodes(nodes: Collection<Node<*>>) = apply { this.nodes += nodes }
+    private var defaultJoins = true
+
+    fun rawNode(node: Node<*>) {
+        nodes += node
+    }
+
     fun nodes(vararg nodes: Node<*>) = nodes(nodes.toList())
+    fun nodes(nodes: Collection<Node<*>>) = apply {
+        nodes.forEach {
+            if (it is PropertyNode) {
+                val column = it.columnContext(table.structure)
+                column.last().mapper.select(this, column)
+            } else rawNode(it)
+        }
+    }
 
     fun limit(limit: Int?) = apply { this.limit = limit }
     fun offset(offset: Int?) = apply { this.offset = offset }
     fun order(order: Order?) = apply { this.order = order }
     fun where(where: Where) = apply { this.condition = where }
 
-    fun join(table: TableStructure<*>, condition: Where) = apply { joins += table to condition }
+    fun join(table: TableStructure<*>, name: String = table.name, where: Where) = apply { joins += (table to name) to where }
+    fun preventDefaultJoins() = apply { defaultJoins = false }
 
     private fun render() = """
         select ${ nodes.joinToString(", ") { it.format(table.structure) } }
 		from ${ table.structure.name }
-        ${ joins.joinToString(" ") { (table, condition) -> "join ${ table.name } on ${ condition.format(table) }" } }
+        ${ joins.joinToString(" ") { (table, condition) -> "left join ${ table.first.name } as \"${ table.second }\" on ${ condition.get(this.table.structure) }" } }
 		${ condition.format(table.structure) } 
 		${ order?.format() ?: "" } 
 		${ limit?.let { "limit $it" } ?: "" }
@@ -295,9 +325,22 @@ class QueryBuilder<T>(private val table: TableImplementation<*>, private val que
     """.trim().replace("\\s+".toRegex(), " ")
 
     override fun <R> useIterator(handler: (QueryIterator<T>) -> R): R {
-        val values = joins.flatMap { (table, condition) -> condition.values(table).entries }.associate { it.key to it.value } +
+        val values = joins.flatMap { (_, condition) -> condition.values(table.structure).entries }.associate { it.key to it.value } +
                 nodes.flatMap { it.values(table.structure, it.columnContext(table.structure)).entries }.associate { it.key to it.value } +
                 condition.values(table.structure)
+
+        if (defaultJoins) {
+            (nodes.flatMap { it.columns(table.structure) } + condition.columns(table.structure))
+                .filter { it.size > 1 }
+                .map { it.dropLast(1) }
+                .toSet()
+                .forEach { context ->
+                    val column = context.last()
+                    val key = context + column.reference!!.structure.getKeys().single()
+
+                    join(column.reference!!.structure, context.joinToString(".") { it.name }, where = property<Any?>(key.map { it.property }) isEqualTo property<Any?>(context.map { it.property }))
+                }
+        }
 
         return query(render(), values, nodes.map { it.columnContext(table.structure) }.filter { it.isNotEmpty() }).useIterator(handler)
     }

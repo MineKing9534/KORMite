@@ -1,4 +1,4 @@
-package tests.sqlite.reference
+package tests.sqlite.specific
 
 import de.mineking.database.*
 import org.junit.jupiter.api.Test
@@ -7,6 +7,7 @@ import setup.createConnection
 import setup.recreate
 import kotlin.test.assertContentEquals
 import kotlin.test.assertEquals
+import kotlin.test.assertNull
 
 data class PublisherDao(
 	@AutoIncrement @Key @Column val id: Int = 0,
@@ -77,20 +78,18 @@ class ReferenceTest {
 	}
 
 	@Test
-	fun selectSingleReference() {
+	fun selectReferenceCondition() {
 		assertEquals(2, bookTable.select(where = property(BookDao::author, AuthorDao::name) isEqualTo value("William Shakespeare")).list().size)
 		assertEquals(3, bookTable.select(where = property(BookDao::author, AuthorDao::name) isEqualTo value("J.R.R. Tolkien")).list().size)
-	}
 
-	@Test
-	fun selectDoubleReference() {
 		assertEquals(2, bookTable.select(where = property(BookDao::author, AuthorDao::publisher, PublisherDao::name) isEqualTo value("A")).list().size)
 		assertEquals(3, bookTable.select(where = property(BookDao::author, AuthorDao::publisher, PublisherDao::name) isEqualTo value("B")).list().size)
 	}
 
 	@Test
-	fun selectSingle() {
-		val result = bookTable.selectValue(property(BookDao::title).uppercase(), where = property(BookDao::publisher) isNotEqualTo property(BookDao::author, AuthorDao::publisher)).list()
+	fun selectValue() {
+		val result = bookTable.selectValue(property(BookDao::title).uppercase(), where = property(
+			BookDao::publisher) isNotEqualTo property(BookDao::author, AuthorDao::publisher)).list()
 
 		assertEquals(1, result.size)
 		assertEquals("THE HOBBIT", result.first())
@@ -98,12 +97,26 @@ class ReferenceTest {
 
 	@Test
 	fun selectReference() {
-		assertEquals(tolkien, bookTable.selectValue(property(BookDao::author), where = property(BookDao::title) isEqualTo value("The Hobbit")).first())
+		assertEquals(tolkien, bookTable.selectValue(property(BookDao::author), where = property(
+			BookDao::title) isEqualTo value("The Hobbit")).first())
+		assertEquals(tolkien.id, bookTable.selectValue(property<Int>(BookDao::author), where = property(
+			BookDao::title) isEqualTo value("The Hobbit")).first())
 	}
 
 	@Test
 	fun updateReference() {
-		bookTable.update(property(BookDao::publisher) to value(publisherB), where = property(BookDao::title) isEqualTo value("The Hobbit"))
-		assertEquals(publisherB, bookTable.selectValue(property(BookDao::publisher), where = property(BookDao::title) isEqualTo value("The Hobbit")).first())
+		bookTable.update(property(BookDao::publisher) to value(publisherB), where = property(
+			BookDao::title) isEqualTo value("The Hobbit"))
+		assertEquals(publisherB, bookTable.selectValue(property(BookDao::publisher), where = property(
+			BookDao::title) isEqualTo value("The Hobbit")).first())
+	}
+
+	@Test
+	fun deletedReference() {
+		authorTable.delete(tolkien)
+		val result = bookTable.select(where = property(BookDao::author) isEqualTo value(tolkien)).list()
+
+		assertEquals(3, result.size)
+		result.forEach { assertNull(it.author) }
 	}
 }

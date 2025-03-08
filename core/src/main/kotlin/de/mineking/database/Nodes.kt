@@ -63,25 +63,27 @@ inline fun <reified T> Node<*>.castTo() = object : Node<T> by this {
 	}
 }
 
-fun <T> property(property: KProperty<*>, vararg reference: KProperty<*>) = PropertyNode<T> { table ->
-	val result = ArrayList<ColumnData<*, *>>(reference.size + 1)
-	val iterator = reference.iterator()
+fun <T> property(properties: List<KProperty<*>>) = PropertyNode<T> { table ->
+	if (properties.isEmpty()) error("Need at least one property reference")
 
-	var current = property
-	var table = table
+	val result = ArrayList<ColumnData<*, *>>(properties.size)
+	val iterator = properties.iterator()
 
-	while (true) {
-		val column = table.columns.first { it.property == property }
+	var table = table as TableStructure<*>?
+
+	for (current in iterator) {
+		if (table == null) error("Column ${ result.last().name } does not have a reference")
+
+		val column = table.columns.firstOrNull { it.property == current } ?: error("Column ${ current.name } not found in ${ table.name }")
 		result += column
 
-		if (!iterator.hasNext()) break
-		current = iterator.next()
-		table = column.reference?.structure ?: error("Column ${ column.name } does not have a reference")
+		table = column.reference?.structure
 	}
 
 	result
 }
 
+fun <T> property(property: KProperty<*>, vararg reference: KProperty<*>) = property<T>(listOf(property) + reference)
 fun <T> property(property: KProperty<T>) = property<T>(property, *emptyArray())
 fun <T, I> property(property: KProperty<I>, reference: KProperty1<I, T>) = property<T>(property, reference)
 fun <T, I1, I2> property(property: KProperty<I1>, reference1: KProperty1<I1, I2>, reference2: KProperty1<I2, T>) = property<T>(property, reference1, reference2)
@@ -131,13 +133,16 @@ interface Node<T> {
 	fun values(table: TableStructure<*>, column: ColumnContext): Map<String, Argument> = emptyMap()
 
 	fun columnContext(table: TableStructure<*>): ColumnContext = emptyList()
+	fun columns(table: TableStructure<*>): List<ColumnContext> = emptyList()
 
 	@Suppress("UNCHECKED_CAST")
 	operator fun plus(string: String): Node<T> = (this + unsafeNode(string)) as Node<T>
 	operator fun plus(node: Node<*>): Node<Any?> = object : Node<Any?> {
 		override fun format(table: TableStructure<*>, prefix: Boolean): String = this@Node.format(table, prefix) + node.format(table, prefix)
 		override fun values(table: TableStructure<*>, column: ColumnContext): Map<String, Argument> = this@Node.values(table, column) + node.values(table, column)
+
 		override fun columnContext(table: TableStructure<*>): ColumnContext = this@Node.columnContext(table).takeIf { it.isNotEmpty() } ?: node.columnContext(table)
+		override fun columns(table: TableStructure<*>): List<ColumnContext> = this@Node.columns(table) + node.columns(table)
 	}
 }
 
@@ -152,11 +157,13 @@ fun interface ValueNode<T> : Node<T> {
 
 fun interface PropertyNode<T> : Node<T> {
 	override fun format(table: TableStructure<*>, prefix: Boolean): String {
-		val column = columnContext(table).last()
+		val context = columnContext(table)
+		val column = context.last()
 
-		return if (prefix) "\"${ column.table.name }\".\"${ column.name }\"" //TODO table name might vary with reference joins
+		return if (prefix) "\"${ if (context.size == 1) column.table.name else context.dropLast(1).joinToString(".") { it.name } }\".\"${ column.name }\""
 		else "\"${ column.name }\""
 	}
 
 	override fun columnContext(table: TableStructure<*>): ColumnContext
+	override fun columns(table: TableStructure<*>): List<ColumnContext> = listOf(columnContext(table))
 }
