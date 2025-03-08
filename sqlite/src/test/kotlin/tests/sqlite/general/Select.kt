@@ -12,7 +12,7 @@ import kotlin.test.assertEquals
 
 class SelectTest {
 	val connection = createConnection()
-	val table = connection.getTable(name = "basic_test") { UserDao() }
+	val table = connection.getDefaultTable(name = "basic_test") { UserDao() }
 
 	val users = listOf(
 		UserDao(name = "Tom", email = "tom@example.com", age = 12),
@@ -52,10 +52,10 @@ class SelectTest {
 	@Test
 	fun findFirst() {
 		val result1 = table.select()
-		assertEquals(users[0], result1.findFirst())
+		assertEquals(users[0], result1.firstOrNull())
 
 		val result2 = table.select(where = Where.NONE)
-		assertEquals(null, result2.findFirst())
+		assertEquals(null, result2.firstOrNull())
 	}
 
 	@Test
@@ -86,7 +86,7 @@ class SelectTest {
 
 	@Test
 	fun selectComplexSpecifiedColumns() {
-		val result = table.select(property(UserDao::name).uppercase(), valueForProperty(UserDao::age, Integer.MAX_VALUE), where = property(UserDao::name) isEqualTo value("Max")).list()
+		val result = table.select(property(UserDao::name).uppercase(), value(Integer.MAX_VALUE).withContext(UserDao::age), where = property(UserDao::name) isEqualTo value("Max")).list()
 
 		assertEquals(1, result.size)
 
@@ -101,7 +101,7 @@ class SelectTest {
 		assertEquals(1, result.size)
 		assertEquals(20, result.first())
 
-		assertEquals(3, table.selectValue(property(UserDao::name).length(), where = property(UserDao::name) isEqualTo value("Max")).first())
+		assertEquals(3, table.selectValue(property(UserDao::name).length, where = property(UserDao::name) isEqualTo value("Max")).first())
 	}
 
 	@Test

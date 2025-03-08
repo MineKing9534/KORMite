@@ -23,5 +23,5 @@ class PostgresConnection(
 		typeMappers += PostgresMappers::class.memberProperties.map { it.get(PostgresMappers) as TypeMapper<*, *> }
 	}
 
-	override fun <T: Any> createTableImplementation(type: KClass<*>, structure: TableStructure<T>, instance: () -> T) = PostgresTable(type, structure, instance)
+	override fun <T: Any> createTableImplementation(tableType: KClass<*>, structure: TableStructure<T>, instance: () -> T) = PostgresTable(tableType, structure, instance)
 }

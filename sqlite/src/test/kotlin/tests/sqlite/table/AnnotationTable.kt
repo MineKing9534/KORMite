@@ -96,6 +96,6 @@ class AnnotationTableTest {
         assertEquals(1, table.deleteUser("alex@example.com"))
         assertTrue(table.deleteUser(1))
 
-        assertEquals(3, table.selectRowCount())
+        assertEquals(3, table.implementation.selectRowCount())
     }
 }

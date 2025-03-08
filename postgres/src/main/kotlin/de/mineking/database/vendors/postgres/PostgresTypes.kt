@@ -16,15 +16,10 @@ import java.util.*
 import kotlin.math.max
 import kotlin.reflect.KProperty
 import kotlin.reflect.KType
-import kotlin.reflect.KTypeProjection
-import kotlin.reflect.KVariance
-import kotlin.reflect.full.createType
 import kotlin.reflect.jvm.javaType
 import kotlin.reflect.jvm.jvmErasure
 
 object PostgresMappers {
-	val ANY = ValueTypeMapper
-
 	val BOOLEAN = nullSafeTypeMapper<Boolean>(PostgresType.BOOLEAN, ResultSet::getBoolean)
 	val BYTE_ARRAy = typeMapper<ByteArray?>(PostgresType.BYTE_ARRAY, { set, name -> set.getBytes(name) })
 	val BLOB = typeMapper<Blob?>(PostgresType.BYTE_ARRAY, { set, name -> set.getBlob(name) })
@@ -41,13 +36,12 @@ object PostgresMappers {
 	val STRING = typeMapper<String?>(PostgresType.TEXT, ResultSet::getString)
 	val ENUM = object : TypeMapper<Enum<*>?, String?> {
 		override fun accepts(manager: DatabaseConnection, property: KProperty<*>?, type: KType): Boolean = type.jvmErasure.java.isEnum
-		override fun getType(column: ColumnData<*, *>?, table: TableStructure<*>, type: KType): DataType =
-            PostgresType.TEXT
+		override fun getType(column: ColumnData<*, *>?, table: TableStructure<*>, type: KType): DataType = PostgresType.TEXT
 
-		override fun format(column: ColumnData<*, *>?, table: TableStructure<*>, type: KType, value: Enum<*>?): String? = value?.name
+		override fun format(column: ColumnContext, table: TableStructure<*>, type: KType, value: Enum<*>?): String? = value?.name
 
-		override fun extract(column: DirectColumnData<*, *>?, type: KType, context: ReadContext, name: String): String? = STRING.extract(column, type, context, name)
-		override fun parse(column: DirectColumnData<*, *>?, type: KType, value: String?, context: ReadContext, name: String): Enum<*>? = value?.let { name -> type.jvmErasure.java.enumConstants.map { it as Enum<*> }.first { it.name == name } }
+		override fun extract(column: ColumnContext, type: KType, context: ReadContext, position: Int): String? = STRING.extract(column, type, context, position)
+		override fun parse(column: ColumnContext, type: KType, value: String?, context: ReadContext, position: Int): Enum<*>? = value?.let { name -> type.jvmErasure.java.enumConstants.map { it as Enum<*> }.first { it.name == name } }
 	}
 
 	val UUID_MAPPER = typeMapper<UUID?>(PostgresType.UUID, { set, name -> UUID.fromString(set.getString(name)) }, { value, statement, pos -> statement.setObject(pos, value) })
@@ -62,15 +56,15 @@ object PostgresMappers {
 			.create()
 
 		override fun accepts(manager: DatabaseConnection, property: KProperty<*>?, type: KType): Boolean = property?.hasDatabaseAnnotation<Json>() == true
-		override fun getType(column: ColumnData<*, *>?, table: TableStructure<*>, type: KType): DataType = if (column?.getRootColumn()?.property?.getDatabaseAnnotation<Json>()?.binary == true) PostgresType.JSONB else PostgresType.JSON
+		override fun getType(column: ColumnData<*, *>?, table: TableStructure<*>, type: KType): DataType = if (column?.property?.getDatabaseAnnotation<Json>()?.binary == true) PostgresType.JSONB else PostgresType.JSON
 
-		override fun format(column: ColumnData<*, *>?, table: TableStructure<*>, type: KType, value: Any?): String? = value?.let { gson.toJson(value) }
-		override fun createArgument(column: ColumnData<*, *>?, table: TableStructure<*>, type: KType, value: String?): Argument = object : Argument {
+		override fun format(column: ColumnContext, table: TableStructure<*>, type: KType, value: Any?): String? = value?.let { gson.toJson(value) }
+		override fun createArgument(column: ColumnContext, table: TableStructure<*>, type: KType, value: String?): Argument = object : Argument {
 			override fun apply(position: Int, statement: PreparedStatement?, ctx: StatementContext?) {
 				if (value == null) statement?.setNull(position, Types.NULL)
 				else {
 					val obj = PGobject()
-					obj.type = getType(column, table, type).sqlName
+					obj.type = getType(column.lastOrNull(), table, type).sqlName
 					obj.value = value
 					statement?.setObject(position, obj)
 				}
@@ -79,8 +73,8 @@ object PostgresMappers {
 			override fun toString(): String = value.toString()
 		}
 
-		override fun extract(column: DirectColumnData<*, *>?, type: KType, context: ReadContext, name: String): String? = STRING.extract(column, type, context, name)
-		override fun parse(column: DirectColumnData<*, *>?, type: KType, value: String?, context: ReadContext, name: String): Any? = value?.let { gson.fromJson(it, type.javaType) }
+		override fun extract(column: ColumnContext, type: KType, context: ReadContext, position: Int): String? = STRING.extract(column, type, context, position)
+		override fun parse(column: ColumnContext, type: KType, value: String?, context: ReadContext, position: Int): Any? = value?.let { gson.fromJson(it, type.javaType) }
 	}
 
 	val INSTANT = typeMapper<Instant?>(PostgresType.TIMESTAMP, { set, name -> set.getTimestamp(name).toInstant() }, { value, statement, position -> statement.setTimestamp(position, value?.let { Timestamp.from(it) }) })
@@ -104,23 +98,23 @@ object PostgresMappers {
 		override fun accepts(manager: DatabaseConnection, property: KProperty<*>?, type: KType): Boolean = type.isArray()
 		override fun getType(column: ColumnData<*, *>?, table: TableStructure<*>, type: KType): DataType {
 			val component = type.component()
-			val componentMapper = table.manager.getTypeMapper<Any, Any>(component, column?.getRootColumn()?.property) ?: throw IllegalArgumentException("No TypeMapper found for $component")
+			val componentMapper = table.manager.getTypeMapper<Any, Any>(component, column?.property)
 			val componentType = componentMapper.getType(column, table, component)
 			return DataType.of("${ componentType.sqlName }[]")
 		}
 
-		override fun <O: Any> initialize(column: DirectColumnData<O, *>, type: KType) {
+		override fun <O: Any> initialize(column: ColumnData<O, *>, type: KType) {
 			val component = type.component()
-			val componentMapper = column.table.manager.getTypeMapper<Any, Any>(component, column.property) ?: throw IllegalArgumentException("No TypeMapper found for $component")
+			val componentMapper = column.table.manager.getTypeMapper<Any, Any>(component, column.property)
 
 			componentMapper.initialize(column, component)
 		}
 
-		override fun format(column: ColumnData<*, *>?, table: TableStructure<*>, type: KType, value: Any?): Array<*>? {
+		override fun format(column: ColumnContext, table: TableStructure<*>, type: KType, value: Any?): Array<*>? {
 			if (value == null) return null
 
 			val component = type.component()
-			val mapper = table.manager.getTypeMapper<Any?, Any?>(component, if (column is DirectColumnData) column.property else null) ?: throw IllegalArgumentException("No TypeMapper found for $component")
+			val mapper = table.manager.getTypeMapper<Any?, Any?>(component, column.lastOrNull()?.property)
 
 			return if (component.isArray()) {
 				var maxLength = 0
@@ -129,106 +123,38 @@ object PostgresMappers {
 					.map { if (it == null) emptyArray<Any>() else it as Array<*> }
 					.onEach { maxLength = max(maxLength, it.size) }
 
-				array.map { Arrays.copyOf(it, maxLength) as Array<*> }.toTypedArray()
+				array.map { it.copyOf(maxLength) as Array<*> }.toTypedArray()
 			} else value.asArray()
 				.map { mapper.format(column, table, component, it) }
 				.toTypedArray()
 		}
 
-		override fun createArgument(column: ColumnData<*, *>?, table: TableStructure<*>, type: KType, value: Array<*>?): Argument = object : Argument {
+		override fun createArgument(column: ColumnContext, table: TableStructure<*>, type: KType, value: Array<*>?): Argument = object : Argument {
 			override fun apply(position: Int, statement: PreparedStatement?, ctx: StatementContext?) {
 				if (value == null) statement?.setNull(position, Types.NULL)
 				else {
 					val component = type.component()
-					val mapper = table.manager.getTypeMapper<Any, Any>(component, if (column is DirectColumnData) column.property else null) ?: throw IllegalArgumentException("No TypeMapper found for $component")
+					val mapper = table.manager.getTypeMapper<Any, Any>(component, column.lastOrNull()?.property)
 
-					statement?.setArray(position, statement.connection.createArrayOf(mapper.getType(column, table, component).sqlName.replace("\\[]+$".toRegex(), ""), value))
+					statement?.setArray(position, statement.connection.createArrayOf(mapper.getType(column.lastOrNull(), table, component).sqlName.replace("\\[]+$".toRegex(), ""), value))
 				}
 			}
 
 			override fun toString(): String = value.contentDeepToString()
 		}
 
-		override fun extract(column: DirectColumnData<*, *>?, type: KType, context: ReadContext, name: String): Array<*>? = context.read(name, ResultSet::getArray)?.let { it.array as Array<*> }
-		override fun parse(column: DirectColumnData<*, *>?, type: KType, value: Array<*>?, context: ReadContext, name: String): Any? {
+		override fun extract(column: ColumnContext, type: KType, context: ReadContext, position: Int): Array<*>? = context.read(position, ResultSet::getArray)?.let { it.array as Array<*> }
+		override fun parse(column: ColumnContext, type: KType, value: Array<*>?, context: ReadContext, position: Int): Any? {
 			if (value == null) return null
 
 			val component = type.component()
+			val mapper = context.table.structure.manager.getTypeMapper<Any?, Any?>(component, column.lastOrNull()?.property)
 
-			if (column?.reference == null) {
-				val mapper = context.table.manager.getTypeMapper<Any?, Any?>(component, if (column is DirectColumnData) column.property else null) ?: throw IllegalArgumentException("No TypeMapper found for $component")
-
-				return type.createCollection(value
-					.filter { component.isArray() || it != null }
-					.map { mapper.parse(column, component, it, context, name) }
-					.createArray(component)
-				)
-			} else {
-				@Suppress("UNCHECKED_CAST")
-				val key = column.reference!!.structure.getKeys()[0] as ColumnData<Any, Any>
-
-				val rows = column.reference!!.select(where = value(value.filterNotNull(), List::class.createType(arguments = listOf(KTypeProjection(KVariance.INVARIANT, key.type)))) contains property(key.name)).list().associateBy { key.get(it) }
-
-				return type.createCollection(value.map { rows[it] }.createArray(component))
-			}
-		}
-	}
-
-	val REFERENCE = object : TypeMapper<Any?, Any?> {
-		override fun accepts(manager: DatabaseConnection, property: KProperty<*>?, type: KType): Boolean = property?.hasDatabaseAnnotation<Reference>() == true && !type.isArray()
-
-		override fun <O: Any> initialize(column: DirectColumnData<O, *>, type: KType) {
-			val table = column.property.getDatabaseAnnotation<Reference>()?.table ?: throw IllegalArgumentException("No table specified")
-
-			val reference = column.table.manager.getCachedTable<Any>(table)
-			column.reference = reference
-
-			require(reference.structure.name != column.table.name) { "Cannot create a self-reference" }
-			require(reference.structure.getKeys().size == 1) { "Can only reference a table with exactly one key" }
-		}
-
-		override fun getType(column: ColumnData<*, *>?, table: TableStructure<*>, type: KType): DataType {
-			require(column is DirectColumnData) { "Something went really wrong" }
-
-			val key = column.reference!!.structure.getKeys().first()
-			return key.mapper.getType(column, table, key.type)
-		}
-
-		@Suppress("UNCHECKED_CAST")
-		override fun format(column: ColumnData<*, *>?, table: TableStructure<*>, type: KType, value: Any?): Any? {
-			require(column is DirectColumnData) { "Cannot use references for virtual columns" }
-
-			val reference = column.reference!! as Table<Any>
-			val key = reference.structure.getKeys().first() as DirectColumnData<Any, Any>
-
-			return value?.let { key.mapper.format(column, reference.structure, key.type, key.get(it )) }
-		}
-
-		@Suppress("UNCHECKED_CAST")
-		override fun createArgument(column: ColumnData<*, *>?, table: TableStructure<*>, type: KType, value: Any?): Argument {
-			require(column is DirectColumnData) { "Cannot use references for virtual columns" }
-
-			val reference = column.reference!! as Table<Any>
-			val key = reference.structure.getKeys().first() as DirectColumnData<Any, Any?>
-
-			return key.mapper.write(key, reference.structure, key.type, value)
-		}
-
-		override fun extract(column: DirectColumnData<*, *>?, type: KType, context: ReadContext, name: String): Any? = null
-
-		@Suppress("UNCHECKED_CAST")
-		override fun parse(column: DirectColumnData<*, *>?, type: KType, value: Any?, context: ReadContext, name: String): Any? {
-			require(column != null) { "Cannot parse reference without column context" }
-
-			val reference = column.reference!! as Table<Any>
-			val key = reference.structure.getKeys().first() as DirectColumnData<Any, Any?>
-
-			val context = context.nest(column.name, column.reference!!.implementation)
-			if (key.mapper.read(column, key.type, context, key.name) == null) return null
-
-			column.reference!!.implementation.parseResult(context)
-
-			return context.instance
+			return type.createCollection(value
+				.filter { component.isArray() || it != null }
+				.map { mapper.parse(column, component, it, context, position) }
+				.createArray(component)
+			)
 		}
 	}
 }

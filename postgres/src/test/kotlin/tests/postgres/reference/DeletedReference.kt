@@ -21,8 +21,8 @@ data class DeletedReferenceDao(
 
 class DeletedReferenceTest {
 	val connection = createConnection()
-	val userTable = connection.getTable(name = "basic_test") { UserDao() }
-	val referenceTable = connection.getTable(name = "deleted_reference_test") { DeletedReferenceDao() }
+	val userTable = connection.getDefaultTable(name = "basic_test") { UserDao() }
+	val referenceTable = connection.getDefaultTable(name = "deleted_reference_test") { DeletedReferenceDao() }
 
 	val users = listOf(
 		UserDao(name = "Tom", email = "tom@example.com", age = 12),

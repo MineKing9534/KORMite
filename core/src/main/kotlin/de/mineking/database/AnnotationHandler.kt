@@ -38,6 +38,7 @@ object DefaultAnnotationHandlers {
         .map { Where(it) }
     )
 
+    @Suppress("UNCHECKED_CAST")
     fun <T: Any> createObject(table: TableImplementation<T>, method: Method, args: Array<out Any?>): T {
         val obj = table.instance()
 
@@ -47,20 +48,18 @@ object DefaultAnnotationHandlers {
             .forEach { (index, param) ->
                 val name = param.findAnnotation<Parameter>()!!.name.takeIf { it.isNotBlank() } ?: param.name!!
 
-                @Suppress("UNCHECKED_CAST")
-                val column = table.structure.getColumnFromCode(name) as DirectColumnData<Any, Any?>? ?: error("Column $name not found")
+                val column = table.structure.getColumnFromCode(name) as ColumnData<Any, Any?>? ?: error("Column $name not found")
                 val value = args[index]
 
                 try {
                     //Try direct
                     column.set(obj, value)
                 } catch(_: IllegalArgumentException) {
-                    @Suppress("UNCHECKED_CAST")
                     //Try parsing with column mapper
-                    column.set(obj, (column.mapper as TypeMapper<*, Any?>).parse(column, param.type, value, ReadContext(obj, table.structure, createDummy(), emptyList()), ""))
+                    column.set(obj, (column.mapper as TypeMapper<*, Any?>).parse(listOf(column), param.type, value, ReadContext(table, createDummy(), emptyList()), 0))
                 } catch(_: IllegalArgumentException) {
                     //Try formatting with value mapper
-                    column.set(obj, table.structure.manager.getTypeMapper<Any?, Any>(param.type, null)!!.format(column, table.structure, param.type, value))
+                    column.set(obj, table.structure.manager.getTypeMapper<Any?, Any>(param.type, null).format(listOf(column), table.structure, param.type, value))
                 }
             }
 
@@ -74,8 +73,8 @@ object DefaultAnnotationHandlers {
         when (type.jvmErasure.java) {
             QueryResult::class.java -> value
             List::class.java -> value.list()
-            Set::class.java -> value.list().toSet()
-            structure.component.java -> if (type.isMarkedNullable) value.findFirst() else value.first()
+            Set::class.java -> value.set()
+            structure.component.java -> if (type.isMarkedNullable) value.firstOrNull() else value.first()
             else -> error("Cannot produce $type as result")
         }
     }
@@ -87,14 +86,15 @@ object DefaultAnnotationHandlers {
             if (annotation.type == Unit::class) structure.getColumnFromCode(annotation.value)?.type ?: error("Cannot find ${ annotation.value } as column")
             else annotation.type.createType(annotation.typeParameters.mapIndexed { i, _ -> KTypeProjection.invariant(annotation.typeParameters[i].createType()) })
 
-        val value = selectValue(property<Any?>(annotation.value), valueType, where = createCondition(function, args) and condition, order = order, limit = limit, offset = offset)
+        val target = if (annotation.raw) unsafeNode(annotation.value) else property<Any>(annotation.value)
+        val value = selectValue(target, valueType, where = createCondition(function, args) and condition, order = order, limit = limit, offset = offset)
 
-        if (valueType.isSubtypeOf(type)) return@annotationHandler if (type.isMarkedNullable) value.findFirst() else value.first()
+        if (valueType.isSubtypeOf(type)) return@annotationHandler if (type.isMarkedNullable) value.firstOrNull() else value.first()
 
         when (type.jvmErasure.java) {
             QueryResult::class.java -> value
             List::class.java -> value.list()
-            Set::class.java -> value.list().toSet()
+            Set::class.java -> value.set()
             else -> error("Cannot produce $type as result")
         }
     }

@@ -29,9 +29,9 @@ data class BookDao(
 
 class ReferenceTest {
 	val connection = createConnection()
-	val publisherTable = connection.getTable(name = "publisher_test") { PublisherDao() }
-	val authorTable = connection.getTable(name = "author_test") { AuthorDao() }
-	val bookTable = connection.getTable(name = "book_test") { BookDao() }
+	val publisherTable = connection.getDefaultTable(name = "publisher_test") { PublisherDao() }
+	val authorTable = connection.getDefaultTable(name = "author_test") { AuthorDao() }
+	val bookTable = connection.getDefaultTable(name = "book_test") { BookDao() }
 
 	val publisherA = PublisherDao(name = "A")
 	val publisherB = PublisherDao(name = "B")

@@ -20,7 +20,7 @@ data class NumericDao(
 
 class NumericTest {
 	val connection = createConnection()
-	val table = connection.getTable(name = "numeric_test") { NumericDao() }
+	val table = connection.getDefaultTable(name = "numeric_test") { NumericDao() }
 
 	init {
 		table.recreate()

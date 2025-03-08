@@ -9,29 +9,26 @@ import org.sqlite.SQLiteException
 import kotlin.reflect.KClass
 
 class SQLiteTable<T: Any>(
-	type: KClass<*>,
+	tableType: KClass<*>,
 	structure: TableStructure<T>,
 	instance: () -> T
-) : TableImplementation<T>(type, structure, instance) {
+) : TableImplementation<T>(tableType, structure, instance) {
 	override fun createTable() {
-		val columns = structure.getAllColumns().filter { it.shouldCreate() }
+		val columns = structure.columns
 
-		fun <C> formatColumn(column: ColumnData<T, C>): String {
-			val root = column.getRootColumn()
-			return """
-				"${ column.name }" ${ column.mapper.getType(column, column.table, column.type).sqlName }
-				${ if (root.property.hasDatabaseAnnotation<AutoGenerate>()) " default ${ root.property.getDatabaseAnnotation<AutoGenerate>()?.generator?.takeIf { it.isNotBlank() } ?: structure.manager.autoGenerate(column) } }" else "" }
-				${ root.property.takeIf { !it.returnType.isMarkedNullable }?.let { " not null" } ?: "" }
-			""".replace("\n", "").replace("\t", "")
-		}
+		fun <C> formatColumn(column: ColumnData<T, C>) = """
+			"${ column.name }" ${ column.mapper.getType(column, column.table, column.type).sqlName }
+			${ if (column.property.hasDatabaseAnnotation<AutoGenerate>()) " default ${ column.property.getDatabaseAnnotation<AutoGenerate>()?.generator?.takeIf { it.isNotBlank() } ?: structure.manager.autoGenerate(column) } }" else "" }
+			${ column.property.takeIf { !it.returnType.isMarkedNullable }?.let { " not null" } ?: "" }
+		""".replace("\n", "").replace("\t", "")
 
 		val keys = structure.getKeys()
-		val unique = columns.filter { it.getRootColumn().property.hasDatabaseAnnotation<Unique>() }.groupBy { it.getRootColumn().property.getDatabaseAnnotation<Unique>()!!.name }
+		val unique = columns.filter { it.property.hasDatabaseAnnotation<Unique>() }.groupBy { it.property.getDatabaseAnnotation<Unique>()!!.name }
 
 		structure.manager.driver.useHandleUnchecked { it.createUpdate("""
 			create table if not exists ${ structure.name } (
 				${ columns.joinToString { formatColumn(it) } }
-				${ if (keys.isNotEmpty()) ", primary key(${ keys.joinToString { "\"${ it.name }\"${ if (it.getRootColumn().property.hasDatabaseAnnotation<AutoIncrement>()) " autoincrement" else "" }" } })" else "" }
+				${ if (keys.isNotEmpty()) ", primary key(${ keys.joinToString { "\"${ it.name }\"${ if (it.property.hasDatabaseAnnotation<AutoIncrement>()) " autoincrement" else "" }" } })" else "" }
 				${ if (unique.isNotEmpty()) ", ${ unique.map { "unique(${ it.value.joinToString { "\"${ it.name }\"" } })" }.joinToString() }" else "" }
 			)
 		""".replace("\n", "").replace("\t", "")).execute() }

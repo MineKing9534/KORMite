@@ -5,11 +5,8 @@ import org.jdbi.v3.core.Jdbi
 import org.jdbi.v3.core.kotlin.inTransactionUnchecked
 import org.jdbi.v3.core.kotlin.withHandleUnchecked
 import java.lang.reflect.Proxy
-import java.util.WeakHashMap
-import kotlin.reflect.KClass
-import kotlin.reflect.KProperty
-import kotlin.reflect.KProperty1
-import kotlin.reflect.KType
+import java.util.*
+import kotlin.reflect.*
 import kotlin.reflect.full.memberProperties
 import kotlin.reflect.jvm.javaField
 
@@ -25,7 +22,7 @@ abstract class DatabaseConnection(
     val defaultNamingStrategy: NamingStrategy
 ) {
     val data: MutableMap<String, Any> = mutableMapOf()
-    val typeMappers: MutableList<TypeMapper<*, *>> = arrayListOf()
+    val typeMappers: MutableList<TypeMapper<*, *>> = arrayListOf(ValueTypeMapper)
     val annotationHandlers: MutableList<AnnotationHandler> = DefaultAnnotationHandlers::class.memberProperties.map { it.get(DefaultAnnotationHandlers) as AnnotationHandler }.toMutableList()
 
     var autoGenerate: (ColumnData<*, *>) -> String = { error("No default autogenerate configured") }
@@ -36,28 +33,30 @@ abstract class DatabaseConnection(
     fun <T> data(name: String) = data[name] as T
 
     @Suppress("UNCHECKED_CAST")
-    private fun <T: Any, W: Table<T>> createTableInstance(type: KClass<W>, structure: TableStructure<T>, instance: () -> T) = Proxy.newProxyInstance(type.java.classLoader, arrayOf(type.java), createTableImplementation(type, structure, instance)) as W
-    protected abstract fun <T: Any> createTableImplementation(type: KClass<*>, structure: TableStructure<T>, instance: () -> T): TableImplementation<T>
+    private fun <T: Any, W: Table<T>> createTableInstance(tableType: KClass<W>, structure: TableStructure<T>, instance: () -> T) = Proxy.newProxyInstance(tableType.java.classLoader, arrayOf(tableType.java), createTableImplementation(tableType, structure, instance)) as W
+    protected abstract fun <T: Any> createTableImplementation(tableType: KClass<*>, structure: TableStructure<T>, instance: () -> T): TableImplementation<T>
 
     @Suppress("UNCHECKED_CAST")
     //findLast because mappers that were added later should have priority
-    fun <T, D> getTypeMapper(type: KType, property: KProperty<*>?): TypeMapper<T, D>? = typeMappers.findLast { it.accepts(this, property, type) } as TypeMapper<T, D>?
+    fun <T, D> getTypeMapper(type: KType, property: KProperty<*>?) = typeMappers.findLast { it.accepts(this, property, type) } as TypeMapper<T, D>? ?: throw IllegalArgumentException("No suitable TypeMapper found for $type [$property]")
+
+    inline fun <reified T> getTypeMapper() = getTypeMapper<T, Any?>(typeOf<T>(), null)
 
     fun <T: Any> getTableStructure(
         type: KClass<T>,
         name: String = type.simpleName ?: throw IllegalArgumentException("You have to provide a table name when using anonymous classes!"),
         namingStrategy: NamingStrategy = defaultNamingStrategy
     ): TableStructure<T> {
-        val columns = arrayListOf<DirectColumnData<T, *>>()
+        val columns = arrayListOf<ColumnData<T, *>>()
         val table = TableStructure(this, name, namingStrategy, columns, type)
 
-        fun <C> createColumn(property: KProperty1<T, C>): DirectColumnData<T, C> {
+        fun <C> createColumn(property: KProperty1<T, C>): ColumnData<T, C> {
             val nameOverride = property.getDatabaseAnnotation<Column>()?.name?.takeIf { it.isNotBlank() }
-            return DirectColumnData(
+            return ColumnData(
                 table,
                 nameOverride ?: property.name,
                 nameOverride ?: namingStrategy.getName(property.name),
-                getTypeMapper<C, Any>(property.returnType, property) ?: throw IllegalArgumentException("No TypeMapper found for $property"),
+                getTypeMapper<C, Any>(property.returnType, property),
                 property,
                 property.hasDatabaseAnnotation<Key>(),
                 property.hasDatabaseAnnotation<AutoGenerate>() || property.hasDatabaseAnnotation<AutoIncrement>()
@@ -68,6 +67,11 @@ abstract class DatabaseConnection(
             .filter { it.javaField != null && it.hasDatabaseAnnotation<Column>() }
             .map { createColumn(it) }
             .sortedBy { !it.key }
+
+        columns.forEach {
+            fun <A: Any, B> init(column: ColumnData<A, B>) = column.mapper.initialize(column, column.type)
+            init(it)
+        }
 
         require(columns.isNotEmpty()) { "Cannot create table with no columns" }
 
@@ -84,38 +88,43 @@ abstract class DatabaseConnection(
     fun <T: Any, C: Table<T>> getTable(
         type: KClass<T>,
         @Suppress("UNCHECKED_CAST")
-        table: KClass<C> = Table::class as KClass<C>,
+        table: KClass<C>,
         namingStrategy: NamingStrategy = defaultNamingStrategy,
         name: String = namingStrategy.getName(type.simpleName ?: throw IllegalArgumentException("You have to provide a table name when using anonymous classes!")),
         create: Boolean = true,
         instance: () -> T
     ): C {
-        require(name !in tables) { "Table with that name already registered - Use getCachedTable" }
+        require(name !in tables) { "Table for $type already registered - Use getCachedTable" }
 
         val structure = getTableStructure(type, name, namingStrategy)
-
-        lateinit var tableInstance: Table<T>
-        tableInstance = createTableInstance(table, structure) {
-            val instance = instance()
-            SOURCE_TABLE[instance] = tableInstance
-
-            instance
-        }
+        val tableInstance = createTableInstance(table, structure, instance)
 
         tables[name] = tableInstance
+        typeMappers += tableInstance.implementation.mapper
 
-        structure.columns.forEach {
-            fun <A: Any, B> init(column: DirectColumnData<A, B>) = column.mapper.initialize(column, column.type)
-            init(it)
-        }
-
-        if (create) tableInstance.createTable()
+        if (create) tableInstance.implementation.createTable()
 
         return tableInstance
     }
 
     @Suppress("UNCHECKED_CAST")
-    fun <T: Any> getCachedTable(name: String): Table<T> = (tables[name] ?: throw IllegalArgumentException("Table $name not found")) as Table<T>
+    fun <T: Any> getDefaultTable(
+        type: KClass<T>,
+        namingStrategy: NamingStrategy = defaultNamingStrategy,
+        name: String = namingStrategy.getName(type.simpleName ?: throw IllegalArgumentException("You have to provide a table name when using anonymous classes!")),
+        create: Boolean = true,
+        instance: () -> T
+    ) = getTable(type, DefaultTable::class as KClass<DefaultTable<T>>, namingStrategy, name, create, instance)
+
+    inline fun <reified T: Any> getDefaultTable(
+        namingStrategy: NamingStrategy = defaultNamingStrategy,
+        name: String = namingStrategy.getName(T::class.simpleName ?: throw IllegalArgumentException("You have to provide a table name when using anonymous classes!")),
+        create: Boolean = true,
+        noinline instance: () -> T
+    ) = getTable<T, DefaultTable<T>>(namingStrategy, name, create, instance)
+
+    @Suppress("UNCHECKED_CAST")
+    fun <T: Any> getCachedTable(name: String): Table<T> = tables[name] as Table<T>? ?: throw IllegalArgumentException("Table $name not found")
 
     fun <R> inTransaction(action: (Handle) -> R): R = driver.inTransactionUnchecked { handle ->
         try {
@@ -133,6 +142,4 @@ abstract class DatabaseConnection(
     }
 }
 
-private val SOURCE_TABLE = WeakHashMap<Any, Table<*>>()
-@Suppress("UNCHECKED_CAST")
-val <T> T.sourceTable get() = SOURCE_TABLE[this] as Table<T>? ?: error("Could not find table for $this")
+//TODO !!! nullability via typemapper for more flexibility

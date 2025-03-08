@@ -17,7 +17,7 @@ data class UpsertDao(
 
 class UpsertTest {
 	val connection = createConnection()
-	val table = connection.getTable(name = "upsert_test") { UpsertDao() }
+	val table = connection.getDefaultTable(name = "upsert_test") { UpsertDao() }
 
 	val entries = listOf(
 		UpsertDao(name = "Tom", email = "tom@example.com"),

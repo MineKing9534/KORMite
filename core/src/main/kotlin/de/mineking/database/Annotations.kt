@@ -51,11 +51,15 @@ annotation class Offset
 
 @Target(AnnotationTarget.FUNCTION)
 @Retention(AnnotationRetention.RUNTIME)
+annotation class Query(val sql: String) //TODO more parameters, write handler
+
+@Target(AnnotationTarget.FUNCTION)
+@Retention(AnnotationRetention.RUNTIME)
 annotation class Select
 
 @Target(AnnotationTarget.FUNCTION)
 @Retention(AnnotationRetention.RUNTIME)
-annotation class SelectValue(val value: String, val type: KClass<*> = Unit::class, val typeParameters: Array<KClass<*>> = [])
+annotation class SelectValue(val value: String, val raw: Boolean = false, val type: KClass<*> = Unit::class, val typeParameters: Array<KClass<*>> = [])
 
 @Target(AnnotationTarget.FUNCTION)
 @Retention(AnnotationRetention.RUNTIME)
