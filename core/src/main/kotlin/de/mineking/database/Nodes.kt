@@ -64,13 +64,13 @@ inline fun <reified T> Node<*>.castTo() = object : Node<T> by this {
 	}
 }
 
-fun <T> property(properties: List<KProperty<*>>) = PropertyNode<T> { table ->
+fun <T> property(properties: List<KProperty<*>>, tableOverride: TableStructure<*>? = null) = PropertyNode<T> { table ->
 	if (properties.isEmpty()) error("Need at least one property reference")
 
 	val result = ArrayList<ColumnData<*, *>>(properties.size)
 	val iterator = properties.iterator()
 
-	var table = table as TableStructure<*>?
+	var table = (tableOverride ?: table) as TableStructure<*>?
 
 	for (current in iterator) {
 		if (table == null) error("Column ${ result.last().name } does not have a reference")
@@ -84,13 +84,13 @@ fun <T> property(properties: List<KProperty<*>>) = PropertyNode<T> { table ->
 	result
 }
 
-fun <T> property(property: KProperty<*>, vararg reference: KProperty<*>) = property<T>(listOf(property) + reference)
-fun <T> property(property: KProperty<T>) = property<T>(property, *emptyArray())
-fun <T, I> property(property: KProperty<I>, reference: KProperty1<I, T>) = property<T>(property, reference)
-fun <T, I1, I2> property(property: KProperty<I1>, reference1: KProperty1<I1, I2>, reference2: KProperty1<I2, T>) = property<T>(property, reference1, reference2)
+fun <T> property(property: KProperty<*>, vararg reference: KProperty<*>, tableOverride: TableStructure<*>? = null) = property<T>(listOf(property) + reference, tableOverride)
+fun <T> property(property: KProperty<T>, tableOverride: TableStructure<*>? = null) = property<T>(property, *emptyArray(), tableOverride = tableOverride)
+fun <T, I> property(property: KProperty<I>, reference: KProperty1<I, T>, tableOverride: TableStructure<*>? = null) = property<T>(property, reference, tableOverride = tableOverride)
+fun <T, I1, I2> property(property: KProperty<I1>, reference1: KProperty1<I1, I2>, reference2: KProperty1<I2, T>, tableOverride: TableStructure<*>? = null) = property<T>(property, reference1, reference2, tableOverride = tableOverride)
 
-fun <T> property(name: String) = PropertyNode<T> { table ->
-	val column = table.getColumnFromCode(name) ?: error("Column $name not found in ${ table.name }")
+fun <T> property(name: String, tableOverride: TableStructure<*>? = null) = PropertyNode<T> { table ->
+	val column = (tableOverride ?: table).getColumnFromCode(name) ?: error("Column $name not found in ${ table.name }")
 	listOf(column)
 }
 
