@@ -136,6 +136,10 @@ interface Node<T> {
 	fun columnContext(table: TableStructure<*>): ColumnContext = emptyList()
 	fun columns(table: TableStructure<*>): List<ColumnContext> = emptyList()
 
+	fun buildUpdate(table: TableStructure<*>, other: Node<*>): Node<*> = object : Node<Any?> by this + other {
+		override fun format(table: TableStructure<*>, prefix: Boolean) = this@Node.format(table, prefix = false) + " = " + other.format(table)
+	}
+
 	@Suppress("UNCHECKED_CAST")
 	operator fun plus(string: String): Node<T> = (this + unsafeNode(string)) as Node<T>
 	operator fun plus(node: Node<*>): Node<Any?> = object : Node<Any?> {

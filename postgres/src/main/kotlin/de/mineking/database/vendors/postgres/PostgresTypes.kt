@@ -1,6 +1,8 @@
 package de.mineking.database.vendors.postgres
 
 import com.google.gson.GsonBuilder
+import com.google.gson.JsonObject
+import com.google.gson.JsonParser
 import com.google.gson.ToNumberStrategy
 import de.mineking.database.*
 import org.jdbi.v3.core.argument.Argument
@@ -16,8 +18,41 @@ import java.util.*
 import kotlin.math.max
 import kotlin.reflect.KProperty
 import kotlin.reflect.KType
+import kotlin.reflect.full.isSubtypeOf
 import kotlin.reflect.jvm.javaType
 import kotlin.reflect.jvm.jvmErasure
+import kotlin.reflect.typeOf
+
+inline fun <reified T> jsonTypeMapper(
+	crossinline parser: JsonObject.(KType) -> T?,
+	crossinline formatter: JsonObject.(T) -> Unit,
+	crossinline acceptor: (KType) -> Boolean = { it.isSubtypeOf(typeOf<T?>()) },
+	binary: Boolean = true
+) = object : TypeMapper<T?, String?> {
+	override fun accepts(manager: DatabaseConnection, property: KProperty<*>?, type: KType) = acceptor(type)
+	override fun getType(column: ColumnData<*, *>?, table: TableStructure<*>, type: KType): DataType {
+		val raw = if (binary) PostgresType.JSONB else PostgresType.JSON
+		return raw.withNullability(type.isMarkedNullable)
+	}
+
+	override fun createArgument(column: ColumnContext, table: TableStructure<*>, type: KType, value: String?) = createCustomArgument(value, column, table, type)
+	override fun format(column: ColumnContext, table: TableStructure<*>, type: KType, value: T?): String? {
+		if (value == null) return null
+
+		val obj = JsonObject()
+		obj.formatter(value)
+		return obj.toString()
+	}
+
+	override fun extract(column: ColumnContext, type: KType, context: ReadContext, pos: Int) = context.read(pos, ResultSet::getString)
+
+	override fun parse(column: ColumnContext, type: KType, value: String?, context: ReadContext, pos: Int): T? {
+		if (value == null) return null
+
+		val obj = JsonParser.parseString(value).asJsonObject
+		return obj.parser(type)
+	}
+}
 
 object PostgresMappers {
 	val BOOLEAN = nullsafeTypeMapper<Boolean>(PostgresType.BOOLEAN, ResultSet::getBoolean, PreparedStatement::setBoolean)
@@ -45,7 +80,7 @@ object PostgresMappers {
 	val LOCALE = nullsafeDelegateTypeMapper(STRING, { it, _ -> Locale.forLanguageTag(it) }, Locale::toLanguageTag)
 	val COLOR = nullsafeDelegateTypeMapper(INTEGER, { it, _ -> Color(it, true) }, Color::getRGB)
 
-	val UUID_MAPPER = typeMapper<UUID>(PostgresType.UUID, { set, position -> set.getObject(position) as UUID }, PreparedStatement::setObject)
+	val UUID_MAPPER = nullsafeTypeMapper<UUID>(PostgresType.UUID, { set, position -> UUID.fromString(set.getString(position)) }, PreparedStatement::setObject)
 
 	val JSON = object : TypeMapper<Any?, String?> {
 		val numberStrategy = ToNumberStrategy { reader ->
@@ -64,19 +99,7 @@ object PostgresMappers {
 		}
 
 		override fun format(column: ColumnContext, table: TableStructure<*>, type: KType, value: Any?): String? = value?.let { gson.toJson(value) }
-		override fun createArgument(column: ColumnContext, table: TableStructure<*>, type: KType, value: String?): Argument = object : Argument {
-			override fun apply(position: Int, statement: PreparedStatement?, ctx: StatementContext?) {
-				if (value == null) statement?.setNull(position, Types.NULL)
-				else {
-					val obj = PGobject()
-					obj.type = getType(column.lastOrNull(), table, type).sqlName
-					obj.value = value
-					statement?.setObject(position, obj)
-				}
-			}
-
-			override fun toString(): String = value.toString()
-		}
+		override fun createArgument(column: ColumnContext, table: TableStructure<*>, type: KType, value: String?) = createCustomArgument(value, column, table, type)
 
 		override fun extract(column: ColumnContext, type: KType, context: ReadContext, position: Int): String? = STRING.extract(column, type, context, position)
 		override fun parse(column: ColumnContext, type: KType, value: String?, context: ReadContext, position: Int): Any? = value?.let { gson.fromJson(it, type.javaType) }
@@ -203,4 +226,18 @@ enum class PostgresType(override val sqlName: String) : DataType {
 	PG_SNAPSHOT("pg_snapshot"); //user-level transaction ID snapshot
 
 	override fun toString(): String = sqlName
+}
+
+fun TypeMapper<*, *>.createCustomArgument(value: String?, column: ColumnContext, table: TableStructure<*>, type: KType) = object : Argument {
+	override fun apply(position: Int, statement: PreparedStatement?, ctx: StatementContext?) {
+		if (value == null) statement?.setNull(position, Types.NULL)
+		else {
+			val obj = PGobject()
+			obj.type = getType(column.lastOrNull(), table, type).sqlName
+			obj.value = value
+			statement?.setObject(position, obj)
+		}
+	}
+
+	override fun toString(): String = value.toString()
 }

@@ -1,7 +1,6 @@
 package tests.minecraft
 
 import de.mineking.database.*
-import de.mineking.database.vendors.postgres.PostgresMappers
 import org.bukkit.Location
 import org.bukkit.World
 import org.junit.jupiter.api.Assertions.assertEquals
@@ -20,7 +19,7 @@ class LocationTest {
 	val id = UUID.randomUUID()
 	val world = createWorld(id)
 
-	val connection = createConnection().apply { registerMinecraftMappers(createServer(worlds = listOf(world)), PostgresMappers.STRING, PostgresMappers.UUID_MAPPER, PostgresMappers.ARRAY, PostgresMappers.DOUBLE) }
+	val connection = createConnection().apply { registerMinecraftMappers(createServer(worlds = listOf(world))) }
 	val table = connection.getDefaultTable(name = "location_test") { LocationDao() }
 
 	init {

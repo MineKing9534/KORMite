@@ -189,7 +189,7 @@ abstract class TableImplementation<T: Any>(
 
         val sql = """
 			update ${ structure.name } 
-			set ${ specs.entries.joinToString { (column, value) -> "${ column.first.format(structure, prefix = false) } = ${ value.first.format(structure) }" } }
+			set ${ specs.map { (column, value) -> column.first.buildUpdate(structure, value.first) }.join().format(structure) }
 			${ where.format(structure) } 
 		""".trim().replace("\\s+".toRegex(), " ")
 

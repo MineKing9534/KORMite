@@ -1,7 +1,6 @@
 package tests.minecraft
 
 import de.mineking.database.*
-import de.mineking.database.vendors.postgres.PostgresMappers
 import org.bukkit.OfflinePlayer
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Test
@@ -22,7 +21,7 @@ class PlayerTest {
 		createPlayer(id2)
 	)
 
-	val connection = createConnection().apply { registerMinecraftMappers(createServer(players = players), PostgresMappers.STRING, PostgresMappers.UUID_MAPPER, PostgresMappers.ARRAY, PostgresMappers.DOUBLE) }
+	val connection = createConnection().apply { registerMinecraftMappers(createServer(players = players)) }
 	val table = connection.getDefaultTable(name = "player_test") { PlayerDao() }
 
 	init {

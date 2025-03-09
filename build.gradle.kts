@@ -15,6 +15,13 @@ version = "1.5.0"
 val jvmVersion = 17
 val release = System.getenv("RELEASE") == "true"
 
+dependencies {
+	testReportAggregation(project(":postgres"))
+	testReportAggregation(project(":sqlite"))
+	testReportAggregation(project(":minecraft"))
+	testReportAggregation(project(":discord"))
+}
+
 allprojects {
 	version = rootProject.version
 
@@ -28,15 +35,18 @@ allprojects {
 	}
 
 	dependencies {
-		testReportAggregation(project(":postgres"))
-		testReportAggregation(project(":sqlite"))
-		testReportAggregation(project(":minecraft"))
-		testReportAggregation(project(":discord"))
+		implementation(kotlin("reflect"))
+		implementation("org.jdbi:jdbi3-core:3.45.4")
+		implementation("org.jdbi:jdbi3-kotlin:3.45.4")
 
-		testImplementation("ch.qos.logback:logback-classic:1.5.8")
+		compileOnly("com.google.code.gson:gson:2.10.1")
+
 		implementation("io.github.microutils:kotlin-logging-jvm:2.0.11")
 
+		testImplementation("ch.qos.logback:logback-classic:1.5.8")
 		testImplementation(kotlin("test"))
+
+		testImplementation("com.google.code.gson:gson:2.10.1")
 	}
 
 	tasks.test {

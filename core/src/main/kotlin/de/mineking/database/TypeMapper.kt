@@ -130,8 +130,25 @@ inline fun <reified T, reified D> delegateTypeMapper(
 inline fun <reified T, reified D> nullsafeDelegateTypeMapper(
 	delegate: TypeMapper<D?, *>,
 	crossinline fromOther: (D, KType) -> T?,
-	crossinline toOther: (T) -> D
+	crossinline toOther: (T) -> D?
 ) = delegateTypeMapper(delegate, { it, type -> it?.let { fromOther(it, type) } }, { it?.let { toOther(it) } })
+
+inline fun <reified T> binaryTypeMapper(
+	dataType: DataType,
+	crossinline parser: (ByteArray, KType) -> T?,
+	crossinline formatter: (T?) -> ByteArray
+) = object : TypeMapper<T?, ByteArray> {
+	override fun accepts(manager: DatabaseConnection, property: KProperty<*>?, type: KType): Boolean = type.isSubtypeOf(typeOf<T>())
+	override fun getType(column: ColumnData<*, *>?, table: TableStructure<*>, type: KType): DataType = dataType
+
+	override fun format(column: ColumnContext, table: TableStructure<*>, type: KType, value: T?): ByteArray = formatter(value)
+
+	override fun extract(column: ColumnContext, type: KType, context: ReadContext, position: Int): ByteArray = context.read(position, ResultSet::getBytes)
+	override fun parse(column: ColumnContext, type: KType, value: ByteArray, context: ReadContext, position: Int): T? = parser(value, type)
+
+	override fun toBinary(column: ColumnContext, table: TableStructure<*>, type: KType, value: ByteArray): ByteArray = value
+	override fun fromBinary(column: ColumnContext, type: KType, value: ByteArray, context: ReadContext, position: Int): ByteArray = value
+}
 
 object ValueTypeMapper : SimpleTypeMapper<Any?> {
 	override fun accepts(manager: DatabaseConnection, property: KProperty<*>?, type: KType): Boolean = true

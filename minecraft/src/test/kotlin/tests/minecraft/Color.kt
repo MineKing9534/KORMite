@@ -1,7 +1,6 @@
 package tests.minecraft
 
 import de.mineking.database.*
-import de.mineking.database.vendors.postgres.PostgresMappers
 import net.kyori.adventure.text.format.NamedTextColor
 import net.kyori.adventure.text.format.TextColor
 import org.junit.jupiter.api.Assertions.assertEquals
@@ -18,7 +17,7 @@ data class ColorDao(
 )
 
 class ColorTest {
-	val connection = createConnection().apply { registerMinecraftMappers(createServer(), PostgresMappers.STRING, PostgresMappers.UUID_MAPPER, PostgresMappers.ARRAY, PostgresMappers.DOUBLE) }
+	val connection = createConnection().apply { registerMinecraftMappers(createServer()) }
 	val table = connection.getDefaultTable(name = "color_test") { ColorDao() }
 
     init {
