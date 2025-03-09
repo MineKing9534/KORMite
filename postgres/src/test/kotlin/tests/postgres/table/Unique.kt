@@ -19,7 +19,7 @@ data class UniqueDao(
 
 class UniqueTest {
     val connection = createConnection()
-    val table = connection.getTable(name = "complex_unique_test") { UniqueDao() }
+    val table = connection.getDefaultTable(name = "complex_unique_test") { UniqueDao() }
 
     init {
         table.recreate()

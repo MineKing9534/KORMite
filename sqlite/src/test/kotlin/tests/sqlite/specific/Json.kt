@@ -15,7 +15,7 @@ data class JsonDao(
 
 class JsonTest {
 	val connection = createConnection()
-	val table = connection.getTable(name = "json_test") { JsonDao() }
+	val table = connection.getDefaultTable(name = "json_test") { JsonDao() }
 
 	init {
 		table.recreate()

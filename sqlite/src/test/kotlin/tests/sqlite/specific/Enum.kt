@@ -18,7 +18,7 @@ data class EnumDao(
 
 class EnumTest {
 	val connection = createConnection()
-	val table = connection.getTable(name = "enum_test") { EnumDao() }
+	val table = connection.getDefaultTable(name = "enum_test") { EnumDao() }
 
 	init {
 		table.recreate()

@@ -22,9 +22,6 @@ data class DiscordDao(
 )
 
 class DiscordTest {
-	val connection = createConnection()
-	val table: Table<DiscordDao>
-
 	val guilds = listOf(
 		createSnowflake<Guild>(1),
 		createSnowflake<Guild>(2)
@@ -60,11 +57,11 @@ class DiscordTest {
 		createSnowflake<UserSnowflake>(14)
 	)
 
-	init {
-		//Use STRING mappers because they are more likely to fail
-		connection.registerDiscordStringMappers(createJDA(guilds, roles, channels, emojis, events, users), PostgresMappers.STRING)
-		table = connection.getTable(name = "discord_test") { DiscordDao() }
+	//Use STRING mappers because they are more likely to fail
+	val connection = createConnection().apply { registerDiscordStringMappers(createJDA(guilds, roles, channels, emojis, events, users), PostgresMappers.STRING) }
+	val table = connection.getDefaultTable(name = "discord_test") { DiscordDao() }
 
+	init {
 		table.recreate()
 
 		table.insert(DiscordDao(guild = guilds[0], role = roles[0], channel = channels[0], emoji = emojis[0], event = events[0], user = users[0], userSnowflake = userSnowflakes[0]))

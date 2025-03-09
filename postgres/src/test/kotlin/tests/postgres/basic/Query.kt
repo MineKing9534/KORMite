@@ -1,8 +1,7 @@
-package tests.sqlite.general
+package tests.postgres.basic
 
-import de.mineking.database.isBetween
-import de.mineking.database.property
 import de.mineking.database.value
+import de.mineking.database.withContext
 import org.junit.jupiter.api.Test
 import setup.ConsoleSqlLogger
 import setup.UserDao
@@ -10,9 +9,9 @@ import setup.createConnection
 import setup.recreate
 import kotlin.test.assertEquals
 
-class DeleteTest {
+class QueryTest {
     val connection = createConnection()
-    val table = connection.getTable(name = "basic_test") { UserDao() }
+    val table = connection.getDefaultTable(name = "basic_test") { UserDao() }
 
     val users = listOf(
         UserDao(name = "Tom", email = "tom@example.com", age = 12),
@@ -31,14 +30,19 @@ class DeleteTest {
     }
 
     @Test
-    fun deleteAll() {
-        assertEquals(5, table.delete())
-        assertEquals(0, table.selectRowCount())
+    fun constantQuery() {
+        val list = listOf(0, 1, 2)
+        assertEquals(list, table.implementation.query<List<Int>>("select :array", mapOf("array" to list.toTypedArray())).first())
     }
 
     @Test
-    fun deleteCondition() {
-        assertEquals(2, table.delete(where = property(UserDao::age).isBetween(value(18), value(25))))
-        assertEquals(3, table.selectRowCount())
+    fun query() {
+        val result = table.implementation.query()
+            .defaultNodes()
+            .nodes(value("test").withContext(UserDao::name)) //Override name column
+            .list()
+
+        assertEquals(5, result.size)
+        result.forEach { assertEquals("test", it.name) }
     }
 }

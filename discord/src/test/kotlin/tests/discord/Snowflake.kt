@@ -1,9 +1,9 @@
 package tests.discord
 
 import de.mineking.database.*
-import de.mineking.database.vendors.postgres.PostgresMappers
 import net.dv8tion.jda.api.entities.Guild
 import net.dv8tion.jda.api.entities.ISnowflake
+import net.dv8tion.jda.api.entities.Role
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Test
 import setup.*
@@ -14,18 +14,20 @@ data class SnowflakeDao(
 )
 
 class SnowflakeTest {
-	val connection = createConnection()
-	val table: Table<SnowflakeDao>
-
 	val guilds = listOf(
 		createSnowflake<Guild>(1),
 		createSnowflake<Guild>(2)
 	)
-	init {
-		//Use STRING mappers because they are more likely to fail
-		connection.registerDiscordStringMappers(createJDA(guilds), PostgresMappers.STRING, PostgresMappers.ENUM)
-		table = connection.getTable(name = "snowflake_test") { SnowflakeDao() }
 
+	val roles = listOf(
+		createSnowflake<Role>(2)
+	)
+
+	//Use STRING mappers because they are more likely to fail
+	val connection = createConnection().apply { registerDiscordStringMappers(createJDA(guilds, roles)) }
+	val table = connection.getDefaultTable(name = "snowflake_test") { SnowflakeDao() }
+
+	init {
 		table.recreate()
 
 		table.insert(SnowflakeDao(snowflake = guilds[0]))
@@ -47,7 +49,13 @@ class SnowflakeTest {
 
 	@Test
 	fun selectCondition() {
-		assertEquals(1, table.selectRowCount(where = property(SnowflakeDao::snowflake) isEqualTo value(guilds[0])))
-		assertEquals(0, table.selectRowCount(where = property(SnowflakeDao::snowflake) isEqualTo value(guilds[1])))
+		assertEquals(1, table.selectRowCount(where = property(SnowflakeDao::snowflake).id isEqualTo value(guilds[0])))
+		assertEquals(0, table.selectRowCount(where = property(SnowflakeDao::snowflake).id isEqualTo value(guilds[1])))
+	}
+
+	@Test
+	fun update(){
+		table.update(property(SnowflakeDao::snowflake) to value(roles[0]))
+		assertEquals(roles[0], table.select().first().snowflake)
 	}
 }
