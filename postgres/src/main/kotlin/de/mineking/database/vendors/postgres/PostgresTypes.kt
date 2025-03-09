@@ -21,13 +21,13 @@ import kotlin.reflect.jvm.jvmErasure
 
 object PostgresMappers {
 	val BOOLEAN = nullSafeTypeMapper<Boolean>(PostgresType.BOOLEAN, ResultSet::getBoolean)
-	val BYTE_ARRAy = typeMapper<ByteArray?>(PostgresType.BYTE_ARRAY, { set, name -> set.getBytes(name) })
-	val BLOB = typeMapper<Blob?>(PostgresType.BYTE_ARRAY, { set, name -> set.getBlob(name) })
+	val BYTE_ARRAy = typeMapper<ByteArray?>(PostgresType.BYTE_ARRAY, ResultSet::getBytes)
+	val BLOB = typeMapper<Blob?>(PostgresType.BYTE_ARRAY, ResultSet::getBlob)
 
 	val SHORT = nullSafeTypeMapper<Short>(PostgresType.SMALL_INT, ResultSet::getShort)
 	val INTEGER = nullSafeTypeMapper<Int>(PostgresType.INTEGER, ResultSet::getInt)
 	val LONG = nullSafeTypeMapper<Long>(PostgresType.BIG_INT, ResultSet::getLong)
-	val BIG_INTEGER = typeMapper<BigInteger>(PostgresType.BIG_INT, { set, name -> set.getObject(name, BigInteger::class.java) })
+	val BIG_INTEGER = typeMapper<BigInteger>(PostgresType.BIG_INT, { set, position -> set.getObject(position, BigInteger::class.java) })
 
 	val FLOAT = nullSafeTypeMapper<Float>(PostgresType.REAL, ResultSet::getFloat)
 	val DOUBLE = nullSafeTypeMapper<Double>(PostgresType.DOUBLE_PRECISION, ResultSet::getDouble)
@@ -44,7 +44,7 @@ object PostgresMappers {
 		override fun parse(column: ColumnContext, type: KType, value: String?, context: ReadContext, position: Int): Enum<*>? = value?.let { name -> type.jvmErasure.java.enumConstants.map { it as Enum<*> }.first { it.name == name } }
 	}
 
-	val UUID_MAPPER = typeMapper<UUID?>(PostgresType.UUID, { set, name -> UUID.fromString(set.getString(name)) }, { value, statement, pos -> statement.setObject(pos, value) })
+	val UUID_MAPPER = typeMapper<UUID?>(PostgresType.UUID, { set, position -> UUID.fromString(set.getString(position)) }, { value, statement, pos -> statement.setObject(pos, value) })
 	val JSON = object : TypeMapper<Any?, String?> {
 		val numberStrategy = ToNumberStrategy { reader ->
 			val str = reader!!.nextString()
@@ -77,11 +77,11 @@ object PostgresMappers {
 		override fun parse(column: ColumnContext, type: KType, value: String?, context: ReadContext, position: Int): Any? = value?.let { gson.fromJson(it, type.javaType) }
 	}
 
-	val INSTANT = typeMapper<Instant?>(PostgresType.TIMESTAMP, { set, name -> set.getTimestamp(name).toInstant() }, { value, statement, position -> statement.setTimestamp(position, value?.let { Timestamp.from(it) }) })
-	val LOCAL_DATE_TIME = typeMapper<LocalDateTime?>(PostgresType.TIMESTAMP, { set, name -> set.getTimestamp(name).toLocalDateTime() }, { value, statement, position -> statement.setTimestamp(position, value?.let { Timestamp.valueOf(it) }) })
-	val OFFSET_DATE_TIME = typeMapper<OffsetDateTime?>(PostgresType.TIMESTAMPTZ, { set, name -> set.getObject(name, OffsetDateTime::class.java) }, { value, statement, position -> statement.setTimestamp(position, value?.let { Timestamp.valueOf(it.toLocalDateTime()) }) })
-	val ZONED_DATE_TIME = typeMapper<ZonedDateTime?>(PostgresType.TIMESTAMPTZ, { set, name -> set.getObject(name, OffsetDateTime::class.java).toZonedDateTime() }, { value, statement, position -> statement.setTimestamp(position, value?.let { Timestamp.valueOf(it.toLocalDateTime()) }) })
-	val LOCAL_DATE = typeMapper<LocalDate?>(PostgresType.DATE, { set, name -> set.getDate(name).toLocalDate() }, { value, statement, position -> statement.setDate(position, value?.let { Date.valueOf(it) }) })
+	val INSTANT = typeMapper<Instant?>(PostgresType.TIMESTAMP, { set, position -> set.getTimestamp(position).toInstant() }, { value, statement, position -> statement.setTimestamp(position, value?.let { Timestamp.from(it) }) })
+	val LOCAL_DATE_TIME = typeMapper<LocalDateTime?>(PostgresType.TIMESTAMP, { set, position -> set.getTimestamp(position).toLocalDateTime() }, { value, statement, position -> statement.setTimestamp(position, value?.let { Timestamp.valueOf(it) }) })
+	val OFFSET_DATE_TIME = typeMapper<OffsetDateTime?>(PostgresType.TIMESTAMPTZ, { set, position -> set.getObject(position, OffsetDateTime::class.java) }, { value, statement, position -> statement.setTimestamp(position, value?.let { Timestamp.valueOf(it.toLocalDateTime()) }) })
+	val ZONED_DATE_TIME = typeMapper<ZonedDateTime?>(PostgresType.TIMESTAMPTZ, { set, position -> set.getObject(position, OffsetDateTime::class.java).toZonedDateTime() }, { value, statement, position -> statement.setTimestamp(position, value?.let { Timestamp.valueOf(it.toLocalDateTime()) }) })
+	val LOCAL_DATE = typeMapper<LocalDate?>(PostgresType.DATE, { set, position -> set.getDate(position).toLocalDate() }, { value, statement, position -> statement.setDate(position, value?.let { Date.valueOf(it) }) })
 
 	val LOCALE = delegatedTypeMapper(STRING, { it?.let { Locale.forLanguageTag(it) } }, { it?.toLanguageTag() })
 	val COLOR = delegatedTypeMapper(INTEGER, { it?.let { Color(it, true) }  }, { it?.rgb })

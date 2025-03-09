@@ -22,9 +22,9 @@ import kotlin.reflect.jvm.javaType
 import kotlin.reflect.jvm.jvmErasure
 
 object SQLiteMappers {
-	val BOOLEAN = nullSafeTypeMapper<Boolean>(SQLiteType.INTEGER, { set, name -> set.getInt(name) > 0 }, { value, statement, position -> statement.setInt(position, if (value) 1 else 0) })
-	val BYTE_ARRAy = typeMapper<ByteArray?>(SQLiteType.BLOB, { set, name -> set.getBytes(name) })
-	val BLOB = typeMapper<Blob?>(SQLiteType.BLOB, { set, name -> set.getBlob(name) })
+	val BOOLEAN = nullSafeTypeMapper<Boolean>(SQLiteType.INTEGER, { set, position -> set.getInt(position) > 0 }, { value, statement, position -> statement.setInt(position, if (value) 1 else 0) })
+	val BYTE_ARRAy = typeMapper<ByteArray?>(SQLiteType.BLOB, ResultSet::getBytes)
+	val BLOB = typeMapper<Blob?>(SQLiteType.BLOB, ResultSet::getBlob)
 
 	val SHORT = nullSafeTypeMapper<Short>(SQLiteType.INTEGER, ResultSet::getShort)
 	val INTEGER = nullSafeTypeMapper<Int>(SQLiteType.INTEGER, ResultSet::getInt)
@@ -74,9 +74,9 @@ object SQLiteMappers {
 		override fun parse(column: ColumnContext, type: KType, value: String?, context: ReadContext, position: Int): Any? = value?.let { gson.fromJson(it, type.javaType) }
 	}
 
-	val INSTANT = typeMapper<Instant?>(SQLiteType.INTEGER, { set, name -> set.getTimestamp(name).toInstant() }, { value, statement, position -> statement.setTimestamp(position, value?.let { Timestamp.from(it) }) })
-	val LOCAL_DATE_TIME = typeMapper<LocalDateTime?>(SQLiteType.INTEGER, { set, name -> set.getTimestamp(name).toLocalDateTime() }, { value, statement, position -> statement.setTimestamp(position, value?.let { Timestamp.valueOf(it) }) })
-	val LOCAL_DATE = typeMapper<LocalDate?>(SQLiteType.INTEGER, { set, name -> set.getDate(name).toLocalDate() }, { value, statement, position -> statement.setDate(position, value?.let { Date.valueOf(it) }) })
+	val INSTANT = typeMapper<Instant?>(SQLiteType.INTEGER, { set, position -> set.getTimestamp(position).toInstant() }, { value, statement, position -> statement.setTimestamp(position, value?.let { Timestamp.from(it) }) })
+	val LOCAL_DATE_TIME = typeMapper<LocalDateTime?>(SQLiteType.INTEGER, { set, position -> set.getTimestamp(position).toLocalDateTime() }, { value, statement, position -> statement.setTimestamp(position, value?.let { Timestamp.valueOf(it) }) })
+	val LOCAL_DATE = typeMapper<LocalDate?>(SQLiteType.INTEGER, { set, position -> set.getDate(position).toLocalDate() }, { value, statement, position -> statement.setDate(position, value?.let { Date.valueOf(it) }) })
 
 	val LOCALE = delegatedTypeMapper(STRING, { it?.let { Locale.forLanguageTag(it) } }, { it?.toLanguageTag() })
 	val COLOR = delegatedTypeMapper(INTEGER, { it?.let { Color(it, true) }  }, { it?.rgb })

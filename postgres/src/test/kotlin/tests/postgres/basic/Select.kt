@@ -2,6 +2,7 @@ package tests.postgres.basic
 
 import de.mineking.database.*
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.assertDoesNotThrow
 import org.junit.jupiter.api.assertThrows
 import setup.ConsoleSqlLogger
 import setup.UserDao
@@ -38,6 +39,13 @@ class SelectTest {
 	@Test
 	fun selectAll() {
 		assertEquals(5, table.select().list().size)
+	}
+
+	@Test
+	fun selectOutOfOrder() {
+		assertDoesNotThrow {
+			table.select(property(UserDao::id), property(UserDao::email), property(UserDao::name), value(""), value(""), property(UserDao::age)).list()
+		}
 	}
 
 	@Test

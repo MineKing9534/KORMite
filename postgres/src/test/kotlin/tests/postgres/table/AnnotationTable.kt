@@ -13,6 +13,9 @@ interface IdentifiableTable<T: Identifiable> : Table<T> {
 interface AnnotationTable : IdentifiableTable<UserDao> {
     @Insert fun createUser(@Parameter name: String, @Parameter email: String, @Parameter age: Int): UserDao
 
+    @Query("select :test") fun queryConstant(@Parameter test: List<Int>): QueryResult<List<Int>>
+    @Query("select id, email, age, :name from <TABLE>", ["id", "email", "age", "name"]) fun query(@Parameter name: String): List<UserDao>
+
     @Select fun getAllUsers(): List<UserDao>
     @Select fun getUserByEmail(@Condition email: String): UserDao?
     @Select fun modifiedSelect(): Set<UserDao> = execute<List<UserDao>>().toSet()
@@ -47,6 +50,19 @@ class AnnotationTableTest {
     @Test
     fun create() {
         assertEquals(6, table.createUser(name = "Test", email = "test@example.com", age = 0).id)
+    }
+
+    @Test
+    fun constantQuery() {
+        val list = listOf(0, 1, 2)
+        assertEquals(list, table.queryConstant(list).first())
+    }
+
+    @Test
+    fun query() {
+        val result = table.query("test")
+        assertEquals(5, result.size)
+        result.forEach { assertEquals("test", it.name) }
     }
 
     @Test

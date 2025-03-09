@@ -4,6 +4,7 @@ import de.mineking.database.AutoIncrement
 import de.mineking.database.Column
 import de.mineking.database.Key
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.assertDoesNotThrow
 import setup.ConsoleSqlLogger
 import setup.createConnection
 import setup.recreate
@@ -37,7 +38,9 @@ class NumericTest {
 	@Test
 	fun select() {
 		//The main purpose here is to verify that reading works without exceptions because of type problems
-		val result = table.select().first()
-		assertEquals(BigDecimal("${ Double.MAX_VALUE.toBigDecimal().toPlainString() }0.5"), result.bigDecimal)
+		assertDoesNotThrow {
+			val result = table.select().first()
+			assertEquals(BigDecimal("${ Double.MAX_VALUE.toBigDecimal().toPlainString() }0.5"), result.bigDecimal)
+		}
 	}
 }

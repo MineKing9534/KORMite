@@ -1,6 +1,7 @@
 package de.mineking.database
 
 import java.lang.reflect.Method
+import kotlin.jvm.java
 import kotlin.reflect.KType
 import kotlin.reflect.KTypeProjection
 import kotlin.reflect.full.*
@@ -66,15 +67,57 @@ object DefaultAnnotationHandlers {
         return obj
     }
 
+    val QUERY = annotationHandler<Query> { type, function, args, annotation ->
+        val parameters = function.kotlinFunction!!.valueParameters
+            .mapIndexed { index, value -> index to value }
+            .filter { (_, it) -> it.hasAnnotation<Parameter>() }
+            .associate { (index, param) ->
+                val name = param.findAnnotation<Parameter>()!!.name.takeIf { it.isNotBlank() } ?: param.name!!
+                val value = args[index]
+
+                val mapper = structure.manager.getTypeMapper<Any?, Any?>(param.type, null)
+                name to mapper.write(emptyList(), structure, param.type, value)
+            }
+
+        val definitions = function.parameters
+            .mapIndexed { index, value -> index to value }
+            .filter { (_, it) -> it.isAnnotationPresent(Define::class.java) }
+            .associate { (index, param) ->
+                (param.getAnnotation(Parameter::class.java)!!.name.takeIf { it.isNotBlank() } ?: param.name!!) to args[index]
+            }
+
+        val queryType = when (type.jvmErasure) {
+            QueryResult::class, List::class, Set::class -> type.arguments[0].type!!
+            else -> type
+        }
+
+        val mapper = if (queryType.jvmErasure == structure.component) mapper else structure.manager.getTypeMapper<Any?, Any?>(queryType, null)
+        val columns =
+            if (queryType.jvmErasure == structure.component) {
+                if (annotation.columns.isEmpty()) structure.columns.map { listOf(it) }
+                else annotation.columns.map { structure.getColumnFromCode(it) ?: error("Column $it not found") }.map { listOf(it) }
+            } else emptyList()
+
+        val value = query(annotation.sql, queryType, mapper, parameters = parameters, definitions = definitions, position = annotation.position, columns = columns)
+
+        when (type.jvmErasure) {
+            QueryResult::class -> value
+            List::class -> value.list()
+            Set::class -> value.set()
+            queryType.jvmErasure -> if (queryType.isMarkedNullable) value.firstOrNull() else value.first()
+            else -> error("Cannot produce $type as result")
+        }
+    }
+
     val SELECT = annotationHandler<Select> { type, function, args, _ ->
         val (limit, offset, order, condition) = queryWindow(function, args)
 
         val value = select(where = createCondition(function, args) and condition, order = order, limit = limit, offset = offset)
-        when (type.jvmErasure.java) {
-            QueryResult::class.java -> value
-            List::class.java -> value.list()
-            Set::class.java -> value.set()
-            structure.component.java -> if (type.isMarkedNullable) value.firstOrNull() else value.first()
+        when (type.jvmErasure) {
+            QueryResult::class -> value
+            List::class -> value.list()
+            Set::class -> value.set()
+            structure.component -> if (type.isMarkedNullable) value.firstOrNull() else value.first()
             else -> error("Cannot produce $type as result")
         }
     }
@@ -82,19 +125,19 @@ object DefaultAnnotationHandlers {
     val SELECT_VALUE = annotationHandler<SelectValue> { type, function, args, annotation ->
         val (limit, offset, order, condition) = queryWindow(function, args)
 
-        val valueType =
-            if (annotation.type == Unit::class) structure.getColumnFromCode(annotation.value)?.type ?: error("Cannot find ${ annotation.value } as column")
-            else annotation.type.createType(annotation.typeParameters.mapIndexed { i, _ -> KTypeProjection.invariant(annotation.typeParameters[i].createType()) })
-
         val target = if (annotation.raw) unsafeNode(annotation.value) else property<Any>(annotation.value)
-        val value = selectValue(target, valueType, where = createCondition(function, args) and condition, order = order, limit = limit, offset = offset)
+        val queryType = when (type.jvmErasure) {
+            QueryResult::class, List::class, Set::class -> type.arguments[0].type!!
+            else -> type
+        }
 
-        if (valueType.isSubtypeOf(type)) return@annotationHandler if (type.isMarkedNullable) value.firstOrNull() else value.first()
+        val value = selectValue(target, queryType, where = createCondition(function, args) and condition, order = order, limit = limit, offset = offset)
 
-        when (type.jvmErasure.java) {
-            QueryResult::class.java -> value
-            List::class.java -> value.list()
-            Set::class.java -> value.set()
+        when (type.jvmErasure) {
+            QueryResult::class -> value
+            List::class -> value.list()
+            Set::class -> value.set()
+            queryType.jvmErasure -> if (queryType.isMarkedNullable) value.firstOrNull() else value.first()
             else -> error("Cannot produce $type as result")
         }
     }
@@ -103,10 +146,10 @@ object DefaultAnnotationHandlers {
         fun <T: Any> execute(table: TableImplementation<T>) = table.insert(createObject(table, function, args))
         val value = execute(this)
 
-        when (type.jvmErasure.java) {
-            Unit::class.java -> Unit
-            UpdateResult::class.java -> value
-            structure.component.java -> if (type.isMarkedNullable) value.value else value.getOrThrow()
+        when (type.jvmErasure) {
+            Unit::class -> Unit
+            UpdateResult::class -> value
+            structure.component -> if (type.isMarkedNullable) value.value else value.getOrThrow()
             else -> error("Cannot produce $type as result")
         }
     }
@@ -115,10 +158,10 @@ object DefaultAnnotationHandlers {
         fun <T: Any> execute(table: TableImplementation<T>) = table.upsert(createObject(table, function, args))
         val value = execute(this)
 
-        when (type.jvmErasure.java) {
-            Unit::class.java -> Unit
-            UpdateResult::class.java -> value
-            structure.component.java -> if (type.isMarkedNullable) value.value else value.getOrThrow()
+        when (type.jvmErasure) {
+            Unit::class -> Unit
+            UpdateResult::class -> value
+            structure.component -> if (type.isMarkedNullable) value.value else value.getOrThrow()
             else -> error("Cannot produce $type as result")
         }
     }
@@ -133,21 +176,21 @@ object DefaultAnnotationHandlers {
             }
 
         val value = update(columns = updates.toTypedArray(), where = createCondition(function, args))
-        when (type.jvmErasure.java) {
-            Unit::class.java -> Unit
-            UpdateResult::class.java -> value
-            Int::class.java -> if (type.isMarkedNullable) value.value else value.getOrThrow()
-            Boolean::class.java -> (value.value ?: 0) > 0
+        when (type.jvmErasure) {
+            Unit::class -> Unit
+            UpdateResult::class -> value
+            Int::class -> if (type.isMarkedNullable) value.value else value.getOrThrow()
+            Boolean::class -> (value.value ?: 0) > 0
             else -> error("Cannot produce $type as result")
         }
     }
 
     val DELETE = annotationHandler<Delete> { type, function, args, _ ->
         val value = delete(where = createCondition(function, args))
-        when (type.jvmErasure.java) {
-            Unit::class.java -> Unit
-            Int::class.java -> value
-            Boolean::class.java -> value > 0
+        when (type.jvmErasure) {
+            Unit::class -> Unit
+            Int::class -> value
+            Boolean::class -> value > 0
             else -> error("Cannot produce $type as result")
         }
     }

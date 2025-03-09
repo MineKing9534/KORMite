@@ -1,5 +1,7 @@
 package de.mineking.database
 
+import jdk.internal.org.jline.utils.InfoCmp.Capability.columns
+import jdk.javadoc.internal.doclets.formats.html.markup.HtmlStyle.parameters
 import org.jdbi.v3.core.argument.Argument
 import org.jdbi.v3.core.kotlin.useHandleUnchecked
 import org.jdbi.v3.core.statement.Update
@@ -68,7 +70,7 @@ abstract class TableImplementation<T: Any>(
 
             structure.columns.forEach {
                 val columnContext = context.currentContext + it
-                val index = context.columns.indexOf(columnContext)
+                val index = context.columns.lastIndexOf(columnContext) //Use last index of to allow overriding
                 if (index == -1) return@forEach
 
                 fun <C> set(column: ColumnData<T, C>): Boolean {
@@ -89,22 +91,35 @@ abstract class TableImplementation<T: Any>(
         override fun toString() = "RowTypeMapper[${ structure.component.simpleName } in ${ structure.name }]"
     }
 
-    fun <T> query(mapper: TypeMapper<T, *>, position: Int, column: ColumnContext, type: KType) = QueryBuilder<T>(this) { sql, values, columns -> query(sql, type, mapper, values, position, column, columns) }
-    fun query() = QueryBuilder<T>(this, this::query)
+    fun query() = QueryBuilder<T>(this) { sql, values, columns -> query(sql, values, columns = columns) }
+    fun <T> query(type: KType, mapper: TypeMapper<T, *>, position: Int = 1, column: ColumnContext = emptyList()) = QueryBuilder<T>(this) { sql, values, columns -> query(sql, type, mapper, values, emptyMap(), position, column, columns) }
+    inline fun <reified T> query(position: Int = 1, column: ColumnContext = emptyList()): QueryBuilder<T> {
+        val mapper = structure.manager.getTypeMapper<T, Any?>(typeOf<T>(), column.lastOrNull()?.property)
+        return query(typeOf<T>(), mapper, position, column)
+    }
 
     @Suppress("UNCHECKED_CAST")
-    fun query(sql: String, parameters: Map<String, Any?> = emptyMap(), columns: List<ColumnContext> = emptyList()): QueryResult<T> = query(sql, structure.component.createType(), mapper as TypeMapper<T, *>, parameters, columns = columns)
-    fun <T> query(sql: String, type: KType, mapper: TypeMapper<T, *>, parameters: Map<String, Any?> = emptyMap(), position: Int = 1, column: ColumnContext = emptyList(), columns: List<ColumnContext> = emptyList()) = object : QueryResult<T> {
+    fun query(sql: String, parameters: Map<String, Any?> = emptyMap(), definitions: Map<String, Any?> = emptyMap(), columns: List<ColumnContext> = emptyList()): QueryResult<T> = query(sql, structure.component.createType(), mapper as TypeMapper<T, *>, parameters, definitions, columns = columns)
+    fun <T> query(sql: String, type: KType, mapper: TypeMapper<T, *>, parameters: Map<String, Any?> = emptyMap(), definitions: Map<String, Any?> = emptyMap(), position: Int = 1, column: ColumnContext = emptyList(), columns: List<ColumnContext> = emptyList()) = object : QueryResult<T> {
         override fun <R> useIterator(handler: (QueryIterator<T>) -> R): R = structure.manager.execute {
             handler(it.createQuery(sql)
                 .bindMap(parameters)
+                .apply {
+                    define("TABLE", structure.name)
+                    definitions.forEach { define(it.key, it.value) }
+                }
                 .scanResultSet { set, ctx -> QueryIterator<T>(ReadContext(this@TableImplementation, set.get(), columns, column), ctx, position, column, type, mapper) }
             )
         }
     }
 
+    inline fun <reified T> query(sql: String, parameters: Map<String, Any?> = emptyMap(), definitions: Map<String, Any?> = emptyMap(), position: Int = 1, column: ColumnContext = emptyList(), columns: List<ColumnContext> = emptyList()): QueryResult<T> {
+        val mapper = structure.manager.getTypeMapper<T, Any?>(typeOf<T>(), column.lastOrNull()?.property)
+        return query(sql, typeOf<T>(), mapper, parameters, definitions, position, column, columns)
+    }
+
     override fun selectRowCount(where: Where): Int {
-        return query(structure.manager.getTypeMapper<Int>(), 1, emptyList(), typeOf<Int>())
+        return query(typeOf<Int>(), structure.manager.getTypeMapper<Int>())
             .nodes(unsafeNode("count(*)"))
             .where(where)
             .first()
@@ -112,7 +127,7 @@ abstract class TableImplementation<T: Any>(
 
     override fun select(vararg columns: Node<*>, where: Where, order: Order?, limit: Int?, offset: Int?): QueryResult<T> {
         return query()
-            .nodes(if (columns.isEmpty()) structure.columns.map { property(it.property) } else columns.toList())
+            .apply { if (columns.isEmpty()) defaultNodes() else nodes(*columns) }
             .where(where)
             .limit(limit)
             .offset(offset)
@@ -123,7 +138,7 @@ abstract class TableImplementation<T: Any>(
         val column = target.columnContext(structure)
         val mapper = structure.manager.getTypeMapper<C, Any>(type, column.lastOrNull()?.property)
 
-        return query<C>(mapper, 1, column, type)
+        return query<C>(type, mapper, 1, column = column)
             .nodes(target)
             .where(where)
             .limit(limit)
@@ -306,6 +321,8 @@ class QueryBuilder<T>(private val table: TableImplementation<*>, private val que
         }
     }
 
+    fun defaultNodes() = nodes(table.structure.columns.map { property(it.property) } )
+
     fun limit(limit: Int?) = apply { this.limit = limit }
     fun offset(offset: Int?) = apply { this.offset = offset }
     fun order(order: Order?) = apply { this.order = order }
@@ -342,6 +359,6 @@ class QueryBuilder<T>(private val table: TableImplementation<*>, private val que
                 }
         }
 
-        return query(render(), values, nodes.map { it.columnContext(table.structure) }.filter { it.isNotEmpty() }).useIterator(handler)
+        return query(render(), values, nodes.map { it.columnContext(table.structure) }).useIterator(handler)
     }
 }
