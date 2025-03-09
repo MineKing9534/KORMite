@@ -33,7 +33,7 @@ fun interface Where : Node<Any?> {
 
     fun get(table: TableStructure<*>): String
 
-    override fun format(table: TableStructure<*>, prefix: Boolean) = format(table)
+    override fun format(table: TableStructure<*>, prefix: Boolean) = get(table)
     override fun values(table: TableStructure<*>, column: ColumnContext) = values(table)
 
     fun format(table: TableStructure<*>): String = get(table).takeIf { it.isNotBlank() }?.let { "where $it" } ?: ""
