@@ -16,11 +16,14 @@ class SQLiteTable<T: Any>(
 	override fun createTable() {
 		val columns = structure.columns
 
-		fun <C> formatColumn(column: ColumnData<T, C>) = """
-			"${ column.name }" ${ column.mapper.getType(column, column.table, column.type).sqlName }
-			${ if (column.property.hasDatabaseAnnotation<AutoGenerate>()) " default ${ column.property.getDatabaseAnnotation<AutoGenerate>()?.generator?.takeIf { it.isNotBlank() } ?: structure.manager.autoGenerate(column) } }" else "" }
-			${ column.property.takeIf { !it.returnType.isMarkedNullable }?.let { " not null" } ?: "" }
-		""".replace("\n", "").replace("\t", "")
+		fun <C> formatColumn(column: ColumnData<T, C>): String {
+			val type = column.mapper.getType(column, column.table, column.type)
+			return """
+				"${ column.name }" ${ type.sqlName }
+				${ if (column.property.hasDatabaseAnnotation<AutoGenerate>()) " default ${ column.property.getDatabaseAnnotation<AutoGenerate>()?.generator?.takeIf { it.isNotBlank() } ?: structure.manager.autoGenerate(column) } }" else "" }
+				${ if (type.nullable) "" else "not null" }
+			"""
+		}
 
 		val keys = structure.getKeys()
 		val unique = columns.filter { it.property.hasDatabaseAnnotation<Unique>() }.groupBy { it.property.getDatabaseAnnotation<Unique>()!!.name }
@@ -31,7 +34,7 @@ class SQLiteTable<T: Any>(
 				${ if (keys.isNotEmpty()) ", primary key(${ keys.joinToString { "\"${ it.name }\"${ if (it.property.hasDatabaseAnnotation<AutoIncrement>()) " autoincrement" else "" }" } })" else "" }
 				${ if (unique.isNotEmpty()) ", ${ unique.map { "unique(${ it.value.joinToString { "\"${ it.name }\"" } })" }.joinToString() }" else "" }
 			)
-		""".replace("\n", "").replace("\t", "")).execute() }
+		""".trim().replace("\\s+".toRegex(), " ")).execute() }
 
 		structure.manager.driver.useHandleUnchecked { it.createQuery("select * from ${ structure.name } limit 1").execute { supplier, _ ->
 			val meta = supplier.get().resultSet.metaData

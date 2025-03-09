@@ -22,29 +22,26 @@ import kotlin.reflect.jvm.javaType
 import kotlin.reflect.jvm.jvmErasure
 
 object SQLiteMappers {
-	val BOOLEAN = nullSafeTypeMapper<Boolean>(SQLiteType.INTEGER, { set, position -> set.getInt(position) > 0 }, { value, statement, position -> statement.setInt(position, if (value) 1 else 0) })
-	val BYTE_ARRAy = typeMapper<ByteArray?>(SQLiteType.BLOB, ResultSet::getBytes)
-	val BLOB = typeMapper<Blob?>(SQLiteType.BLOB, ResultSet::getBlob)
+	val BOOLEAN = nullsafeTypeMapper<Boolean>(SQLiteType.INTEGER, { set, position -> set.getInt(position) > 0 }, { statement, position, value -> statement.setInt(position, if (value) 1 else 0) })
+	val BYTE_ARRAy = nullsafeTypeMapper<ByteArray?>(SQLiteType.BLOB, ResultSet::getBytes, PreparedStatement::setBytes)
+	val BLOB = nullsafeTypeMapper<Blob?>(SQLiteType.BLOB, ResultSet::getBlob, PreparedStatement::setBlob)
 
-	val SHORT = nullSafeTypeMapper<Short>(SQLiteType.INTEGER, ResultSet::getShort)
-	val INTEGER = nullSafeTypeMapper<Int>(SQLiteType.INTEGER, ResultSet::getInt)
-	val LONG = nullSafeTypeMapper<Long>(SQLiteType.INTEGER, ResultSet::getLong)
+	val SHORT = nullsafeTypeMapper<Short>(SQLiteType.INTEGER, ResultSet::getShort, PreparedStatement::setShort)
+	val INTEGER = nullsafeTypeMapper<Int>(SQLiteType.INTEGER, ResultSet::getInt, PreparedStatement::setInt)
+	val LONG = nullsafeTypeMapper<Long>(SQLiteType.INTEGER, ResultSet::getLong, PreparedStatement::setLong)
 
-	val FLOAT = nullSafeTypeMapper<Float>(SQLiteType.REAL, ResultSet::getFloat)
-	val DOUBLE = nullSafeTypeMapper<Double>(SQLiteType.REAL, ResultSet::getDouble)
+	val FLOAT = nullsafeTypeMapper<Float>(SQLiteType.REAL, ResultSet::getFloat, PreparedStatement::setFloat)
+	val DOUBLE = nullsafeTypeMapper<Double>(SQLiteType.REAL, ResultSet::getDouble, PreparedStatement::setDouble)
 
-	val STRING = typeMapper<String?>(SQLiteType.TEXT, ResultSet::getString)
-	val ENUM = object : TypeMapper<Enum<*>?, String?> {
-		override fun accepts(manager: DatabaseConnection, property: KProperty<*>?, type: KType): Boolean = type.jvmErasure.java.isEnum
+	val STRING = nullsafeTypeMapper<String>(SQLiteType.TEXT, ResultSet::getString, PreparedStatement::setString)
+	val ENUM = nullsafeDelegateTypeMapper<Enum<*>, String>(STRING, { name, type -> type.jvmErasure.java.enumConstants.map { it as Enum<*> }.first { it.name == name } }, Enum<*>::name)
 
-		override fun getType(column: ColumnData<*, *>?, table: TableStructure<*>, type: KType): DataType =
-            SQLiteType.TEXT
+	val INSTANT = nullsafeTypeMapper<Instant>(SQLiteType.INTEGER, { set, position -> set.getTimestamp(position).toInstant() }, { statement, position, value -> statement.setTimestamp(position, Timestamp.from(value)) })
+	val LOCAL_DATE_TIME = nullsafeTypeMapper<LocalDateTime>(SQLiteType.INTEGER, { set, position -> set.getTimestamp(position).toLocalDateTime() }, { statement, position, value -> statement.setTimestamp(position, Timestamp.valueOf(value)) })
+	val LOCAL_DATE = nullsafeTypeMapper<LocalDate>(SQLiteType.INTEGER, { set, position -> set.getDate(position).toLocalDate() }, { statement, position, value -> statement.setDate(position, Date.valueOf(value)) })
 
-		override fun format(column: ColumnContext, table: TableStructure<*>, type: KType, value: Enum<*>?): String? = value?.name
-
-		override fun extract(column: ColumnContext, type: KType, context: ReadContext, position: Int): String? = STRING.extract(column, type, context, position)
-		override fun parse(column: ColumnContext, type: KType, value: String?, context: ReadContext, position: Int): Enum<*>? = value?.let { name -> type.jvmErasure.java.enumConstants.map { it as Enum<*> }.first { it.name == name } }
-	}
+	val LOCALE = nullsafeDelegateTypeMapper(STRING, { it, type -> Locale.forLanguageTag(it) }, Locale::toLanguageTag)
+	val COLOR = nullsafeDelegateTypeMapper(INTEGER, { it, type -> Color(it, true) }, Color::getRGB)
 
 	val JSON = object : TypeMapper<Any?, String?> {
 		val numberStrategy = ToNumberStrategy { reader ->
@@ -57,8 +54,7 @@ object SQLiteMappers {
 			.create()
 
 		override fun accepts(manager: DatabaseConnection, property: KProperty<*>?, type: KType): Boolean = property?.hasDatabaseAnnotation<Json>() == true
-		override fun getType(column: ColumnData<*, *>?, table: TableStructure<*>, type: KType): DataType =
-            SQLiteType.TEXT
+		override fun getType(column: ColumnData<*, *>?, table: TableStructure<*>, type: KType): DataType = SQLiteType.TEXT.withNullability(type.isMarkedNullable)
 
 		override fun format(column: ColumnContext, table: TableStructure<*>, type: KType, value: Any?): String? = value?.let { gson.toJson(value) }
 		override fun createArgument(column: ColumnContext, table: TableStructure<*>, type: KType, value: String?): Argument = object : Argument {
@@ -74,13 +70,6 @@ object SQLiteMappers {
 		override fun parse(column: ColumnContext, type: KType, value: String?, context: ReadContext, position: Int): Any? = value?.let { gson.fromJson(it, type.javaType) }
 	}
 
-	val INSTANT = typeMapper<Instant?>(SQLiteType.INTEGER, { set, position -> set.getTimestamp(position).toInstant() }, { value, statement, position -> statement.setTimestamp(position, value?.let { Timestamp.from(it) }) })
-	val LOCAL_DATE_TIME = typeMapper<LocalDateTime?>(SQLiteType.INTEGER, { set, position -> set.getTimestamp(position).toLocalDateTime() }, { value, statement, position -> statement.setTimestamp(position, value?.let { Timestamp.valueOf(it) }) })
-	val LOCAL_DATE = typeMapper<LocalDate?>(SQLiteType.INTEGER, { set, position -> set.getDate(position).toLocalDate() }, { value, statement, position -> statement.setDate(position, value?.let { Date.valueOf(it) }) })
-
-	val LOCALE = delegatedTypeMapper(STRING, { it?.let { Locale.forLanguageTag(it) } }, { it?.toLanguageTag() })
-	val COLOR = delegatedTypeMapper(INTEGER, { it?.let { Color(it, true) }  }, { it?.rgb })
-
 	val ARRAY = object : TypeMapper<Any?, ByteArray> {
 		fun Any.asArray(): Array<*> = when (this) {
 			is Array<*> -> this
@@ -91,8 +80,7 @@ object SQLiteMappers {
 		fun Collection<*>.createArray(component: KType) = if (component.jvmErasure.java.isPrimitive) toTypedArray() else (this as java.util.Collection<*>).toArray { java.lang.reflect.Array.newInstance(component.jvmErasure.java, it) as Array<*> }
 
 		override fun accepts(manager: DatabaseConnection, property: KProperty<*>?, type: KType): Boolean = type.isArray()
-		override fun getType(column: ColumnData<*, *>?, table: TableStructure<*>, type: KType): DataType =
-            SQLiteType.BLOB
+		override fun getType(column: ColumnData<*, *>?, table: TableStructure<*>, type: KType): DataType = SQLiteType.BLOB.withNullability(type.isMarkedNullable)
 
 		override fun <O: Any> initialize(column: ColumnData<O, *>, type: KType) {
 			val component = type.component()

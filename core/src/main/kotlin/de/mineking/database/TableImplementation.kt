@@ -1,7 +1,5 @@
 package de.mineking.database
 
-import jdk.internal.org.jline.utils.InfoCmp.Capability.columns
-import jdk.javadoc.internal.doclets.formats.html.markup.HtmlStyle.parameters
 import org.jdbi.v3.core.argument.Argument
 import org.jdbi.v3.core.kotlin.useHandleUnchecked
 import org.jdbi.v3.core.statement.Update
@@ -35,7 +33,7 @@ abstract class TableImplementation<T: Any>(
             if (structure.getKeys().size != 1) error("Can only reference type with exactly one key")
 
             val key = structure.getKeys().first()
-            return key.mapper.getType(column, table, key.type)
+            return key.mapper.getType(column, table, key.type).withNullability(type.isMarkedNullable)
         }
 
         override fun <O : Any> initialize(column: ColumnData<O, *>, type: KType) {

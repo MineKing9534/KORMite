@@ -140,5 +140,3 @@ abstract class DatabaseConnection(
         else driver.withHandleUnchecked { action(it) }
     }
 }
-
-//TODO !!! nullability via typemapper for more flexibility
