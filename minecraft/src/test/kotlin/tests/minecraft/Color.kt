@@ -18,13 +18,10 @@ data class ColorDao(
 )
 
 class ColorTest {
-	val connection = createConnection()
-	val table: Table<ColorDao>
+	val connection = createConnection().apply { registerMinecraftMappers(createServer(), PostgresMappers.STRING, PostgresMappers.UUID_MAPPER, PostgresMappers.ARRAY, PostgresMappers.DOUBLE) }
+	val table = connection.getDefaultTable(name = "color_test") { ColorDao() }
 
-	init {
-		connection.registerMinecraftMappers(createServer(), PostgresMappers.STRING, PostgresMappers.UUID_MAPPER, PostgresMappers.ARRAY, PostgresMappers.DOUBLE)
-		table = connection.getTable(name = "color_test") { ColorDao() }
-
+    init {
 		table.recreate()
 
 		table.insert(ColorDao(color = TextColor.color(0x00ff00), namedColor = NamedTextColor.GREEN))

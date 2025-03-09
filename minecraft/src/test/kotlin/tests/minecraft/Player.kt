@@ -14,9 +14,6 @@ data class PlayerDao(
 )
 
 class PlayerTest {
-	val connection = createConnection()
-	val table: Table<PlayerDao>
-
 	val id1 = UUID.randomUUID()
 	val id2 = UUID.randomUUID()
 
@@ -25,10 +22,10 @@ class PlayerTest {
 		createPlayer(id2)
 	)
 
-	init {
-		connection.registerMinecraftMappers(createServer(players = players), PostgresMappers.STRING, PostgresMappers.UUID_MAPPER, PostgresMappers.ARRAY, PostgresMappers.DOUBLE)
-		table = connection.getTable(name = "player_test") { PlayerDao() }
+	val connection = createConnection().apply { registerMinecraftMappers(createServer(players = players), PostgresMappers.STRING, PostgresMappers.UUID_MAPPER, PostgresMappers.ARRAY, PostgresMappers.DOUBLE) }
+	val table = connection.getDefaultTable(name = "player_test") { PlayerDao() }
 
+	init {
 		table.recreate()
 
 		table.insert(PlayerDao(player = players[0]))

@@ -55,6 +55,7 @@ fun <T> Node<*>.castTo(type: DataType) = "cast"(this + " as ${type.sqlName}") as
 inline fun <reified T> Node<*>.castTo() = object : Node<T> by this {
 	override fun format(table: TableStructure<*>, prefix: Boolean): String {
 		val original = this@castTo.format(table, prefix)
+		if (!prefix) return original //dont cast in update context
 
 		val column = columnContext(table).lastOrNull()
 		val mapper = table.manager.getTypeMapper<T, Any?>(typeOf<T>(), column?.property)

@@ -44,7 +44,7 @@ object PostgresMappers {
 		override fun parse(column: ColumnContext, type: KType, value: String?, context: ReadContext, position: Int): Enum<*>? = value?.let { name -> type.jvmErasure.java.enumConstants.map { it as Enum<*> }.first { it.name == name } }
 	}
 
-	val UUID_MAPPER = typeMapper<UUID?>(PostgresType.UUID, { set, position -> UUID.fromString(set.getString(position)) }, { value, statement, pos -> statement.setObject(pos, value) })
+	val UUID_MAPPER = nullSafeTypeMapper<UUID?>(PostgresType.UUID, { set, position -> set.getString(position)?.let { UUID.fromString(it) } }, { value, statement, pos -> statement.setObject(pos, value) })
 	val JSON = object : TypeMapper<Any?, String?> {
 		val numberStrategy = ToNumberStrategy { reader ->
 			val str = reader!!.nextString()

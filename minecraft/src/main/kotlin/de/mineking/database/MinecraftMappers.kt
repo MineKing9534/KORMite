@@ -1,5 +1,6 @@
 package de.mineking.database
 
+import io.papermc.paper.command.brigadier.argument.ArgumentTypes.world
 import net.kyori.adventure.text.format.NamedTextColor
 import net.kyori.adventure.text.format.TextColor
 import org.bukkit.Location
@@ -12,10 +13,6 @@ import kotlin.reflect.KType
 import kotlin.reflect.full.isSubtypeOf
 import kotlin.reflect.typeOf
 
-@Target(AnnotationTarget.FIELD)
-@Retention(AnnotationRetention.RUNTIME)
-annotation class LocationWorldColumn(val name: String)
-
 fun DatabaseConnection.registerMinecraftMappers(
 	server: Server,
 	textType: TypeMapper<String?, *>? = null,
@@ -25,61 +22,36 @@ fun DatabaseConnection.registerMinecraftMappers(
 ) {
 	data["server"] = server
 
-	if (uuidType != null) typeMappers += typeMapper(uuidType, { it?.let { server.getOfflinePlayer(it) } }, { it?.uniqueId })
-	if (textType != null) typeMappers += typeMapper<TextColor?, String?>(textType, { it?.let { TextColor.fromHexString(it) } }, { it?.asHexString() })
-	if (textType != null) typeMappers += typeMapper(textType, { it?.let { NamedTextColor.NAMES.value(it.lowercase()) } }, { it?.let { NamedTextColor.NAMES.key(it)?.uppercase() } })
+	if (uuidType != null) typeMappers += delegatedTypeMapper(uuidType, { it?.let { server.getOfflinePlayer(it) } }, { it?.uniqueId })
+	if (textType != null) typeMappers += delegatedTypeMapper<TextColor?, String?>(textType, { it?.let { TextColor.fromHexString(it) } }, { it?.asHexString() })
+	if (textType != null) typeMappers += delegatedTypeMapper(textType, { it?.let { NamedTextColor.NAMES.value(it.lowercase()) } }, { it?.let { NamedTextColor.NAMES.key(it)?.uppercase() } })
 
-	val worldMapper = if (uuidType != null) typeMapper(uuidType, { it?.let { server.getWorld(it) } }, { it?.uid }) else null
+	val worldMapper = if (uuidType != null) delegatedTypeMapper(uuidType, { it?.let { server.getWorld(it) } }, { it?.uid }) else null
 	if (worldMapper != null) typeMappers += worldMapper
 
-	if (worldMapper != null && doubleType != null && arrayType != null) typeMappers += object : TypeMapper<Location?, Array<Double>?> {
+	if (worldMapper != null && doubleType != null && arrayType != null) typeMappers += object : TypeMapper<Location?, Array<String?>?> {
 		override fun accepts(manager: DatabaseConnection, property: KProperty<*>?, type: KType): Boolean = type.isSubtypeOf(typeOf<Location?>())
-		override fun getType(column: ColumnData<*, *>?, table: TableStructure<*>, type: KType): DataType = arrayType.getType(column, table, typeOf<Array<Double>>())
+		override fun getType(column: ColumnData<*, *>?, table: TableStructure<*>, type: KType): DataType = arrayType.getType(column, table, typeOf<Array<String?>>())
 
-		override fun <O: Any> initialize(column: DirectColumnData<O, *>, type: KType) {
-			val worldColumn = column.property.getDatabaseAnnotation<LocationWorldColumn>()
-
-			if (worldColumn == null) {
-				//We need to check the column type here directly to ensure column.get returns a Location instance
-				require(column.type.isSubtypeOf(typeOf<Location?>())) { "Please specify a column to use to store the world in when not using a direct Location column" }
-
-				val name = "${ column.baseName }World"
-				column.createVirtualChild(
-					name,
-					column.table.namingStrategy.getName(name),
-					column.table.namingStrategy.getName("World"),
-					worldMapper,
-					typeOf<World>()
-				) { (column.get(it) as Location?)?.world }
-			} else {
-				@Suppress("UNCHECKED_CAST")
-				val world = parseColumnSpecification(worldColumn.name, column.table).column as ColumnData<O, World>
-
-				column.createVirtualChild(
-					world.baseName,
-					world.name,
-					column.table.namingStrategy.getName("World"),
-					world.mapper,
-					world.type,
-					isReference = true
-				) { world.get(it) }
-			}
-
-			column.createVirtualChild("", column.name, "x", doubleType, typeOf<Double>(), isReference = true, transform = { "\"$it\"[1]" }) { (column.get(it) as Location?)?.x }
-			column.createVirtualChild("", column.name, "y", doubleType, typeOf<Double>(), isReference = true, transform = { "\"$it\"[2]" }) { (column.get(it) as Location?)?.y }
-			column.createVirtualChild("", column.name, "z", doubleType, typeOf<Double>(), isReference = true, transform = { "\"$it\"[3]" }) { (column.get(it) as Location?)?.z }
+		override fun format(column: ColumnContext, table: TableStructure<*>, type: KType, value: Location?): Array<String?>? = value?.let {
+			arrayOf(it.x.toString(), it.y.toString(), it.z.toString(), it.world?.uid?.toString())
 		}
-
-		override fun format(column: ColumnData<*, *>?, table: TableStructure<*>, type: KType, value: Location?): Array<Double>? = value?.let { arrayOf(it.x, it.y, it.z) }
-		override fun createArgument(column: ColumnData<*, *>?, table: TableStructure<*>, type: KType, value: Array<Double>?): Argument = arrayType.createArgument(column, table, typeOf<Array<Double>>(), value)
+		override fun createArgument(column: ColumnContext, table: TableStructure<*>, type: KType, value: Array<String?>?): Argument = arrayType.createArgument(column, table, typeOf<Array<String?>>(), value)
 
 		@Suppress("UNCHECKED_CAST")
-		override fun extract(column: DirectColumnData<*, *>?, type: KType, context: ReadContext, name: String): Array<Double>? = arrayType.extract(column, typeOf<Array<Double>>(), context, name) as Array<Double>?
-		override fun parse(column: DirectColumnData<*, *>?, type: KType, value: Array<Double>?, context: ReadContext, name: String): Location? = value?.let {
-			val worldColumn = column?.getChildren()?.first()
-			val world = worldColumn?.mapper?.read(column, worldColumn.type, context, worldColumn.name) as World?
-
-			Location(world, value[0], value[1], value[2])
+		override fun extract(column: ColumnContext, type: KType, context: ReadContext, position: Int): Array<String?>? = arrayType.extract(column, typeOf<Array<String?>>(), context, position) as Array<String?>?
+		override fun parse(column: ColumnContext, type: KType, value: Array<String?>?, context: ReadContext, position: Int): Location? = value?.let {
+			val world = value[3]?.let { server.getWorld(UUID.fromString(it)) }
+			Location(world, value[0]!!.toDouble(), value[1]!!.toDouble(), value[2]!!.toDouble())
 		}
 	}
 }
+
+@Suppress("UNCHECKED_CAST")
+val Node<Location>.x get() = (this + "[1]").castTo<Double>()
+@Suppress("UNCHECKED_CAST")
+val Node<Location>.y get() = (this + "[2]").castTo<Double>()
+@Suppress("UNCHECKED_CAST")
+val Node<Location>.z get() = (this + "[3]").castTo<Double>()
+@Suppress("UNCHECKED_CAST")
+val Node<Location>.world get() = (this + "[4]").castTo<World>()
