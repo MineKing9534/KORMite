@@ -23,8 +23,8 @@ data class DataObjectDao(
 
 class DataObjectTest {
 	val connection = createConnection()
-	val referenceTable = connection.getTable(name = "data_object_reference_test") { DataObjectReferenceDao() }
-	val table = connection.getTable(name = "data_object_test") { DataObjectDao(this) }
+	val referenceTable = connection.getDefaultTable(name = "data_object_reference_test") { DataObjectReferenceDao() }
+	val table = connection.getDefaultTable(name = "data_object_test") { DataObjectDao(this) }
 
 	val references = arrayListOf<DataObjectReferenceDao>()
 

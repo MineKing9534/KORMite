@@ -18,5 +18,5 @@ class SQLiteConnection(
 		typeMappers += SQLiteMappers::class.memberProperties.map { it.get(SQLiteMappers) as TypeMapper<*, *> }
 	}
 
-	override fun <T: Any> createTableImplementation(type: KClass<*>, structure: TableStructure<T>, instance: () -> T): TableImplementation<T> = SQLiteTable(type, structure, instance)
+	override fun <T: Any> createTableImplementation(tableType: KClass<*>, structure: TableStructure<T>, instance: () -> T): TableImplementation<T> = SQLiteTable(tableType, structure, instance)
 }

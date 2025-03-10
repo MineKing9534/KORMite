@@ -17,7 +17,7 @@ fun ascendingBy(property: KProperty<*>) = ascendingBy(property.name)
 fun descendingBy(name: String) = Order { "\"$name\" desc" }
 fun descendingBy(property: KProperty<*>) = descendingBy(property.name)
 
-interface Where : Node<Any?> {
+fun interface Where : Node<Any?> {
     companion object {
         val ALL = unsafe("true")
         val NONE = unsafe("false")
@@ -26,16 +26,18 @@ interface Where : Node<Any?> {
         fun combine(string: (TableStructure<*>) -> String, vararg components: Where) = object : Where {
             override fun get(table: TableStructure<*>): String = string(table)
             override fun values(table: TableStructure<*>): Map<String, Argument> = components.filter { it.get(table).isNotBlank() }.flatMap { it.values(table).map { it.key to it.value } }.toMap()
+
+            override fun columns(table: TableStructure<*>) = components.flatMap { it.columns(table) }
         }
     }
 
     fun get(table: TableStructure<*>): String
+
+    override fun format(table: TableStructure<*>, prefix: Boolean) = get(table)
+    override fun values(table: TableStructure<*>, column: ColumnContext) = values(table)
+
     fun format(table: TableStructure<*>): String = get(table).takeIf { it.isNotBlank() }?.let { "where $it" } ?: ""
-
     fun values(table: TableStructure<*>): Map<String, Argument> = emptyMap()
-
-    override fun format(table: TableStructure<*>, formatter: (ColumnInfo) -> String) = format(table)
-    override fun values(table: TableStructure<*>, column: ColumnData<*, *>?) = values(table)
 }
 
 infix fun Where.or(other: Where): Where = combine({ when {
@@ -81,7 +83,9 @@ fun <T: Any> identifyObject(table: TableStructure<T>, obj: T): Where {
 
 fun Where(node: Node<*>): Where = object : Where {
     override fun get(table: TableStructure<*>): String = node.format(table)
-    override fun values(table: TableStructure<*>): Map<String, Argument> = node.values(table, node.columnContext(table)?.column)
+    override fun values(table: TableStructure<*>): Map<String, Argument> = node.values(table, node.columnContext(table))
+
+    override fun columns(table: TableStructure<*>) = node.columns(table)
 }
 
 infix fun Node<*>.isEqualTo(other: Node<*>) = Where(this + " = " + other)
@@ -90,8 +94,8 @@ infix fun Node<*>.isNotEqualTo(other: Node<*>) = Where(this + " != " + other)
 infix fun Node<*>.isLike(other: Node<String>) = Where(this + " like " + other)
 infix fun Node<*>.isLikeIgnoreCase(other: Node<String>) = Where(this + " ilike " + other)
 
-fun Node<*>.isIn(nodes: Array<Node<*>>) = Where(this + " in (" + nodes.join() + ")")
-fun Node<*>.isIn(nodes: Collection<Node<*>>) = isIn(nodes.toTypedArray())
+fun Node<*>.isIn(vararg nodes: Node<*>) = isIn(nodes.toList())
+fun Node<*>.isIn(nodes: Collection<Node<*>>) = Where(this + " in (" + nodes.join() + ")")
 
 infix fun Node<*>.isGreaterThan(other: Node<*>) = Where(this + " > " + other)
 infix fun Node<*>.isGreaterThanOrEqual(other: Node<*>) = Where(this + " >= " + other)

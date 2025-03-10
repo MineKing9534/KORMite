@@ -15,7 +15,7 @@ data class ColorDao(
 
 class ColorTest {
 	val connection = createConnection()
-	val table = connection.getTable(name = "color_test") { ColorDao() }
+	val table = connection.getDefaultTable(name = "color_test") { ColorDao() }
 
 	init {
 		table.recreate()

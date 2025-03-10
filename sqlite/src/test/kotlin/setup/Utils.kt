@@ -20,7 +20,7 @@ object ConsoleSqlLogger : SqlLogger {
 }
 
 fun Table<*>.recreate() {
-	createTable()
-	dropTable()
-	createTable()
+	implementation.createTable()
+	implementation.dropTable()
+	implementation.createTable()
 }

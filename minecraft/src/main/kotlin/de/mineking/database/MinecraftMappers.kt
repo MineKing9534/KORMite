@@ -1,85 +1,51 @@
 package de.mineking.database
 
+import de.mineking.database.vendors.postgres.PostgresConnection
+import de.mineking.database.vendors.postgres.json
+import de.mineking.database.vendors.postgres.jsonTypeMapper
 import net.kyori.adventure.text.format.NamedTextColor
 import net.kyori.adventure.text.format.TextColor
 import org.bukkit.Location
+import org.bukkit.OfflinePlayer
 import org.bukkit.Server
 import org.bukkit.World
-import org.jdbi.v3.core.argument.Argument
 import java.util.*
-import kotlin.reflect.KProperty
-import kotlin.reflect.KType
-import kotlin.reflect.full.isSubtypeOf
-import kotlin.reflect.typeOf
-
-@Target(AnnotationTarget.FIELD)
-@Retention(AnnotationRetention.RUNTIME)
-annotation class LocationWorldColumn(val name: String)
 
 fun DatabaseConnection.registerMinecraftMappers(
 	server: Server,
-	textType: TypeMapper<String?, *>? = null,
-	uuidType: TypeMapper<UUID?, *>? = null,
-	arrayType: TypeMapper<*, Array<*>?>? = null,
-	doubleType: TypeMapper<Double?, *>? = null
+	textType: TypeMapper<String?, *> = getTypeMapper<String?>(),
+	uuidType: TypeMapper<UUID?, *> = getTypeMapper<UUID?>()
 ) {
 	data["server"] = server
 
-	if (uuidType != null) typeMappers += typeMapper(uuidType, { it?.let { server.getOfflinePlayer(it) } }, { it?.uniqueId })
-	if (textType != null) typeMappers += typeMapper<TextColor?, String?>(textType, { it?.let { TextColor.fromHexString(it) } }, { it?.asHexString() })
-	if (textType != null) typeMappers += typeMapper(textType, { it?.let { NamedTextColor.NAMES.value(it.lowercase()) } }, { it?.let { NamedTextColor.NAMES.key(it)?.uppercase() } })
+	typeMappers += nullsafeDelegateTypeMapper<OfflinePlayer, UUID>(uuidType, { it, _ -> server.getOfflinePlayer(it) }, OfflinePlayer::getUniqueId)
+	typeMappers += nullsafeDelegateTypeMapper<World, UUID>(uuidType, { it, _ -> server.getWorld(it) }, World::getUID)
 
-	val worldMapper = if (uuidType != null) typeMapper(uuidType, { it?.let { server.getWorld(it) } }, { it?.uid }) else null
-	if (worldMapper != null) typeMappers += worldMapper
-
-	if (worldMapper != null && doubleType != null && arrayType != null) typeMappers += object : TypeMapper<Location?, Array<Double>?> {
-		override fun accepts(manager: DatabaseConnection, property: KProperty<*>?, type: KType): Boolean = type.isSubtypeOf(typeOf<Location?>())
-		override fun getType(column: ColumnData<*, *>?, table: TableStructure<*>, type: KType): DataType = arrayType.getType(column, table, typeOf<Array<Double>>())
-
-		override fun <O: Any> initialize(column: DirectColumnData<O, *>, type: KType) {
-			val worldColumn = column.property.getDatabaseAnnotation<LocationWorldColumn>()
-
-			if (worldColumn == null) {
-				//We need to check the column type here directly to ensure column.get returns a Location instance
-				require(column.type.isSubtypeOf(typeOf<Location?>())) { "Please specify a column to use to store the world in when not using a direct Location column" }
-
-				val name = "${ column.baseName }World"
-				column.createVirtualChild(
-					name,
-					column.table.namingStrategy.getName(name),
-					column.table.namingStrategy.getName("World"),
-					worldMapper,
-					typeOf<World>()
-				) { (column.get(it) as Location?)?.world }
-			} else {
-				@Suppress("UNCHECKED_CAST")
-				val world = parseColumnSpecification(worldColumn.name, column.table).column as ColumnData<O, World>
-
-				column.createVirtualChild(
-					world.baseName,
-					world.name,
-					column.table.namingStrategy.getName("World"),
-					world.mapper,
-					world.type,
-					isReference = true
-				) { world.get(it) }
-			}
-
-			column.createVirtualChild("", column.name, "x", doubleType, typeOf<Double>(), isReference = true, transform = { "\"$it\"[1]" }) { (column.get(it) as Location?)?.x }
-			column.createVirtualChild("", column.name, "y", doubleType, typeOf<Double>(), isReference = true, transform = { "\"$it\"[2]" }) { (column.get(it) as Location?)?.y }
-			column.createVirtualChild("", column.name, "z", doubleType, typeOf<Double>(), isReference = true, transform = { "\"$it\"[3]" }) { (column.get(it) as Location?)?.z }
-		}
-
-		override fun format(column: ColumnData<*, *>?, table: TableStructure<*>, type: KType, value: Location?): Array<Double>? = value?.let { arrayOf(it.x, it.y, it.z) }
-		override fun createArgument(column: ColumnData<*, *>?, table: TableStructure<*>, type: KType, value: Array<Double>?): Argument = arrayType.createArgument(column, table, typeOf<Array<Double>>(), value)
-
-		@Suppress("UNCHECKED_CAST")
-		override fun extract(column: DirectColumnData<*, *>?, type: KType, context: ReadContext, name: String): Array<Double>? = arrayType.extract(column, typeOf<Array<Double>>(), context, name) as Array<Double>?
-		override fun parse(column: DirectColumnData<*, *>?, type: KType, value: Array<Double>?, context: ReadContext, name: String): Location? = value?.let {
-			val worldColumn = column?.getChildren()?.first()
-			val world = worldColumn?.mapper?.read(column, worldColumn.type, context, worldColumn.name) as World?
-
-			Location(world, value[0], value[1], value[2])
-		}
-	}
+	typeMappers += nullsafeDelegateTypeMapper<TextColor, String>(textType, { it, _ -> TextColor.fromHexString(it) }, TextColor::asHexString)
+	typeMappers += nullsafeDelegateTypeMapper<NamedTextColor, String>(textType, { it, _ -> NamedTextColor.NAMES.value(it.lowercase()) }, { NamedTextColor.NAMES.key(it)?.uppercase() })
 }
+
+fun PostgresConnection.registerMinecraftMappers(server: Server) {
+	(this as DatabaseConnection).registerMinecraftMappers(server)
+	typeMappers += jsonTypeMapper<Location>(
+		{
+			val world = if (get("world").isJsonNull) null else server.getWorld(UUID.fromString(get("world").asString))
+			Location(
+				world,
+				get("x").asDouble,
+				get("y").asDouble,
+				get("z").asDouble,
+			)
+		}, {
+			addProperty("x", it.x)
+			addProperty("y", it.y)
+			addProperty("z", it.z)
+			addProperty("world", it.world?.uid?.toString())
+		}
+	)
+}
+
+val Node<Location>.x get() = this.json<Double>("x")
+val Node<Location>.y get() = this.json<Double>("y")
+val Node<Location>.z get() = this.json<Double>("z")
+val Node<Location>.world get() = this.json<World>("world")

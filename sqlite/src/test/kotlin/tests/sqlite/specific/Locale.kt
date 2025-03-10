@@ -15,7 +15,7 @@ data class LocaleDao(
 
 class LocaleTest {
 	val connection = createConnection()
-	val table = connection.getTable(name = "locale_test") { LocaleDao() }
+	val table = connection.getDefaultTable(name = "locale_test") { LocaleDao() }
 
 	init {
 		table.recreate()
