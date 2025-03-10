@@ -52,7 +52,7 @@ infix fun <T> Node<out T?>.orDefault(other: Node<T>) = "coalesce"(this, other) a
 @Suppress("UNCHECKED_CAST")
 fun <T> Node<*>.castTo(type: DataType) = "cast"(this + " as ${type.sqlName}") as Node<T>
 
-inline fun <reified T> Node<*>.castTo() = object : Node<T> by this {
+inline fun <reified T> Node<*>.castTo() = object : Node<T> {
 	override fun format(table: TableStructure<*>, prefix: Boolean): String {
 		val original = this@castTo.format(table, prefix)
 		if (!prefix) return original //dont cast in update context
@@ -62,6 +62,10 @@ inline fun <reified T> Node<*>.castTo() = object : Node<T> by this {
 
 		return "cast($original as ${ mapper.getType(column, table, typeOf<T>()).sqlName })"
 	}
+
+	override fun values(table: TableStructure<*>, column: ColumnContext) = this@castTo.values(table, column)
+	override fun columnContext(table: TableStructure<*>) = this@castTo.columnContext(table)
+	override fun columns(table: TableStructure<*>) = this@castTo.columns(table)
 }
 
 fun <T> property(properties: List<KProperty<*>>, tableOverride: TableStructure<*>? = null) = PropertyNode<T> { table ->
@@ -141,13 +145,13 @@ interface Node<T> {
 	}
 
 	@Suppress("UNCHECKED_CAST")
-	operator fun plus(string: String): Node<T> = (this + unsafeNode(string)) as Node<T>
-	operator fun plus(node: Node<*>): Node<Any?> = object : Node<Any?> {
-		override fun format(table: TableStructure<*>, prefix: Boolean): String = this@Node.format(table, prefix) + node.format(table, prefix)
-		override fun values(table: TableStructure<*>, column: ColumnContext): Map<String, Argument> = this@Node.values(table, column) + node.values(table, column)
+	operator fun plus(other: String): Node<T> = (this + unsafeNode(other)) as Node<T>
+	operator fun plus(other: Node<*>): Node<Any?> = object : Node<Any?> {
+		override fun format(table: TableStructure<*>, prefix: Boolean) = this@Node.format(table, prefix) + other.format(table, prefix)
+		override fun values(table: TableStructure<*>, column: ColumnContext): Map<String, Argument> = this@Node.values(table, column) + other.values(table, column)
 
-		override fun columnContext(table: TableStructure<*>): ColumnContext = this@Node.columnContext(table).takeIf { it.isNotEmpty() } ?: node.columnContext(table)
-		override fun columns(table: TableStructure<*>): List<ColumnContext> = this@Node.columns(table) + node.columns(table)
+		override fun columnContext(table: TableStructure<*>): ColumnContext = this@Node.columnContext(table).takeIf { it.isNotEmpty() } ?: other.columnContext(table)
+		override fun columns(table: TableStructure<*>): List<ColumnContext> = this@Node.columns(table) + other.columns(table)
 	}
 }
 
