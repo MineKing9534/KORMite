@@ -30,7 +30,7 @@ inline fun <reified T> jsonTypeMapper(
 	binary: Boolean = true
 ) = object : TypeMapper<T?, String?> {
 	override fun accepts(manager: DatabaseConnection, property: KProperty<*>?, type: KType) = acceptor(type)
-	override fun getType(column: ColumnData<*, *>?, table: TableStructure<*>, type: KType): DataType {
+	override fun getType(column: PropertyData<*, *>?, table: TableStructure<*>, type: KType): DataType {
 		val raw = if (binary) PostgresType.JSONB else PostgresType.JSON
 		return raw.withNullability(type.isMarkedNullable)
 	}
@@ -93,7 +93,7 @@ object PostgresMappers {
 			.create()
 
 		override fun accepts(manager: DatabaseConnection, property: KProperty<*>?, type: KType): Boolean = property?.hasDatabaseAnnotation<Json>() == true
-		override fun getType(column: ColumnData<*, *>?, table: TableStructure<*>, type: KType): DataType {
+		override fun getType(column: PropertyData<*, *>?, table: TableStructure<*>, type: KType): DataType {
 			val raw = if (column?.property?.getDatabaseAnnotation<Json>()?.binary == true) PostgresType.JSONB else PostgresType.JSON
 			return raw.withNullability(type.isMarkedNullable)
 		}
@@ -115,14 +115,14 @@ object PostgresMappers {
 		fun Collection<*>.createArray(component: KType) = if (component.jvmErasure.java.isPrimitive) toTypedArray() else (this as java.util.Collection<*>).toArray { java.lang.reflect.Array.newInstance(component.jvmErasure.java, it) as Array<*> }
 
 		override fun accepts(manager: DatabaseConnection, property: KProperty<*>?, type: KType): Boolean = type.isArray()
-		override fun getType(column: ColumnData<*, *>?, table: TableStructure<*>, type: KType): DataType {
+		override fun getType(column: PropertyData<*, *>?, table: TableStructure<*>, type: KType): DataType {
 			val component = type.component()
 			val componentMapper = table.manager.getTypeMapper<Any, Any>(component, column?.property)
 			val componentType = componentMapper.getType(column, table, component)
 			return DataType.of("${ componentType.sqlName }[]").withNullability(type.isMarkedNullable)
 		}
 
-		override fun <O: Any> initialize(column: ColumnData<O, *>, type: KType) {
+		override fun <O: Any> initialize(column: PropertyData<O, *>, type: KType) {
 			val component = type.component()
 			val componentMapper = column.table.manager.getTypeMapper<Any, Any>(component, column.property)
 

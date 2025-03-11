@@ -49,7 +49,7 @@ object DefaultAnnotationHandlers {
             .forEach { (index, param) ->
                 val name = param.findAnnotation<Parameter>()!!.name.takeIf { it.isNotBlank() } ?: param.name!!
 
-                val column = table.structure.getColumnFromCode(name) as ColumnData<Any, Any?>? ?: error("Column $name not found")
+                val column = table.structure.getFromCode(name) as PropertyData<Any, Any?>? ?: error("Column $name not found")
                 val value = args[index]
 
                 try {
@@ -94,8 +94,8 @@ object DefaultAnnotationHandlers {
         val mapper = if (queryType.jvmErasure == structure.component) mapper else structure.manager.getTypeMapper<Any?, Any?>(queryType, null)
         val columns =
             if (queryType.jvmErasure == structure.component) {
-                if (annotation.columns.isEmpty()) structure.columns.map { listOf(it) }
-                else annotation.columns.map { structure.getColumnFromCode(it) ?: error("Column $it not found") }.map { listOf(it) }
+                if (annotation.columns.isEmpty()) structure.properties.map { listOf(it) }
+                else annotation.columns.map { structure.getFromCode(it) ?: error("Column $it not found") }.map { listOf(it) }
             } else emptyList()
 
         val value = query(annotation.sql, queryType, mapper, parameters = parameters, definitions = definitions, position = annotation.position, columns = columns)

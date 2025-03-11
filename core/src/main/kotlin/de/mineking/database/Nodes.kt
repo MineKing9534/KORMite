@@ -72,7 +72,7 @@ inline fun <reified T> Node<*>.castTo() = object : Node<T> {
 fun <T> property(properties: List<KProperty<*>>, tableOverride: TableStructure<*>? = null) = PropertyNode<T> { table ->
 	if (properties.isEmpty()) error("Need at least one property reference")
 
-	val result = ArrayList<ColumnData<*, *>>(properties.size)
+	val result = ArrayList<PropertyData<*, *>>(properties.size)
 	val iterator = properties.iterator()
 
 	var table = (tableOverride ?: table) as TableStructure<*>?
@@ -87,7 +87,7 @@ fun <T> property(properties: List<KProperty<*>>, tableOverride: TableStructure<*
 			}
 		}
 
-		val column = table.columns.firstOrNull { it.property == current } ?: error("Column ${ current.name } not found in ${ table.name }")
+		val column = table.properties.firstOrNull { it.property == current } ?: error("Column ${ current.name } not found in ${ table.name }")
 		result += column
 
 		table = column.reference?.structure
@@ -102,7 +102,7 @@ fun <T, I> property(property: KProperty<I>, reference: KProperty1<I, T>, tableOv
 fun <T, I1, I2> property(property: KProperty<I1>, reference1: KProperty1<I1, I2>, reference2: KProperty1<I2, T>, tableOverride: TableStructure<*>? = null) = property<T>(property, reference1, reference2, tableOverride = tableOverride)
 
 fun <T> property(name: String, tableOverride: TableStructure<*>? = null) = PropertyNode<T> { table ->
-	val column = (tableOverride ?: table).getColumnFromCode(name) ?: error("Column $name not found in ${ table.name }")
+	val column = (tableOverride ?: table).getFromCode(name) ?: error("Column $name not found in ${ table.name }")
 	listOf(column)
 }
 
@@ -135,8 +135,8 @@ fun <T> Node<T>.withContext(context: (TableStructure<*>) -> ColumnContext, force
 	override fun columnContext(table: TableStructure<*>) = if (force) context(table) else this@withContext.columnContext(table).takeIf { it.isNotEmpty() } ?: context(table)
 }
 
-fun <T> Node<T>.withContext(property: String, force: Boolean = true) = withContext({ listOf(it.getColumnFromCode(property) ?: error("Column $property not found in ${ it.name }")) }, force)
-fun <T> Node<T>.withContext(property: KProperty<*>, force: Boolean = true) = withContext({ listOf(it.columns.firstOrNull { it.property == property } ?: error("Column $property not found in ${ it.name }")) }, force)
+fun <T> Node<T>.withContext(property: String, force: Boolean = true) = withContext({ listOf(it.getFromCode(property) ?: error("Column $property not found in ${ it.name }")) }, force)
+fun <T> Node<T>.withContext(property: KProperty<*>, force: Boolean = true) = withContext({ listOf(it.properties.firstOrNull { it.property == property } ?: error("Column $property not found in ${ it.name }")) }, force)
 
 interface Node<T> {
 	companion object {
@@ -178,8 +178,7 @@ fun interface PropertyNode<T> : Node<T> {
 		val context = columnContext(table)
 		val column = context.last()
 
-		return if (prefix) "\"${ if (context.size == 1) column.table.name else context.dropLast(1).joinToString(".") { it.name } }\".\"${ column.name }\""
-		else "\"${ column.name }\""
+		return column.format(context, prefix)
 	}
 
 	override fun columnContext(table: TableStructure<*>): ColumnContext

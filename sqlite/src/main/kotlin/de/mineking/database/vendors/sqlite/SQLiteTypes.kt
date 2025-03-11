@@ -54,7 +54,7 @@ object SQLiteMappers {
 			.create()
 
 		override fun accepts(manager: DatabaseConnection, property: KProperty<*>?, type: KType): Boolean = property?.hasDatabaseAnnotation<Json>() == true
-		override fun getType(column: ColumnData<*, *>?, table: TableStructure<*>, type: KType): DataType = SQLiteType.TEXT.withNullability(type.isMarkedNullable)
+		override fun getType(column: PropertyData<*, *>?, table: TableStructure<*>, type: KType): DataType = SQLiteType.TEXT.withNullability(type.isMarkedNullable)
 
 		override fun format(column: ColumnContext, table: TableStructure<*>, type: KType, value: Any?): String? = value?.let { gson.toJson(value) }
 		override fun createArgument(column: ColumnContext, table: TableStructure<*>, type: KType, value: String?): Argument = object : Argument {
@@ -80,9 +80,9 @@ object SQLiteMappers {
 		fun Collection<*>.createArray(component: KType) = if (component.jvmErasure.java.isPrimitive) toTypedArray() else (this as java.util.Collection<*>).toArray { java.lang.reflect.Array.newInstance(component.jvmErasure.java, it) as Array<*> }
 
 		override fun accepts(manager: DatabaseConnection, property: KProperty<*>?, type: KType): Boolean = type.isArray()
-		override fun getType(column: ColumnData<*, *>?, table: TableStructure<*>, type: KType): DataType = SQLiteType.BLOB.withNullability(type.isMarkedNullable)
+		override fun getType(column: PropertyData<*, *>?, table: TableStructure<*>, type: KType): DataType = SQLiteType.BLOB.withNullability(type.isMarkedNullable)
 
-		override fun <O: Any> initialize(column: ColumnData<O, *>, type: KType) {
+		override fun <O: Any> initialize(column: PropertyData<O, *>, type: KType) {
 			val component = type.component()
 			val componentMapper = column.table.manager.getTypeMapper<Any, Any>(component, column.property)
 

@@ -24,7 +24,7 @@ abstract class DatabaseConnection(
     val typeMappers: MutableList<TypeMapper<*, *>> = arrayListOf(ValueTypeMapper)
     val annotationHandlers: MutableList<AnnotationHandler> = DefaultAnnotationHandlers::class.memberProperties.map { it.get(DefaultAnnotationHandlers) as AnnotationHandler }.toMutableList()
 
-    var autoGenerate: (ColumnData<*, *>) -> String = { error("No default autogenerate configured") }
+    var autoGenerate: (PropertyData<*, *>) -> String = { error("No default autogenerate configured") }
 
     private val tables = hashMapOf<String, Table<*>>()
 
@@ -46,14 +46,13 @@ abstract class DatabaseConnection(
         name: String = type.simpleName ?: throw IllegalArgumentException("You have to provide a table name when using anonymous classes!"),
         namingStrategy: NamingStrategy = defaultNamingStrategy
     ): TableStructure<T> {
-        val columns = arrayListOf<ColumnData<T, *>>()
+        val columns = arrayListOf<PropertyData<T, *>>()
         val table = TableStructure(this, name, namingStrategy, columns, type)
 
         fun <C> createColumn(property: KProperty1<T, C>): ColumnData<T, C> {
             val nameOverride = property.getDatabaseAnnotation<Column>()?.name?.takeIf { it.isNotBlank() }
             return ColumnData(
                 table,
-                nameOverride ?: property.name,
                 nameOverride ?: namingStrategy.getName(property.name),
                 getTypeMapper<C, Any>(property.returnType, property),
                 property,
@@ -62,13 +61,22 @@ abstract class DatabaseConnection(
             )
         }
 
+        fun <C> createProperty(property: KProperty1<T, C>): SelectOnlyPropertyData<T, C> {
+            val annotation = property.getDatabaseAnnotation<SelectAs>()
+            return SelectOnlyPropertyData(table, getTypeMapper<C, Any>(property.returnType, property), property, annotation!!.sql)
+        }
+
+        columns += type.memberProperties
+            .filter { it.javaField != null && it.hasDatabaseAnnotation<SelectAs>() }
+            .map { createProperty(it) }
+
         columns += type.memberProperties
             .filter { it.javaField != null && it.hasDatabaseAnnotation<Column>() }
             .map { createColumn(it) }
             .sortedBy { !it.key }
 
         columns.forEach {
-            fun <A: Any, B> init(column: ColumnData<A, B>) = column.mapper.initialize(column, column.type)
+            fun <A: Any, B> init(column: PropertyData<A, B>) = column.mapper.initialize(column, column.type)
             init(it)
         }
 

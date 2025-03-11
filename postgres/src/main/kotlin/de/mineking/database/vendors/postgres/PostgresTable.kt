@@ -16,7 +16,7 @@ class PostgresTable<T: Any>(
 	override fun createTable() {
 		val columns = structure.columns
 
-		fun <C> formatColumn(column: ColumnData<T, C>): String {
+		fun formatColumn(column: ColumnData<*, *>): String {
 			val type = column.mapper.getType(column, column.table, column.type)
 			return """
 				"${ column.name }" ${ type.sqlName }
@@ -42,7 +42,7 @@ class PostgresTable<T: Any>(
 			if (columns.size != meta.columnCount) logger.warn("[${structure.name}] Number of columns in code and database do not match (Code: ${ columns.size }, Database: ${ meta.columnCount })")
 			else for (i in 1 .. meta.columnCount) {
 				val name = meta.getColumnName(i)
-				val column = structure.getColumnFromDatabase(name)
+				val column = structure.getFromDatabase(name)
 
 				if (column == null) logger.warn("[${structure.name}] Column $name from database not found in code")
 			}

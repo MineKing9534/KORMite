@@ -32,9 +32,9 @@ interface DataType {
 
 interface TypeMapper<T, D> {
 	fun accepts(manager: DatabaseConnection, property: KProperty<*>?, type: KType): Boolean
-	fun getType(column: ColumnData<*, *>?, table: TableStructure<*>, type: KType): DataType
+	fun getType(column: PropertyData<*, *>?, table: TableStructure<*>, type: KType): DataType
 
-	fun <O: Any> initialize(column: ColumnData<O, *>, type: KType) {}
+	fun <O: Any> initialize(column: PropertyData<O, *>, type: KType) {}
 	fun select(query: QueryBuilder<*>, column: ColumnContext) { query.rawNode(property<Any?>(column.map { it.property })) }
 
 	fun format(column: ColumnContext, table: TableStructure<*>, type: KType, value: T): D
@@ -79,7 +79,7 @@ inline fun <reified T> typeMapper(
 	crossinline acceptor: (KType) -> Boolean = { it.isSubtypeOf(typeOf<T?>()) }
 ) = object : SimpleTypeMapper<T?> {
 	override fun accepts(manager: DatabaseConnection, property: KProperty<*>?, type: KType) = acceptor(type)
-	override fun getType(column: ColumnData<*, *>?, table: TableStructure<*>, type: KType) = dataType.withNullability(type.isMarkedNullable)
+	override fun getType(column: PropertyData<*, *>?, table: TableStructure<*>, type: KType) = dataType.withNullability(type.isMarkedNullable)
 
 	override fun createArgument(column: ColumnContext, table: TableStructure<*>, type: KType, value: T?) = object : Argument {
 		override fun apply(position: Int, statement: PreparedStatement?, ctx: StatementContext?) {
@@ -113,9 +113,9 @@ inline fun <reified T, reified D> delegateTypeMapper(
     crossinline toOther: (T) -> D
 ) = object : TypeMapper<T, D> {
 	override fun accepts(manager: DatabaseConnection, property: KProperty<*>?, type: KType) = type.isSubtypeOf(typeOf<T>())
-	override fun getType(column: ColumnData<*, *>?, table: TableStructure<*>, type: KType): DataType = delegate.getType(column, table, type)
+	override fun getType(column: PropertyData<*, *>?, table: TableStructure<*>, type: KType): DataType = delegate.getType(column, table, type)
 
-	override fun <O : Any> initialize(column: ColumnData<O, *>, type: KType) = delegate.initialize(column, type)
+	override fun <O : Any> initialize(column: PropertyData<O, *>, type: KType) = delegate.initialize(column, type)
 	override fun select(query: QueryBuilder<*>, column: ColumnContext) = delegate.select(query, column)
 
 	override fun format(column: ColumnContext, table: TableStructure<*>, type: KType, value: T): D = toOther(value)
@@ -139,7 +139,7 @@ inline fun <reified T> binaryTypeMapper(
 	crossinline formatter: (T?) -> ByteArray
 ) = object : TypeMapper<T?, ByteArray> {
 	override fun accepts(manager: DatabaseConnection, property: KProperty<*>?, type: KType): Boolean = type.isSubtypeOf(typeOf<T>())
-	override fun getType(column: ColumnData<*, *>?, table: TableStructure<*>, type: KType): DataType = dataType
+	override fun getType(column: PropertyData<*, *>?, table: TableStructure<*>, type: KType): DataType = dataType
 
 	override fun format(column: ColumnContext, table: TableStructure<*>, type: KType, value: T?): ByteArray = formatter(value)
 
@@ -152,7 +152,7 @@ inline fun <reified T> binaryTypeMapper(
 
 object ValueTypeMapper : SimpleTypeMapper<Any?> {
 	override fun accepts(manager: DatabaseConnection, property: KProperty<*>?, type: KType): Boolean = true
-	override fun getType(column: ColumnData<*, *>?, table: TableStructure<*>, type: KType): DataType = error("No suitable TypeMapper found for $type [${ column?.property }] (Cannot use value mapper in this context)")
+	override fun getType(column: PropertyData<*, *>?, table: TableStructure<*>, type: KType): DataType = error("No suitable TypeMapper found for $type [${ column?.property }] (Cannot use value mapper in this context)")
 
 	override fun extract(column: ColumnContext, type: KType, context: ReadContext, pos: Int): Any? = context.read(pos, ResultSet::getObject)
 }

@@ -1,5 +1,6 @@
 package de.mineking.database
 
+import kotlin.collections.filter
 import kotlin.reflect.*
 import kotlin.reflect.jvm.javaField
 
@@ -32,35 +33,59 @@ interface DefaultTable<T: Any> : Table<T> {
 
 inline fun <reified T> DefaultTable<*>.selectValue(target: Node<T>, where: Node<Boolean> = Conditions.EMPTY, order: Order? = null, limit: Int? = null, offset: Int? = null): QueryResult<T> = selectValue(target, typeOf<T>(), where, order, limit, offset)
 
-typealias ColumnContext = List<ColumnData<*, *>>
-class ColumnData<O: Any, C>(
+typealias ColumnContext = List<PropertyData<*, *>>
+sealed class PropertyData<O: Any, C>(
 	val table: TableStructure<O>,
-	val baseName: String,
-	val name: String,
 	val mapper: TypeMapper<C, *>,
-	val property: KProperty1<O, C>,
-	val key: Boolean,
-	val autogenerate: Boolean
+	val property: KProperty1<O, C>
 ) {
 	val meta = MetaData()
-
 	val type get() = property.returnType
+
+	abstract val name: String
 
 	fun get(obj: O): C = property.get(obj)
 	fun set(obj: O, value: C?) = property.javaField?.apply { trySetAccessible() }?.set(obj, value) //Allow writing final
+
+	abstract fun format(context: ColumnContext, prefix: Boolean): String
+}
+
+class ColumnData<O: Any, C>(
+	table: TableStructure<O>,
+	override val name: String,
+	mapper: TypeMapper<C, *>,
+	property: KProperty1<O, C>,
+	val key: Boolean,
+	val autogenerate: Boolean
+) : PropertyData<O, C>(table, mapper, property) {
+	override fun format(context: ColumnContext, prefix: Boolean) =
+		if (prefix) "\"${ if (context.size == 1) table.name else context.dropLast(1).joinToString(".") { it.name } }\".\"$name\""
+		else "\"$name\""
+}
+
+class SelectOnlyPropertyData<O: Any, C>(
+	table: TableStructure<O>,
+	mapper: TypeMapper<C, *>,
+	property: KProperty1<O, C>,
+	val sql: String
+) : PropertyData<O, C>(table, mapper, property) {
+	override val name = property.name
+	override fun format(context: ColumnContext, prefix: Boolean) = sql
 }
 
 data class TableStructure<T: Any>(
 	val manager: DatabaseConnection,
 	val name: String,
 	val namingStrategy: NamingStrategy,
-	val columns: List<ColumnData<T, *>>,
+	val properties: List<PropertyData<T, *>>,
 	val component: KClass<T>
 ) {
-	fun getColumnFromDatabase(name: String): ColumnData<T, *>? = columns.find { it.name == name }
-	fun getColumnFromCode(name: String): ColumnData<T, *>? = columns.find { it.property.name == name }
+	val columns get() = properties.filterIsInstance<ColumnData<T, *>>()
 
-	fun getKeys(): List<ColumnData<T, *>> = columns.filter { it.key }
+	fun getFromDatabase(name: String) = columns.find { it.name == name }
+	fun getFromCode(name: String) = properties.find { it.property.name == name }
+
+	fun getKeys() = columns.filter { it.key }
 }
 
 data class MetaKey<T>(val name: String)
@@ -72,7 +97,7 @@ data class MetaData(private val data: MutableMap<String, Any?> = mutableMapOf())
 
 
 val REFERENCE_META_KEY = MetaKey<Table<*>>("reference")
-var ColumnData<*, *>.reference: Table<*>?
+var PropertyData<*, *>.reference: Table<*>?
 	get() = meta[REFERENCE_META_KEY]
 	set(value) {
 		meta[REFERENCE_META_KEY] = value!!

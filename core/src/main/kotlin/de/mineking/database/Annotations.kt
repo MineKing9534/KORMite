@@ -6,6 +6,10 @@ annotation class Column(val name: String = "")
 
 @Target(AnnotationTarget.FIELD)
 @Retention(AnnotationRetention.RUNTIME)
+annotation class SelectAs(val sql: String)
+
+@Target(AnnotationTarget.FIELD)
+@Retention(AnnotationRetention.RUNTIME)
 annotation class AutoIncrement
 
 @Target(AnnotationTarget.FIELD)

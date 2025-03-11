@@ -29,27 +29,27 @@ abstract class TableImplementation<T: Any>(
     val mapper = object : TypeMapper<T?, Any?> {
         override fun accepts(manager: DatabaseConnection, property: KProperty<*>?, type: KType): Boolean = property?.getDatabaseAnnotation<Reference>()?.table == structure.name && type.jvmErasure == structure.component
 
-        override fun getType(column: ColumnData<*, *>?, table: TableStructure<*>, type: KType): DataType {
+        override fun getType(column: PropertyData<*, *>?, table: TableStructure<*>, type: KType): DataType {
             if (structure.getKeys().size != 1) error("Can only reference type with exactly one key")
 
             val key = structure.getKeys().first()
             return key.mapper.getType(column, table, key.type).withNullability(type.isMarkedNullable)
         }
 
-        override fun <O : Any> initialize(column: ColumnData<O, *>, type: KType) {
+        override fun <O : Any> initialize(column: PropertyData<O, *>, type: KType) {
             column.reference = this@TableImplementation
         }
 
         override fun select(query: QueryBuilder<*>, context: ColumnContext) {
             super.select(query, context)
-            structure.columns.forEach { query.nodes(property<Any?>((context + it).map { it.property })) }
+            structure.properties.forEach { query.nodes(property<Any?>((context + it).map { it.property })) }
         }
 
         override fun format(column: ColumnContext, table: TableStructure<*>, type: KType, value: T?): Any? {
             if (structure.getKeys().size != 1) error("Can only reference type with exactly one key")
 
             @Suppress("UNCHECKED_CAST")
-            fun <C> format(key: ColumnData<T, C>) = key.mapper.format(column + key, table, type, value?.let { key.get(it) } as C)
+            fun <C> format(key: PropertyData<T, C>) = key.mapper.format(column + key, table, type, value?.let { key.get(it) } as C)
             return format(structure.getKeys().first())
         }
 
@@ -58,7 +58,7 @@ abstract class TableImplementation<T: Any>(
 
             if (structure.getKeys().size != 1) error("Can only reference type with exactly one key")
 
-            fun <C> extract(key: ColumnData<T, C>) = key.mapper.extract(column + key, type, context, pos)
+            fun <C> extract(key: PropertyData<T, C>) = key.mapper.extract(column + key, type, context, pos)
             return extract(structure.getKeys().first())
         }
 
@@ -66,14 +66,15 @@ abstract class TableImplementation<T: Any>(
             @Suppress("UNCHECKED_CAST")
             val instance = context.instance as T? ?: instance()
 
-            structure.columns.forEach {
+            structure.properties.forEach {
                 val columnContext = context.currentContext + it
                 val index = context.columns.lastIndexOf(columnContext) //Use last index of to allow overriding
                 if (index == -1) return@forEach
 
-                fun <C> set(column: ColumnData<T, C>): Boolean {
+                fun <C> set(column: PropertyData<T, C>): Boolean {
                     val value = column.mapper.read(columnContext, column.type, context.nest(column), index + 1)
-                    if (column.key && value == null) return false
+
+                    if (column is ColumnData && column.key && value == null) return false
 
                     column.set(instance, value)
                     return true
@@ -185,7 +186,10 @@ abstract class TableImplementation<T: Any>(
         }
 
         require(specs.none { (column) -> column.second.size > 1 }) { "Cannot update reference property, update reference table directly" }
-        require(specs.none { (column) -> column.second.first().key }) { "Cannot update key" }
+        require(specs.none { (column) ->
+            val c = column.second.last()
+            c is ColumnData && c.key
+        }) { "Cannot update key" }
 
         val sql = """
 			update ${ structure.name } 
@@ -319,7 +323,7 @@ class QueryBuilder<T>(private val table: TableImplementation<*>, private val que
         }
     }
 
-    fun defaultNodes() = nodes(table.structure.columns.map { property(it.property) } )
+    fun defaultNodes() = nodes(table.structure.properties.map { property(it.property) } )
 
     fun limit(limit: Int?) = apply { this.limit = limit }
     fun offset(offset: Int?) = apply { this.offset = offset }

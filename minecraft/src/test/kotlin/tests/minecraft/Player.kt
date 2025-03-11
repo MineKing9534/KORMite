@@ -7,9 +7,11 @@ import org.junit.jupiter.api.Test
 import setup.*
 import java.util.*
 
+private val DUMMY_PLAYER = createDummy<OfflinePlayer>()
+
 data class PlayerDao(
 	@AutoIncrement @Key @Column val id: Int = 0,
-	@Column val player: OfflinePlayer = createPlayer()
+	@Column val player: OfflinePlayer = DUMMY_PLAYER
 )
 
 class PlayerTest {

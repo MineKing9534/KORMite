@@ -50,7 +50,7 @@ class QueryIterator<T>(val context: ReadContext, private val statement: Statemen
 
 data class ReadContext(val table: TableImplementation<*>, val set: ResultSet, val columns: List<ColumnContext>, val currentContext: ColumnContext = emptyList(), val instance: Any? = null) {
     fun <T> read(position: Int, extractor: (ResultSet, Int) -> T): T = extractor(set, position)
-    fun nest(column: ColumnData<*, *>) = copy(currentContext = currentContext + column, instance = null)
+    fun nest(column: PropertyData<*, *>) = copy(currentContext = currentContext + column, instance = null)
 }
 
 interface QueryResult<T> {
