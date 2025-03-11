@@ -1,5 +1,8 @@
 package de.mineking.database
 
+import kotlin.collections.filter
+import kotlin.collections.flatMap
+import kotlin.collections.mapNotNull
 import kotlin.reflect.KProperty
 
 fun interface Order {

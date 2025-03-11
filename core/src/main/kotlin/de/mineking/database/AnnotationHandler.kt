@@ -196,7 +196,7 @@ object DefaultAnnotationHandlers {
     }
 }
 
-private data class QueryWindow(val limit: Int?, val offset: Int?, val order: Order?, val condition: Node<Boolean>)
+private data class QueryWindow(val limit: Int?, val offset: Int?, val order: Order?, val condition: Where)
 private fun queryWindow(function: Method, args: Array<out Any?>): QueryWindow {
     val limit = function.parameters
         .indexOfFirst { it.isAnnotationPresent(Limit::class.java) }

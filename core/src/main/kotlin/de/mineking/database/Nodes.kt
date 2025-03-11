@@ -1,5 +1,6 @@
 package de.mineking.database
 
+import de.mineking.database.join
 import org.jdbi.v3.core.argument.Argument
 import kotlin.reflect.KProperty
 import kotlin.reflect.KProperty1
@@ -36,7 +37,7 @@ fun Node<String>.uppercase() = "upper"(this) as Node<String>
 @Suppress("UNCHECKED_CAST")
 infix fun Node<String>.concat(other: Node<String>) = "concat"(this, other) as Node<String>
 
-data class Case<T>(val condition: Node<Boolean>, val value: Node<T>)
+data class Case<T>(val condition: Where, val value: Node<T>)
 infix fun <T> Where.then(value: Node<T>): Case<T> = Case(this, value)
 
 fun <T> case(vararg cases: Case<T>, default: Node<*>? = null): Node<T> {
