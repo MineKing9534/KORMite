@@ -1,6 +1,5 @@
 package de.mineking.database
 
-import de.mineking.database.join
 import org.jdbi.v3.core.argument.Argument
 import kotlin.reflect.KProperty
 import kotlin.reflect.KProperty1
