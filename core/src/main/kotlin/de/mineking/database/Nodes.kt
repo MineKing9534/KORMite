@@ -5,6 +5,7 @@ import kotlin.reflect.KProperty
 import kotlin.reflect.KProperty1
 import kotlin.reflect.KType
 import kotlin.reflect.full.isSubtypeOf
+import kotlin.reflect.jvm.javaField
 import kotlin.reflect.typeOf
 
 fun Collection<Node<*>>.join(delimiter: Node<*> = unsafe(", ")): Node<*> {
@@ -76,8 +77,15 @@ fun <T> property(properties: List<KProperty<*>>, tableOverride: TableStructure<*
 
 	var table = (tableOverride ?: table) as TableStructure<*>?
 
-	for (current in iterator) {
+	for ((index, current) in iterator.withIndex()) {
 		if (table == null) error("Column ${ result.last().name } does not have a reference")
+
+		if (index == 0 && tableOverride == null) {
+			val currentContext = current.javaField?.declaringClass?.kotlin
+			if (currentContext != table.component) {
+				table = table.manager.findTable(currentContext!!)?.structure ?: error("Could not determine table for ${ current.name }")
+			}
+		}
 
 		val column = table.columns.firstOrNull { it.property == current } ?: error("Column ${ current.name } not found in ${ table.name }")
 		result += column

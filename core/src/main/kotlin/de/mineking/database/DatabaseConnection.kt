@@ -125,6 +125,9 @@ abstract class DatabaseConnection(
     @Suppress("UNCHECKED_CAST")
     fun <T: Any> getCachedTable(name: String): Table<T> = tables[name] as Table<T>? ?: throw IllegalArgumentException("Table $name not found")
 
+    fun findTable(type: KClass<*>) = tables.values.firstOrNull { it.structure.component == type }
+    inline fun <reified T> findTable() = findTable(T::class)
+
     fun <R> inTransaction(action: (Handle) -> R): R = driver.inTransactionUnchecked { handle ->
         try {
             CURRENT_TRANSACTION.set(handle)
