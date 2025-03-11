@@ -36,7 +36,7 @@ object DefaultAnnotationHandlers {
             param.getAnnotation(Condition::class.java)!!.operation +
             value(args[index], method.kotlinFunction!!.valueParameters[index].type)
         }
-        .map { Where(it) }
+        .map { createCondition(it) }
     )
 
     @Suppress("UNCHECKED_CAST")
@@ -125,7 +125,7 @@ object DefaultAnnotationHandlers {
     val SELECT_VALUE = annotationHandler<SelectValue> { type, function, args, annotation ->
         val (limit, offset, order, condition) = queryWindow(function, args)
 
-        val target = if (annotation.raw) unsafeNode(annotation.value) else property<Any>(annotation.value)
+        val target = if (annotation.raw) unsafe(annotation.value) else property<Any>(annotation.value)
         val queryType = when (type.jvmErasure) {
             QueryResult::class, List::class, Set::class -> type.arguments[0].type!!
             else -> type
@@ -196,7 +196,7 @@ object DefaultAnnotationHandlers {
     }
 }
 
-private data class QueryWindow(val limit: Int?, val offset: Int?, val order: Order?, val condition: Where)
+private data class QueryWindow(val limit: Int?, val offset: Int?, val order: Order?, val condition: Node<Boolean>)
 private fun queryWindow(function: Method, args: Array<out Any?>): QueryWindow {
     val limit = function.parameters
         .indexOfFirst { it.isAnnotationPresent(Limit::class.java) }
@@ -218,6 +218,7 @@ private fun queryWindow(function: Method, args: Array<out Any?>): QueryWindow {
             else order = order andThen it
         }
 
+    @Suppress("UNCHECKED_CAST")
     val condition = allOf(function.parameters
         .mapIndexed { index, it -> index to it }
         .filter { it.second.type == Where::class.java }

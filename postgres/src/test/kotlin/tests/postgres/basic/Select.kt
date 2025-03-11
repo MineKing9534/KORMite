@@ -53,7 +53,7 @@ class SelectTest {
 		val result1 = table.select()
 		assertEquals(users[0], result1.first())
 
-		val result2 = table.select(where = Where.NONE)
+		val result2 = table.select(where = Conditions.NONE)
 		assertThrows<IllegalStateException> { result2.first() }
 	}
 
@@ -62,7 +62,7 @@ class SelectTest {
 		val result1 = table.select()
 		assertEquals(users[0], result1.firstOrNull())
 
-		val result2 = table.select(where = Where.NONE)
+		val result2 = table.select(where = Conditions.NONE)
 		assertEquals(null, result2.firstOrNull())
 	}
 

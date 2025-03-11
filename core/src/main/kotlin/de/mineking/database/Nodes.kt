@@ -7,7 +7,7 @@ import kotlin.reflect.KType
 import kotlin.reflect.full.isSubtypeOf
 import kotlin.reflect.typeOf
 
-fun Collection<Node<*>>.join(delimiter: Node<*> = unsafeNode(", ")): Node<*> {
+fun Collection<Node<*>>.join(delimiter: Node<*> = unsafe(", ")): Node<*> {
 	var result = Node.EMPTY
 
 	val iterator = iterator()
@@ -35,15 +35,15 @@ fun Node<String>.uppercase() = "upper"(this) as Node<String>
 @Suppress("UNCHECKED_CAST")
 infix fun Node<String>.concat(other: Node<String>) = "concat"(this, other) as Node<String>
 
-data class Case<T>(val condition: Where, val value: Node<T>)
+data class Case<T>(val condition: Node<Boolean>, val value: Node<T>)
 infix fun <T> Where.then(value: Node<T>): Case<T> = Case(this, value)
 
 fun <T> case(vararg cases: Case<T>, default: Node<*>? = null): Node<T> {
 	val caseNodes = cases.map { (where, node) -> Node.EMPTY + "when " + where + " then " + node }.toMutableList()
-	if (default != null) caseNodes += default.let { unsafeNode("else ") + it }
+	if (default != null) caseNodes += default.let { unsafe("else ") + it }
 
 	@Suppress("UNCHECKED_CAST")
-	return (Node.EMPTY + "(case " + caseNodes.join(unsafeNode(" ")) + " end)") as Node<T>
+	return (Node.EMPTY + "(case " + caseNodes.join(unsafe(" ")) + " end)") as Node<T>
 }
 
 @Suppress("UNCHECKED_CAST")
@@ -111,9 +111,10 @@ fun <T> value(value: T, type: KType, static: Boolean = false): ValueNode<T> = Va
 inline fun <reified T> value(value: T, static: Boolean = false) = value(value, typeOf<T>(), static)
 
 @Suppress("UNCHECKED_CAST")
-fun <T> nullValue() = unsafeNode("null") as Node<T?>
+fun <T> nullValue() = unsafe("null") as Node<T?>
 
-fun unsafeNode(string: String, values: Map<String, Argument> = emptyMap()) = object : Node<Any?> {
+fun unsafe(string: String, values: Map<String, Argument> = emptyMap()) = node<Any?>(string, values)
+fun <T> node(string: String, values: Map<String, Argument> = emptyMap()) = object : Node<T> {
 	override fun format(table: TableStructure<*>, prefix: Boolean): String = string
 	override fun values(table: TableStructure<*>, column: ColumnContext): Map<String, Argument> = values
 }
@@ -131,11 +132,11 @@ fun <T> Node<T>.withContext(property: KProperty<*>, force: Boolean = true) = wit
 
 interface Node<T> {
 	companion object {
-		val EMPTY = unsafeNode("")
+		val EMPTY = unsafe("")
 	}
 
 	fun format(table: TableStructure<*>, prefix: Boolean = true): String
-	fun values(table: TableStructure<*>, column: ColumnContext): Map<String, Argument> = emptyMap()
+	fun values(table: TableStructure<*>, column: ColumnContext = emptyList()): Map<String, Argument> = emptyMap()
 
 	fun columnContext(table: TableStructure<*>): ColumnContext = emptyList()
 	fun columns(table: TableStructure<*>): List<ColumnContext> = emptyList()
@@ -145,7 +146,7 @@ interface Node<T> {
 	}
 
 	@Suppress("UNCHECKED_CAST")
-	operator fun plus(other: String): Node<T> = (this + unsafeNode(other)) as Node<T>
+	operator fun plus(other: String): Node<T> = (this + unsafe(other)) as Node<T>
 	operator fun plus(other: Node<*>): Node<Any?> = object : Node<Any?> {
 		override fun format(table: TableStructure<*>, prefix: Boolean) = this@Node.format(table, prefix) + other.format(table, prefix)
 		override fun values(table: TableStructure<*>, column: ColumnContext): Map<String, Argument> = this@Node.values(table, column) + other.values(table, column)

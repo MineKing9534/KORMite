@@ -116,14 +116,14 @@ abstract class TableImplementation<T: Any>(
         return query(sql, typeOf<T>(), mapper, parameters, definitions, position, column, columns)
     }
 
-    override fun selectRowCount(where: Where): Int {
+    override fun selectRowCount(where: Node<Boolean>): Int {
         return query(typeOf<Int>(), structure.manager.getTypeMapper<Int>())
-            .nodes(unsafeNode("count(*)"))
+            .nodes(unsafe("count(*)"))
             .where(where)
             .first()
     }
 
-    override fun select(vararg columns: Node<*>, where: Where, order: Order?, limit: Int?, offset: Int?): QueryResult<T> {
+    override fun select(vararg columns: Node<*>, where: Node<Boolean>, order: Order?, limit: Int?, offset: Int?): QueryResult<T> {
         return query()
             .apply { if (columns.isEmpty()) defaultNodes() else nodes(*columns) }
             .where(where)
@@ -132,7 +132,7 @@ abstract class TableImplementation<T: Any>(
             .order(order)
     }
 
-    override fun <C> selectValue(target: Node<C>, type: KType, where: Where, order: Order?, limit: Int?, offset: Int?): QueryResult<C> {
+    override fun <C> selectValue(target: Node<C>, type: KType, where: Node<Boolean>, order: Order?, limit: Int?, offset: Int?): QueryResult<C> {
         val column = target.columnContext(structure)
         val mapper = structure.manager.getTypeMapper<C, Any>(type, column.lastOrNull()?.property)
 
@@ -169,7 +169,7 @@ abstract class TableImplementation<T: Any>(
         val sql = """
 			update ${ structure.name }
 			set ${ columns.joinToString { "\"${ it.name }\" = :${ it.name }" } }
-			${ identity.format(structure) }
+			${ identity.formatCondition(structure) }
 			returning *
 		""".trim().replace("\\s+".toRegex(), " ")
 
@@ -179,7 +179,7 @@ abstract class TableImplementation<T: Any>(
         }
     }
 
-    override fun update(vararg columns: Pair<Node<*>, Node<*>>, where: Where): UpdateResult<Int > {
+    override fun update(vararg columns: Pair<Node<*>, Node<*>>, where: Node<Boolean>): UpdateResult<Int > {
         val specs = columns.associate { (column, value) ->
             (column to (column.columnContext(structure).takeIf { it.isNotEmpty() } ?: error("Update node has to reference a property"))) to (value to value.columnContext(structure))
         }
@@ -190,7 +190,7 @@ abstract class TableImplementation<T: Any>(
         val sql = """
 			update ${ structure.name } 
 			set ${ specs.map { (column, value) -> column.first.buildUpdate(structure, value.first) }.join().format(structure) }
-			${ where.format(structure) } 
+			${ where.formatCondition(structure) } 
 		""".trim().replace("\\s+".toRegex(), " ")
 
         return createResult { structure.manager.execute { it.createUpdate(sql)
@@ -248,8 +248,8 @@ abstract class TableImplementation<T: Any>(
         }
     }
 
-    override fun delete(where: Where): Int {
-        val sql = "delete from ${ structure.name } ${ where.format(structure) }"
+    override fun delete(where: Node<Boolean>): Int {
+        val sql = "delete from ${ structure.name } ${ where.formatCondition(structure) }"
         return structure.manager.execute { it.createUpdate(sql)
             .bindMap(where.values(structure))
             .execute()
@@ -296,12 +296,12 @@ private fun invokeDefault(type: KClass<*>, method: Method, instance: Any?, args:
 
 class QueryBuilder<T>(private val table: TableImplementation<*>, private val query: (String, Map<String, Argument>, List<ColumnContext>) -> QueryResult<T>) : QueryResult<T> {
     private val nodes: MutableList<Node<*>> = arrayListOf()
-    private val joins: MutableList<Pair<Pair<TableStructure<*>, String>, Where>> = arrayListOf()
+    private val joins: MutableList<Pair<Pair<TableStructure<*>, String>, Node<Boolean>>> = arrayListOf()
 
     private var limit: Int? = null
     private var offset: Int? = null
     private var order: Order? = null
-    private var condition: Where = Where.EMPTY
+    private var condition: Node<Boolean> = Conditions.EMPTY
 
     private var defaultJoins = true
 
@@ -324,16 +324,16 @@ class QueryBuilder<T>(private val table: TableImplementation<*>, private val que
     fun limit(limit: Int?) = apply { this.limit = limit }
     fun offset(offset: Int?) = apply { this.offset = offset }
     fun order(order: Order?) = apply { this.order = order }
-    fun where(where: Where) = apply { this.condition = where }
+    fun where(where: Node<Boolean>) = apply { this.condition = where }
 
-    fun join(table: TableStructure<*>, name: String = table.name, where: Where) = apply { joins += (table to name) to where }
+    fun join(table: TableStructure<*>, name: String = table.name, where: Node<Boolean>) = apply { joins += (table to name) to where }
     fun preventDefaultJoins() = apply { defaultJoins = false }
 
     private fun render() = """
         select ${ nodes.joinToString(", ") { it.format(table.structure) } }
 		from ${ table.structure.name }
-        ${ joins.joinToString(" ") { (table, condition) -> "left join ${ table.first.name } as \"${ table.second }\" on ${ condition.get(this.table.structure) }" } }
-		${ condition.format(table.structure) } 
+        ${ joins.joinToString(" ") { (table, condition) -> "left join ${ table.first.name } as \"${ table.second }\" on ${ condition.format(this.table.structure) }" } }
+		${ condition.formatCondition(table.structure) } 
 		${ order?.format() ?: "" } 
 		${ limit?.let { "limit $it" } ?: "" }
 		${ offset?.let { "offset $it" } ?: "" } 

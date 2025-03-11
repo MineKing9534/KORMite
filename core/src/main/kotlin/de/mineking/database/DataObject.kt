@@ -13,14 +13,14 @@ interface DataObject<T: Any> {
 	fun upsert() = table.upsert(`this`)
 	fun delete() = table.delete(`this`)
 
-	fun <O: Any> selectReferring(table: DefaultTable<O>, reference: Node<*>, where: Where = Where.EMPTY): QueryResult<O> {
+	fun <O: Any> selectReferring(table: DefaultTable<O>, reference: Node<*>, where: Node<Boolean> = Conditions.EMPTY): QueryResult<O> {
 		val keys = this.table.structure.getKeys()
 		require(keys.size == 1) { "Cannot select referring objects when having multiple keys" }
 
 		return table.select(where = reference isEqualTo value(keys[0].get(`this`)) and where)
 	}
 
-	fun <O: Any> selectReferring(table: DefaultTable<O>, reference: KProperty<*>, where: Where = Where.EMPTY): QueryResult<O> = selectReferring(table, property(reference), where)
+	fun <O: Any> selectReferring(table: DefaultTable<O>, reference: KProperty<*>, where: Node<Boolean> = Conditions.EMPTY): QueryResult<O> = selectReferring(table, property(reference), where)
 
 	fun beforeWrite() {}
 	fun afterRead() {}
