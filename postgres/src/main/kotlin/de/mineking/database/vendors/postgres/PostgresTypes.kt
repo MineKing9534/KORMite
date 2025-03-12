@@ -76,6 +76,8 @@ object PostgresMappers {
 	val OFFSET_DATE_TIME = nullsafeTypeMapper<OffsetDateTime>(PostgresType.TIMESTAMPTZ, { set, position -> set.getObject(position, OffsetDateTime::class.java) }, { statement, position, value -> statement.setTimestamp(position, Timestamp.valueOf(value.toLocalDateTime())) })
 	val ZONED_DATE_TIME = nullsafeTypeMapper<ZonedDateTime>(PostgresType.TIMESTAMPTZ, { set, position -> set.getObject(position, OffsetDateTime::class.java).toZonedDateTime() }, { statement, position, value -> statement.setTimestamp(position, Timestamp.valueOf(value.toLocalDateTime())) })
 	val LOCAL_DATE = nullsafeTypeMapper<LocalDate>(PostgresType.DATE, { set, position -> set.getDate(position).toLocalDate() }, { statement, position, value -> statement.setDate(position, Date.valueOf(value)) })
+	val LoCAL_TIME = nullsafeTypeMapper(PostgresType.TIME, { set, name -> set.getObject(name, LocalTime::class.java) }, { stmt, pos, value -> stmt.setTime(pos, Time.valueOf(value)) })
+	val OFFSET_TIME = nullsafeTypeMapper(PostgresType.TIMETZ, { set, name -> set.getObject(name, OffsetTime::class.java) }, { stmt, pos, value -> stmt.setTime(pos, Time.valueOf(value.toLocalTime())) })
 
 	val LOCALE = nullsafeDelegateTypeMapper(STRING, { it, _ -> Locale.forLanguageTag(it) }, Locale::toLanguageTag)
 	val COLOR = nullsafeDelegateTypeMapper(INTEGER, { it, _ -> Color(it, true) }, Color::getRGB)
