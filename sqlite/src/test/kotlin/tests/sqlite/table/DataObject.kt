@@ -17,7 +17,7 @@ data class DataObjectDao(
 	val main: DataObjectTest,
 	@AutoIncrement @Key @Column val id: Int = 0,
 	@Column val name: String = ""
-) : DataObject<DataObjectDao> {
+) : DefaultDataObject<DataObjectDao> {
 	override val table = main.table
 }
 

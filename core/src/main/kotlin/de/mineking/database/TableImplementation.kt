@@ -162,7 +162,7 @@ abstract class TableImplementation<T: Any>(
     abstract fun <T> createResult(function: () -> T): UpdateResult<T>
 
     override fun update(obj: T): UpdateResult<T> {
-        if (obj is DataObject<*>) obj.beforeWrite()
+        if (obj is DataObject) obj.beforeWrite()
         val identity = identifyObject(obj)
 
         val columns = structure.columns.filter { !it.key }
@@ -176,7 +176,7 @@ abstract class TableImplementation<T: Any>(
 
         return createResult {
             val result = structure.manager.execute { executeUpdate(it.createUpdate(sql).bindMap(identity.values(structure)), obj) }
-            result.apply { if (this is DataObject<*>) afterRead() }
+            result.apply { if (this is DataObject) afterRead() }
         }
     }
 
@@ -213,7 +213,7 @@ abstract class TableImplementation<T: Any>(
     }
 
     override fun insert(obj: T): UpdateResult<T> {
-        if (obj is DataObject<*>) obj.beforeWrite()
+        if (obj is DataObject) obj.beforeWrite()
 
         val columns = insertColumns(obj)
 
@@ -226,12 +226,12 @@ abstract class TableImplementation<T: Any>(
 
         return createResult {
             val result = structure.manager.execute { executeUpdate(it.createUpdate(sql), obj) }
-            result.apply { if (this is DataObject<*>) afterRead() }
+            result.apply { if (this is DataObject) afterRead() }
         }
     }
 
     override fun upsert(obj: T): UpdateResult<T> {
-        if (obj is DataObject<*>) obj.beforeWrite()
+        if (obj is DataObject) obj.beforeWrite()
 
         val insertColumns = insertColumns(obj)
 
@@ -248,7 +248,7 @@ abstract class TableImplementation<T: Any>(
 
         return createResult {
             val result = structure.manager.execute { executeUpdate(it.createUpdate(sql), obj) }
-            result.apply { if (this is DataObject<*>) afterRead() }
+            result.apply { if (this is DataObject) afterRead() }
         }
     }
 

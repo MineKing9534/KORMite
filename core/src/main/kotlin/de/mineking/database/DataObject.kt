@@ -2,7 +2,12 @@ package de.mineking.database
 
 import kotlin.reflect.KProperty
 
-interface DataObject<T: Any> {
+interface DataObject {
+	fun beforeWrite() {}
+	fun afterRead() {}
+}
+
+interface DefaultDataObject<T : Any> : DataObject {
 	val table: DefaultTable<T>
 
 	@Suppress("UNCHECKED_CAST")
@@ -21,7 +26,4 @@ interface DataObject<T: Any> {
 	}
 
 	fun <O: Any> selectReferring(table: DefaultTable<O>, reference: KProperty<*>, where: Where = Conditions.EMPTY): QueryResult<O> = selectReferring(table, property(reference), where)
-
-	fun beforeWrite() {}
-	fun afterRead() {}
 }
