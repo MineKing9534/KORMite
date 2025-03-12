@@ -66,13 +66,13 @@ fun combine(conditions: Collection<Where>, delimiter: String, transform: (Where)
 }
 
 fun allOf(vararg conditions: Where) = allOf(arrayListOf(*conditions))
-fun allOf(conditions: Collection<Where>) = combine(conditions, "and")
+fun allOf(conditions: Collection<Where>) = combine(conditions, " and ")
 
 fun anyOf(vararg conditions: Where) = anyOf(arrayListOf(*conditions))
-fun anyOf(conditions: Collection<Where>) = combine(conditions, "or")
+fun anyOf(conditions: Collection<Where>) = combine(conditions, " or ")
 
 fun noneOf(vararg conditions: Where) = noneOf(arrayListOf(*conditions))
-fun noneOf(conditions: Collection<Where>) = combine(conditions, "and") { !it }
+fun noneOf(conditions: Collection<Where>) = combine(conditions, " and ") { !it }
 
 fun <T: Any> identifyObject(table: TableStructure<T>, obj: T): Where {
     val keys = table.getKeys()
