@@ -154,7 +154,7 @@ object DefaultAnnotationHandlers {
         }
     }
 
-    val UPSERT = annotationHandler<Insert> { type, function, args, _ ->
+    val UPSERT = annotationHandler<Upsert> { type, function, args, _ ->
         fun <T: Any> execute(table: TableImplementation<T>) = table.upsert(createObject(table, function, args))
         val value = execute(this)
 
