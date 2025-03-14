@@ -330,7 +330,7 @@ class QueryBuilder<T>(private val table: TableImplementation<*>, private val que
     fun order(order: Order?) = apply { this.order = order }
     fun where(where: Where) = apply { this.condition = where }
 
-    fun join(table: TableStructure<*>, name: String = table.name, where: Where) = apply { joins += (table to name) to where }
+    fun join(table: TableStructure<*>, name: String = table.name, where: Where, index: Int = joins.size) = apply { joins.add(index, (table to name) to where) }
     fun preventDefaultJoins() = apply { defaultJoins = false }
 
     private fun render() = """
@@ -349,6 +349,7 @@ class QueryBuilder<T>(private val table: TableImplementation<*>, private val que
                 condition.values(table.structure)
 
         if (defaultJoins) {
+            var index = 0
             (nodes.flatMap { it.columns(table.structure) } + condition.columns(table.structure))
                 .filter { it.size > 1 }
                 .map { it.dropLast(1) }
@@ -357,7 +358,7 @@ class QueryBuilder<T>(private val table: TableImplementation<*>, private val que
                     val column = context.last()
                     val key = context + column.reference!!.structure.getKeys().single()
 
-                    join(column.reference!!.structure, context.joinToString(".") { it.name }, where = property<Any?>(key.map { it.property }) isEqualTo property<Any?>(context.map { it.property }))
+                    join(column.reference!!.structure, context.joinToString(".") { it.name }, where = property<Any?>(key.map { it.property }) isEqualTo property<Any?>(context.map { it.property }), index = index++)
                 }
         }
 
