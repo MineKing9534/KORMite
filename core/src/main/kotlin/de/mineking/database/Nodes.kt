@@ -69,18 +69,18 @@ inline fun <reified T> Node<*>.castTo() = object : Node<T> {
 	override fun columns(table: TableStructure<*>) = this@castTo.columns(table)
 }
 
-fun <T> property(properties: List<KProperty<*>>, tableOverride: TableStructure<*>? = null) = PropertyNode<T> { table ->
-	if (properties.isEmpty()) error("Need at least one property reference")
+fun createContext(properties: List<KProperty<*>>, table: TableStructure<*>, override: Boolean = false): ColumnContext {
+	if (properties.isEmpty()) return emptyList()
 
 	val result = ArrayList<PropertyData<*, *>>(properties.size)
 	val iterator = properties.iterator()
 
-	var table = (tableOverride ?: table) as TableStructure<*>?
+	var table = table as TableStructure<*>?
 
 	for ((index, current) in iterator.withIndex()) {
 		if (table == null) error("Column ${ result.last().name } does not have a reference")
 
-		if (index == 0 && tableOverride == null) {
+		if (index == 0 && !override) {
 			val currentContext = current.javaField?.declaringClass?.kotlin
 			if (currentContext != table.component) {
 				table = table.manager.findTable(currentContext!!)?.structure ?: error("Could not determine table for ${ current.name }")
@@ -93,7 +93,12 @@ fun <T> property(properties: List<KProperty<*>>, tableOverride: TableStructure<*
 		table = column.reference?.structure
 	}
 
-	result
+	return result
+}
+
+fun <T> property(properties: List<KProperty<*>>, tableOverride: TableStructure<*>? = null) = PropertyNode<T> { table ->
+	if (properties.isEmpty()) error("Need at least one property reference")
+	createContext(properties, tableOverride ?: table, tableOverride != null)
 }
 
 fun <T> property(property: KProperty<*>, vararg reference: KProperty<*>, tableOverride: TableStructure<*>? = null) = property<T>(listOf(property) + reference, tableOverride)
@@ -136,7 +141,8 @@ fun <T> Node<T>.withContext(context: (TableStructure<*>) -> ColumnContext, force
 }
 
 fun <T> Node<T>.withContext(property: String, force: Boolean = true) = withContext({ listOf(it.getFromCode(property) ?: error("Column $property not found in ${ it.name }")) }, force)
-fun <T> Node<T>.withContext(property: KProperty<*>, force: Boolean = true) = withContext({ listOf(it.properties.firstOrNull { it.property == property } ?: error("Column $property not found in ${ it.name }")) }, force)
+fun <T> Node<T>.withContext(properties: List<KProperty<*>>, force: Boolean = true) = withContext({ createContext(properties, it) }, force)
+fun <T> Node<T>.withContext(property: KProperty<*>, vararg reference: KProperty<*>, force: Boolean = true) = withContext({ createContext(listOf(property) + reference, it) }, force)
 
 interface Node<T> {
 	companion object {
