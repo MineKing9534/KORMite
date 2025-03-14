@@ -1,4 +1,4 @@
-package tests.sqlite.general
+package tests.postgres.basic
 
 import de.mineking.database.*
 import org.junit.jupiter.api.Test
@@ -11,7 +11,7 @@ import kotlin.test.assertTrue
 
 class UpdateTest {
     val connection = createConnection()
-    val table = connection.getTable(name = "basic_test") { UserDao() }
+    val table = connection.getDefaultTable(name = "basic_test") { UserDao() }
 
     val users = listOf(
         UserDao(name = "Tom", email = "tom@example.com", age = 12),

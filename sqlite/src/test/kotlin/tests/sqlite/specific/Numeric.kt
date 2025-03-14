@@ -4,6 +4,7 @@ import de.mineking.database.AutoIncrement
 import de.mineking.database.Column
 import de.mineking.database.Key
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.assertDoesNotThrow
 import setup.ConsoleSqlLogger
 import setup.createConnection
 import setup.recreate
@@ -20,7 +21,7 @@ data class NumericDao(
 
 class NumericTest {
 	val connection = createConnection()
-	val table = connection.getTable(name = "numeric_test") { NumericDao() }
+	val table = connection.getDefaultTable(name = "numeric_test") { NumericDao() }
 
 	init {
 		table.recreate()
@@ -33,7 +34,9 @@ class NumericTest {
 	@Test
 	fun select() {
 		//The main purpose here is to verify that reading works without exceptions because of type problems
-		val result = table.select().first()
-		assertEquals(Double.MAX_VALUE, result.double)
+		assertDoesNotThrow {
+			val result = table.select().first()
+			assertEquals(Double.MAX_VALUE, result.double)
+		}
 	}
 }

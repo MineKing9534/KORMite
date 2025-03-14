@@ -21,7 +21,7 @@ data class ArrayDao(
 
 class ArrayTest {
 	val connection = createConnection()
-	val table = connection.getTable(name = "array_test") { ArrayDao() }
+	val table = connection.getDefaultTable(name = "array_test") { ArrayDao() }
 
 	init {
 		table.recreate()
