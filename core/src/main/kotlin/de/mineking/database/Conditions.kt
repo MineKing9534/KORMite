@@ -41,15 +41,15 @@ fun Where.combineWith(other: Where, format: (String, String) -> String) = object
     override fun columns(table: TableStructure<*>) = this@combineWith.columns(table) + other.columns(table)
 }
 
-infix fun Where.or(other: Where) = combineWith(other) { a, b -> "$a or $b" }
-infix fun Where.and(other: Where) = combineWith(other) { a, b -> "$a and $b" }
+infix fun Where.or(other: Where) = combineWith(other) { a, b -> "($a) or ($b)" }
+infix fun Where.and(other: Where) = combineWith(other) { a, b -> "($a) and ($b)" }
 
 operator fun Where.not(): Where = combineWith(Conditions.EMPTY) { a, b -> "not ($a)" }
 
 fun combine(conditions: Collection<Where>, delimiter: String, transform: (Where) -> Where = { it }): Where {
     if (conditions.isEmpty()) return Conditions.EMPTY
     return object : Where {
-        override fun format(table: TableStructure<*>, prefix: Boolean) = conditions.mapNotNull { transform(it).format(table, prefix).takeIf { it.isNotBlank() } }.joinToString(delimiter)
+        override fun format(table: TableStructure<*>, prefix: Boolean) = conditions.mapNotNull { transform(it).format(table, prefix).takeIf { it.isNotBlank() } }.joinToString(delimiter) { "($it)" }
         override fun values(table: TableStructure<*>, column: ColumnContext) = conditions.filter { it.format(table).isNotBlank() }.flatMap { it.values(table, column).map { it.key to it.value } }.toMap()
 
         override fun columnContext(table: TableStructure<*>): ColumnContext {
