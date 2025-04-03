@@ -1,20 +1,5 @@
 package de.mineking.database
 
-import kotlin.reflect.KProperty
-
-fun interface Order {
-    fun get(): String
-    fun format(): String = get().takeIf { it.isNotBlank() }?.let { "order by $it" } ?: ""
-
-    infix fun andThen(other: Order): Order = Order { "${ this.get() }, ${ other.get() }" }
-}
-
-fun ascendingBy(name: String) = Order { "\"$name\" asc" }
-fun ascendingBy(property: KProperty<*>) = ascendingBy(property.name)
-
-fun descendingBy(name: String) = Order { "\"$name\" desc" }
-fun descendingBy(property: KProperty<*>) = descendingBy(property.name)
-
 typealias Where = Node<Boolean>
 object Conditions {
     val ALL = node<Boolean>("true")

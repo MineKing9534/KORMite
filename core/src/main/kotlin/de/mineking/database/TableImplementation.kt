@@ -338,7 +338,7 @@ class QueryBuilder<T>(private val table: TableImplementation<*>, private val que
 		from ${ table.structure.name }
         ${ joins.joinToString(" ") { (table, condition) -> "left join ${ table.first.name } as \"${ table.second }\" on ${ condition.format(this.table.structure) }" } }
 		${ condition.formatCondition(table.structure) } 
-		${ order?.format() ?: "" } 
+		${ order?.formatOrder(table.structure) ?: "" } 
 		${ limit?.let { "limit $it" } ?: "" }
 		${ offset?.let { "offset $it" } ?: "" } 
     """.trim().replace("\\s+".toRegex(), " ")
@@ -346,7 +346,8 @@ class QueryBuilder<T>(private val table: TableImplementation<*>, private val que
     override fun <R> useIterator(handler: (QueryIterator<T>) -> R): R {
         val values = joins.flatMap { (_, condition) -> condition.values(table.structure).entries }.associate { it.key to it.value } +
                 nodes.flatMap { it.values(table.structure, it.columnContext(table.structure)).entries }.associate { it.key to it.value } +
-                condition.values(table.structure)
+                condition.values(table.structure) +
+                (order?.values(table.structure) ?: emptyMap())
 
         if (defaultJoins) {
             var index = 0

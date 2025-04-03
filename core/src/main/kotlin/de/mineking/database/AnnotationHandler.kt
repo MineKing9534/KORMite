@@ -208,15 +208,11 @@ private fun queryWindow(function: Method, args: Array<out Any?>): QueryWindow {
         .takeIf { it != -1 }
         ?.let { args[it] as Int }
 
-    var order = null as Order?
-    function.parameters
+    val order = orderBy(function.parameters
         .mapIndexed { index, it -> index to it }
         .filter { it.second.type == Order::class.java }
         .map { args[it.first] as Order }
-        .forEach {
-            if (order == null) order = it
-            else order = order andThen it
-        }
+    )
 
     @Suppress("UNCHECKED_CAST")
     val condition = allOf(function.parameters
