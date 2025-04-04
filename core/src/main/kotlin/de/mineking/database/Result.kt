@@ -8,7 +8,7 @@ import java.util.stream.Stream
 import java.util.stream.StreamSupport
 import kotlin.reflect.KType
 
-class QueryIterator<T>(val context: ReadContext, private val statement: StatementContext, private val position: Int, private val column: ColumnContext, private val type: KType, val mapper: TypeMapper<T, *>) : Iterator<T>, AutoCloseable {
+class QueryIterator<T>(val context: ReadContext, val statement: StatementContext, val position: Int, val column: ColumnContext, val type: KType, val mapper: TypeMapper<T, *>) : Iterator<T>, AutoCloseable {
     private var closed = false
 
     private var hasNext = false
