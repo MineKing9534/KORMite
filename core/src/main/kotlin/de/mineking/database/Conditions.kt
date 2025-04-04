@@ -29,7 +29,7 @@ fun Where.combineWith(other: Where, format: (String, String) -> String) = object
 infix fun Where.or(other: Where) = combineWith(other) { a, b -> "($a) or ($b)" }
 infix fun Where.and(other: Where) = combineWith(other) { a, b -> "($a) and ($b)" }
 
-operator fun Where.not(): Where = combineWith(Conditions.EMPTY) { a, b -> "not ($a)" }
+operator fun Where.not(): Where = combineWith(Conditions.ALL) { a, b -> "not ($a)" }
 
 fun combine(conditions: Collection<Where>, delimiter: String, transform: (Where) -> Where = { it }): Where {
     if (conditions.isEmpty()) return Conditions.EMPTY
