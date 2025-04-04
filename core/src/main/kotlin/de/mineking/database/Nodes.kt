@@ -132,6 +132,11 @@ fun <T> node(string: String, values: Map<String, Argument> = emptyMap()) = objec
 	override fun values(table: TableStructure<*>, column: ColumnContext): Map<String, Argument> = values
 }
 
+internal const val VARIABLE_TABLE_NAME = "__variables__"
+
+@Suppress("UNCHECKED_CAST")
+fun <T> variable(name: String) = VariableNode<T> { name }
+
 //Ensure type safety for update
 @Suppress("UNCHECKED_CAST")
 infix fun <T> Node<T>.to(other: Node<T>) = ((this as Any) to other) as Pair<Node<T>, Node<T>>
@@ -168,6 +173,11 @@ interface Node<T> {
 		override fun columnContext(table: TableStructure<*>): ColumnContext = this@Node.columnContext(table).takeIf { it.isNotEmpty() } ?: other.columnContext(table)
 		override fun columns(table: TableStructure<*>): List<ColumnContext> = this@Node.columns(table) + other.columns(table)
 	}
+}
+
+fun interface VariableNode<T> : Node<T> {
+	fun name(): String
+	override fun format(table: TableStructure<*>, prefix: Boolean) = "\"$VARIABLE_TABLE_NAME\".\"${name()}\""
 }
 
 fun interface ValueNode<T> : Node<T> {
