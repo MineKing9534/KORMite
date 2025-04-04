@@ -335,7 +335,7 @@ class QueryBuilder<T>(private val table: TableImplementation<*>, private val que
 
     private fun render() = """
         select ${ nodes.joinToString(", ") { it.format(table.structure) } }
-		from ${ table.structure.name }
+		from "${ table.structure.name }"
         ${ joins.joinToString(" ") { (table, condition) -> "left join ${ table.first.name } as \"${ table.second }\" on ${ condition.format(this.table.structure) }" } }
 		${ condition.formatCondition(table.structure) } 
 		${ order?.formatOrder(table.structure) ?: "" } 
