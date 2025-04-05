@@ -90,8 +90,8 @@ abstract class TableImplementation<T: Any>(
         override fun toString() = "RowTypeMapper[${ structure.component.simpleName } in ${ structure.name }]"
     }
 
-    fun query() = QueryBuilder<T>(this) { sql, values, columns -> query(sql, values, columns = columns) }
-    fun <T> query(type: KType, mapper: TypeMapper<T, *>, position: Int = 1, column: ColumnContext = emptyList()) = QueryBuilder<T>(this) { sql, values, columns -> query(sql, type, mapper, values, emptyMap(), position, column, columns) }
+    fun query() = QueryBuilder<T>(this) { sql, values, definitions, columns -> query(sql, values, definitions = definitions, columns = columns) }
+    fun <T> query(type: KType, mapper: TypeMapper<T, *>, position: Int = 1, column: ColumnContext = emptyList()) = QueryBuilder<T>(this) { sql, values, definitions, columns -> query(sql, type, mapper, values, definitions, position, column, columns) }
     inline fun <reified T> query(position: Int = 1, column: ColumnContext = emptyList()): QueryBuilder<T> {
         val mapper = structure.manager.getTypeMapper<T, Any?>(typeOf<T>(), column.lastOrNull()?.property)
         return query(typeOf<T>(), mapper, position, column)

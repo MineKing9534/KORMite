@@ -5,7 +5,8 @@ import org.jdbi.v3.core.argument.Argument
 data class VariableBinding<T>(val variable: VariableNode<out T>, val value: Node<out T>)
 infix fun <T> VariableNode<out T>.bindTo(value: Node<out T>) = VariableBinding(this, value)
 
-class QueryBuilder<T>(private val table: TableImplementation<*>, private val query: (String, Map<String, Argument>, List<ColumnContext>) -> QueryResult<T>) : QueryResult<T> {
+class QueryBuilder<T>(private val table: TableImplementation<*>, private val query: (String, Map<String, Argument>, Map<String, Any?>, List<ColumnContext>) -> QueryResult<T>) : QueryResult<T> {
+    private val definitions = mutableMapOf<String, Any?>()
     private val nodes = arrayListOf<Node<*>>()
     private val joins = arrayListOf<Join>()
 
@@ -40,6 +41,8 @@ class QueryBuilder<T>(private val table: TableImplementation<*>, private val que
         this.variables =  VariableJoin(variables, VARIABLE_TABLE_NAME)
         this.variablePosition = position
     }
+
+    fun define(name: String, value: Any?) = apply { definitions[name] = value }
 
     fun limit(limit: Int?) = apply { this.limit = limit }
     fun offset(offset: Int?) = apply { this.offset = offset }
@@ -81,7 +84,7 @@ class QueryBuilder<T>(private val table: TableImplementation<*>, private val que
                 }
         }
 
-        return query(render(), values, nodes.map { it.columnContext(table.structure) }).useIterator(handler)
+        return query(render(), values, definitions, nodes.map { it.columnContext(table.structure) }).useIterator(handler)
     }
 }
 
