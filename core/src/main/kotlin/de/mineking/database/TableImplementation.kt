@@ -101,14 +101,15 @@ abstract class TableImplementation<T: Any>(
     fun query(sql: String, parameters: Map<String, Any?> = emptyMap(), definitions: Map<String, Any?> = emptyMap(), columns: List<ColumnContext> = emptyList()): QueryResult<T> = query(sql, structure.component.createType(), mapper as TypeMapper<T, *>, parameters, definitions, columns = columns)
     fun <T> query(sql: String, type: KType, mapper: TypeMapper<T, *>, parameters: Map<String, Any?> = emptyMap(), definitions: Map<String, Any?> = emptyMap(), position: Int = 1, column: ColumnContext = emptyList(), columns: List<ColumnContext> = emptyList()) = object : QueryResult<T> {
         override fun <R> useIterator(handler: (QueryIterator<T>) -> R): R = structure.manager.execute {
-            handler(it.createQuery(sql)
+            val result = it.createQuery(sql)
                 .bindMap(parameters)
                 .apply {
                     define("TABLE", structure.name)
                     definitions.forEach { define(it.key, it.value) }
                 }
                 .scanResultSet { set, ctx -> QueryIterator<T>(ReadContext(this@TableImplementation, set.get(), columns, column), ctx, position, column, type, mapper) }
-            )
+
+            result.use(handler)
         }
     }
 
