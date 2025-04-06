@@ -1,6 +1,5 @@
 package de.mineking.database
 
-import org.jdbi.v3.core.argument.Argument
 import org.jdbi.v3.core.kotlin.useHandleUnchecked
 import org.jdbi.v3.core.statement.Update
 import java.lang.reflect.InvocationHandler

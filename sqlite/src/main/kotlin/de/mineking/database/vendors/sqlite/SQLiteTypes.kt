@@ -22,23 +22,23 @@ import kotlin.reflect.jvm.javaType
 import kotlin.reflect.jvm.jvmErasure
 
 object SQLiteMappers {
-	val BOOLEAN = nullsafeTypeMapper<Boolean>(SQLiteType.INTEGER, { set, position -> set.getInt(position) > 0 }, { statement, position, value -> statement.setInt(position, if (value) 1 else 0) })
-	val BYTE_ARRAy = nullsafeTypeMapper<ByteArray?>(SQLiteType.BLOB, ResultSet::getBytes, PreparedStatement::setBytes)
-	val BLOB = nullsafeTypeMapper<Blob?>(SQLiteType.BLOB, ResultSet::getBlob, PreparedStatement::setBlob)
+	val BOOLEAN = nullsafeTypeMapper<Boolean, Int>(SQLiteType.INTEGER, { set, position, _ -> set.getInt(position) > 0 }, { it, _ -> if (it) 1 else 0 })
+	val BYTE_ARRAy = nullsafeTypeMapper<ByteArray?>(SQLiteType.BLOB, ResultSet::getBytes)
+	val BLOB = nullsafeTypeMapper<Blob?>(SQLiteType.BLOB, ResultSet::getBlob)
 
-	val SHORT = nullsafeTypeMapper<Short>(SQLiteType.INTEGER, ResultSet::getShort, PreparedStatement::setShort)
-	val INTEGER = nullsafeTypeMapper<Int>(SQLiteType.INTEGER, ResultSet::getInt, PreparedStatement::setInt)
-	val LONG = nullsafeTypeMapper<Long>(SQLiteType.INTEGER, ResultSet::getLong, PreparedStatement::setLong)
+	val SHORT = nullsafeTypeMapper<Short>(SQLiteType.INTEGER, ResultSet::getShort)
+	val INTEGER = nullsafeTypeMapper<Int>(SQLiteType.INTEGER, ResultSet::getInt)
+	val LONG = nullsafeTypeMapper<Long>(SQLiteType.INTEGER, ResultSet::getLong)
 
-	val FLOAT = nullsafeTypeMapper<Float>(SQLiteType.REAL, ResultSet::getFloat, PreparedStatement::setFloat)
-	val DOUBLE = nullsafeTypeMapper<Double>(SQLiteType.REAL, ResultSet::getDouble, PreparedStatement::setDouble)
+	val FLOAT = nullsafeTypeMapper<Float>(SQLiteType.REAL, ResultSet::getFloat)
+	val DOUBLE = nullsafeTypeMapper<Double>(SQLiteType.REAL, ResultSet::getDouble)
 
-	val STRING = nullsafeTypeMapper<String>(SQLiteType.TEXT, ResultSet::getString, PreparedStatement::setString)
+	val STRING = nullsafeTypeMapper<String>(SQLiteType.TEXT, ResultSet::getString)
 	val ENUM = nullsafeDelegateTypeMapper<Enum<*>, String>(STRING, { name, type -> type.jvmErasure.java.enumConstants.map { it as Enum<*> }.first { it.name == name } }, Enum<*>::name)
 
-	val INSTANT = nullsafeTypeMapper<Instant>(SQLiteType.INTEGER, { set, position -> set.getTimestamp(position).toInstant() }, { statement, position, value -> statement.setTimestamp(position, Timestamp.from(value)) })
-	val LOCAL_DATE_TIME = nullsafeTypeMapper<LocalDateTime>(SQLiteType.INTEGER, { set, position -> set.getTimestamp(position).toLocalDateTime() }, { statement, position, value -> statement.setTimestamp(position, Timestamp.valueOf(value)) })
-	val LOCAL_DATE = nullsafeTypeMapper<LocalDate>(SQLiteType.INTEGER, { set, position -> set.getDate(position).toLocalDate() }, { statement, position, value -> statement.setDate(position, Date.valueOf(value)) })
+	val INSTANT = nullsafeTypeMapper<Instant, Timestamp>(SQLiteType.INTEGER, { set, position, _ -> set.getTimestamp(position).toInstant() }, {it, _ -> Timestamp.from(it) })
+	val LOCAL_DATE_TIME = nullsafeTypeMapper<LocalDateTime, Timestamp>(SQLiteType.INTEGER, { set, position, _ -> set.getTimestamp(position).toLocalDateTime() }, { it, _ -> Timestamp.valueOf(it) })
+	val LOCAL_DATE = nullsafeTypeMapper<LocalDate, Date>(SQLiteType.INTEGER, { set, position, _ -> set.getDate(position).toLocalDate() }, { it, _ -> Date.valueOf(it) })
 
 	val LOCALE = nullsafeDelegateTypeMapper(STRING, { it, type -> Locale.forLanguageTag(it) }, Locale::toLanguageTag)
 	val COLOR = nullsafeDelegateTypeMapper(INTEGER, { it, type -> Color(it, true) }, Color::getRGB)

@@ -22,67 +22,76 @@ import kotlin.reflect.full.isSubtypeOf
 import kotlin.reflect.jvm.javaType
 import kotlin.reflect.jvm.jvmErasure
 import kotlin.reflect.typeOf
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.serializer
 
 inline fun <reified T> jsonTypeMapper(
 	crossinline parser: JsonObject.(KType) -> T?,
 	crossinline formatter: JsonObject.(T) -> Unit,
 	crossinline acceptor: (KType) -> Boolean = { it.isSubtypeOf(typeOf<T?>()) },
 	binary: Boolean = true
-) = object : TypeMapper<T?, String?> {
-	override fun accepts(manager: DatabaseConnection, property: KProperty<*>?, type: KType) = acceptor(type)
-	override fun getType(column: PropertyData<*, *>?, table: TableStructure<*>, type: KType): DataType {
-		val raw = if (binary) PostgresType.JSONB else PostgresType.JSON
-		return raw.withNullability(type.isMarkedNullable)
-	}
+) = nullsafeTypeMapper<T, String>(
+	if (binary) PostgresType.JSONB else PostgresType.JSON,
+	{ set, pos, type -> JsonParser.parseString(set.getString(pos)).asJsonObject.parser(type) },
+	{ it, _ -> JsonObject().apply { formatter(it) }.toString() },
+	{ stmt, pos, value ->
+		println(value)
 
-	override fun createArgument(column: ColumnContext, table: TableStructure<*>, type: KType, value: String?) = createCustomArgument(value, column, table, type)
-	override fun format(column: ColumnContext, table: TableStructure<*>, type: KType, value: T?): String? {
-		if (value == null) return null
+		val obj = PGobject()
+		obj.type = (if (binary) PostgresType.JSONB else PostgresType.JSON).sqlName
+		obj.value = value
+		stmt.setObject(pos, obj)
+	},
+	acceptor
+)
 
-		val obj = JsonObject()
-		obj.formatter(value)
-		return obj.toString()
-	}
+inline fun <reified T> jsonTypeMapper(
+	crossinline acceptor: (KType) -> Boolean = { it.isSubtypeOf(typeOf<T?>()) },
+	binary: Boolean = true
+) = nullsafeTypeMapper(
+	if (binary) PostgresType.JSONB else PostgresType.JSON,
+	{ set, pos, type -> Json.decodeFromString(Json.serializersModule.serializer(type), set.getString(pos)) as T },
+	{ value, type -> Json.encodeToString(Json.serializersModule.serializer(type), value) },
+	{ stmt, pos, value ->
+		println(value)
 
-	override fun extract(column: ColumnContext, type: KType, context: ReadContext, pos: Int) = context.read(pos, ResultSet::getString)
-
-	override fun parse(column: ColumnContext, type: KType, value: String?, context: ReadContext, pos: Int): T? {
-		if (value == null) return null
-
-		val obj = JsonParser.parseString(value).asJsonObject
-		return obj.parser(type)
-	}
-}
+		val obj = PGobject()
+		obj.type = (if (binary) PostgresType.JSONB else PostgresType.JSON).sqlName
+		obj.value = value
+		stmt.setObject(pos, obj)
+	},
+	acceptor
+)
 
 object PostgresMappers {
-	val BOOLEAN = nullsafeTypeMapper<Boolean>(PostgresType.BOOLEAN, ResultSet::getBoolean, PreparedStatement::setBoolean)
-	val BYTE_ARRAy = nullsafeTypeMapper<ByteArray>(PostgresType.BYTE_ARRAY, ResultSet::getBytes, PreparedStatement::setBytes)
-	val BLOB = nullsafeTypeMapper<Blob>(PostgresType.BYTE_ARRAY, ResultSet::getBlob, PreparedStatement::setBlob)
+	val BOOLEAN = nullsafeTypeMapper<Boolean>(PostgresType.BOOLEAN, ResultSet::getBoolean)
+	val BYTE_ARRAy = nullsafeTypeMapper<ByteArray>(PostgresType.BYTE_ARRAY, ResultSet::getBytes)
+	val BLOB = nullsafeTypeMapper<Blob>(PostgresType.BYTE_ARRAY, ResultSet::getBlob)
 
-	val SHORT = nullsafeTypeMapper<Short>(PostgresType.SMALL_INT, ResultSet::getShort, PreparedStatement::setShort)
-	val INTEGER = nullsafeTypeMapper<Int>(PostgresType.INTEGER, ResultSet::getInt, PreparedStatement::setInt)
-	val LONG = nullsafeTypeMapper<Long>(PostgresType.BIG_INT, ResultSet::getLong, PreparedStatement::setLong)
-	val BIG_INTEGER = nullsafeTypeMapper<BigInteger>(PostgresType.BIG_INT, { set, position -> set.getObject(position, BigInteger::class.java) }, PreparedStatement::setObject)
+	val SHORT = nullsafeTypeMapper<Short>(PostgresType.SMALL_INT, ResultSet::getShort)
+	val INTEGER = nullsafeTypeMapper<Int>(PostgresType.INTEGER, ResultSet::getInt)
+	val LONG = nullsafeTypeMapper<Long>(PostgresType.BIG_INT, ResultSet::getLong)
+	val BIG_INTEGER = nullsafeTypeMapper<BigInteger>(PostgresType.BIG_INT, { set, position -> set.getObject(position, BigInteger::class.java) })
 
-	val FLOAT = nullsafeTypeMapper<Float>(PostgresType.REAL, ResultSet::getFloat, PreparedStatement::setFloat)
-	val DOUBLE = nullsafeTypeMapper<Double>(PostgresType.DOUBLE_PRECISION, ResultSet::getDouble, PreparedStatement::setDouble)
-	val BIG_DECIMAL = nullsafeTypeMapper<BigDecimal>(PostgresType.NUMERIC, ResultSet::getBigDecimal, PreparedStatement::setBigDecimal)
+	val FLOAT = nullsafeTypeMapper<Float>(PostgresType.REAL, ResultSet::getFloat)
+	val DOUBLE = nullsafeTypeMapper<Double>(PostgresType.DOUBLE_PRECISION, ResultSet::getDouble)
+	val BIG_DECIMAL = nullsafeTypeMapper<BigDecimal>(PostgresType.NUMERIC, ResultSet::getBigDecimal)
 
-	val STRING = nullsafeTypeMapper<String>(PostgresType.TEXT, ResultSet::getString, PreparedStatement::setString)
+	val STRING = nullsafeTypeMapper<String>(PostgresType.TEXT, ResultSet::getString)
 	val ENUM = nullsafeDelegateTypeMapper<Enum<*>, String>(STRING, { name, type -> type.jvmErasure.java.enumConstants.map { it as Enum<*> }.first { it.name == name } }, Enum<*>::name)
 
-	val INSTANT = nullsafeTypeMapper<Instant>(PostgresType.TIMESTAMP, { set, position -> set.getTimestamp(position).toInstant() }, { statement, position, value -> statement.setTimestamp(position, Timestamp.from(value)) })
-	val LOCAL_DATE_TIME = nullsafeTypeMapper<LocalDateTime>(PostgresType.TIMESTAMP, { set, position -> set.getTimestamp(position).toLocalDateTime() }, { statement, position, value -> statement.setTimestamp(position, Timestamp.valueOf(value)) })
-	val OFFSET_DATE_TIME = nullsafeTypeMapper<OffsetDateTime>(PostgresType.TIMESTAMPTZ, { set, position -> set.getObject(position, OffsetDateTime::class.java) }, { statement, position, value -> statement.setTimestamp(position, Timestamp.valueOf(value.toLocalDateTime())) })
-	val ZONED_DATE_TIME = nullsafeTypeMapper<ZonedDateTime>(PostgresType.TIMESTAMPTZ, { set, position -> set.getObject(position, OffsetDateTime::class.java).toZonedDateTime() }, { statement, position, value -> statement.setTimestamp(position, Timestamp.valueOf(value.toLocalDateTime())) })
-	val LOCAL_DATE = nullsafeTypeMapper<LocalDate>(PostgresType.DATE, { set, position -> set.getDate(position).toLocalDate() }, { statement, position, value -> statement.setDate(position, Date.valueOf(value)) })
-	val LoCAL_TIME = nullsafeTypeMapper(PostgresType.TIME, { set, name -> set.getObject(name, LocalTime::class.java) }, { stmt, pos, value -> stmt.setTime(pos, Time.valueOf(value)) })
-	val OFFSET_TIME = nullsafeTypeMapper(PostgresType.TIMETZ, { set, name -> set.getObject(name, OffsetTime::class.java) }, { stmt, pos, value -> stmt.setTime(pos, Time.valueOf(value.toLocalTime())) })
+	val INSTANT = nullsafeTypeMapper<Instant, Timestamp>(PostgresType.TIMESTAMP, { set, position, _ -> set.getTimestamp(position).toInstant() }, {it, _ -> Timestamp.from(it) })
+	val LOCAL_DATE_TIME = nullsafeTypeMapper<LocalDateTime, Timestamp>(PostgresType.TIMESTAMP, { set, position, _ -> set.getTimestamp(position).toLocalDateTime() }, { it, _ -> Timestamp.valueOf(it) })
+	val OFFSET_DATE_TIME = nullsafeTypeMapper<OffsetDateTime, Timestamp>(PostgresType.TIMESTAMPTZ, { set, position, _ -> set.getObject(position, OffsetDateTime::class.java) }, { it, _ -> Timestamp.valueOf(it.toLocalDateTime()) })
+	val ZONED_DATE_TIME = nullsafeTypeMapper<ZonedDateTime, Timestamp>(PostgresType.TIMESTAMPTZ, { set, position, _ -> set.getObject(position, OffsetDateTime::class.java).toZonedDateTime() }, { it, _ -> Timestamp.valueOf(it.toLocalDateTime()) })
+	val LOCAL_DATE = nullsafeTypeMapper<LocalDate, Date>(PostgresType.DATE, { set, position, _ -> set.getDate(position).toLocalDate() }, { it, _ -> Date.valueOf(it) })
+	val LoCAL_TIME = nullsafeTypeMapper<LocalTime, Time>(PostgresType.TIME, { set, name, _ -> set.getObject(name, LocalTime::class.java) }, { it, _ -> Time.valueOf(it) })
+	val OFFSET_TIME = nullsafeTypeMapper<OffsetTime, Time>(PostgresType.TIMETZ, { set, name, _ -> set.getObject(name, OffsetTime::class.java) }, { it, _ -> Time.valueOf(it.toLocalTime()) })
 
 	val LOCALE = nullsafeDelegateTypeMapper(STRING, { it, _ -> Locale.forLanguageTag(it) }, Locale::toLanguageTag)
 	val COLOR = nullsafeDelegateTypeMapper(INTEGER, { it, _ -> Color(it, true) }, Color::getRGB)
 
-	val UUID_MAPPER = nullsafeTypeMapper<UUID>(PostgresType.UUID, { set, position -> UUID.fromString(set.getString(position)) }, PreparedStatement::setObject)
+	val UUID_MAPPER = nullsafeTypeMapper<UUID>(PostgresType.UUID, { set, position -> UUID.fromString(set.getString(position)) })
 
 	val JSON = object : TypeMapper<Any?, String?> {
 		val numberStrategy = ToNumberStrategy { reader ->
@@ -94,9 +103,9 @@ object PostgresMappers {
 			.setObjectToNumberStrategy(numberStrategy)
 			.create()
 
-		override fun accepts(manager: DatabaseConnection, property: KProperty<*>?, type: KType): Boolean = property?.hasDatabaseAnnotation<Json>() == true
+		override fun accepts(manager: DatabaseConnection, property: KProperty<*>?, type: KType): Boolean = property?.hasDatabaseAnnotation<de.mineking.database.Json>() == true
 		override fun getType(column: PropertyData<*, *>?, table: TableStructure<*>, type: KType): DataType {
-			val raw = if (column?.property?.getDatabaseAnnotation<Json>()?.binary == true) PostgresType.JSONB else PostgresType.JSON
+			val raw = if (column?.property?.getDatabaseAnnotation<de.mineking.database.Json>()?.binary == true) PostgresType.JSONB else PostgresType.JSON
 			return raw.withNullability(type.isMarkedNullable)
 		}
 

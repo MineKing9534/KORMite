@@ -72,39 +72,74 @@ interface SimpleTypeMapper<T> : TypeMapper<T, T> {
 	override fun parse(column: ColumnContext, type: KType, value: T, context: ReadContext, pos: Int): T = value
 }
 
-inline fun <reified T> typeMapper(
+inline fun <reified T, D> typeMapper(
 	dataType: DataType,
-	noinline extractor: (ResultSet, Int) -> T?,
-	crossinline inserter: (PreparedStatement, Int, T?) -> Unit,
+	noinline extractor: (ResultSet, Int, KType) -> T?,
+	crossinline formatter: (T?, KType) -> D,
+	crossinline inserter: (PreparedStatement, Int, D) -> Unit = { stmt, pos, value ->
+		if (value == null) stmt.setNull(pos, Types.NULL)
+		else stmt.setObject(pos, value)
+	},
 	crossinline acceptor: (KType) -> Boolean = { it.isSubtypeOf(typeOf<T?>()) }
-) = object : SimpleTypeMapper<T?> {
+) = object : TypeMapper<T?, D> {
 	override fun accepts(manager: DatabaseConnection, property: KProperty<*>?, type: KType) = acceptor(type)
 	override fun getType(column: PropertyData<*, *>?, table: TableStructure<*>, type: KType) = dataType.withNullability(type.isMarkedNullable)
 
-	override fun createArgument(column: ColumnContext, table: TableStructure<*>, type: KType, value: T?) = object : Argument {
-		override fun apply(position: Int, statement: PreparedStatement?, ctx: StatementContext?) {
-			inserter(statement!!, position, value)
+	override fun format(column: ColumnContext, table: TableStructure<*>, type: KType, value: T?) = formatter(value, type)
+	override fun createArgument(column: ColumnContext, table: TableStructure<*>, type: KType, value: D) = object : Argument {
+		override fun apply(position: Int, statement: PreparedStatement, ctx: StatementContext?) {
+			inserter(statement, position, value)
 		}
 
-		override fun toString(): String = value.toString()
+		override fun toString() = value.toString()
 	}
 
-	override fun extract(column: ColumnContext, type: KType, context: ReadContext, pos: Int) = context.read(pos, extractor)
+	@Suppress("UNCHECKED_CAST")
+	override fun extract(column: ColumnContext, type: KType, context: ReadContext, pos: Int) = context.read(pos) { set, pos -> extractor(set, pos, type) } as D
+	override fun parse(
+		column: ColumnContext,
+		type: KType,
+		value: D,
+		context: ReadContext,
+		pos: Int
+	) = value as T
 
 	override fun toString() = "TypeMapper[${ typeOf<T>() }]"
 }
 
-inline fun <reified T> nullsafeTypeMapper(
-    dataType: DataType,
-    noinline extractor: (ResultSet, Int) -> T?,
-    crossinline inserter: (PreparedStatement, Int, T) -> Unit,
-    crossinline acceptor: (KType) -> Boolean = { it.isSubtypeOf(typeOf<T?>()) }
-) = typeMapper<T?>(dataType, { set, pos ->
-	if (set.getObject(pos) == null) null
-	else extractor(set, pos)
-}, { stmt, pos, value ->
+inline fun <reified T> typeMapper(
+	dataType: DataType,
+	noinline extractor: (ResultSet, Int) -> T?,
+	crossinline acceptor: (KType) -> Boolean = { it.isSubtypeOf(typeOf<T?>()) }
+) = typeMapper<T, T?>(dataType, { set, pos, _ -> extractor(set, pos) }, { it, _ -> it }, { stmt, pos, value ->
 	if (value == null) stmt.setNull(pos, Types.NULL)
-	else inserter(stmt, pos, value)
+	else stmt.setObject(pos, value)
+}, acceptor)
+
+inline fun <reified T, D> nullsafeTypeMapper(
+    dataType: DataType,
+    noinline extractor: (ResultSet, Int, KType) -> T?,
+    crossinline formatter: (T, KType) -> D?,
+	crossinline inserter: (PreparedStatement, Int, D?) -> Unit = { stmt, pos, value ->
+		if (value == null) stmt.setNull(pos, Types.NULL)
+		else stmt.setObject(pos, value)
+	},
+    crossinline acceptor: (KType) -> Boolean = { it.isSubtypeOf(typeOf<T?>()) }
+) = typeMapper<T?, D?>(dataType, { set, pos, type ->
+	if (set.getObject(pos) == null) null
+	else extractor(set, pos, type)
+}, { value, type ->
+	if (value == null) null
+	else formatter(value, type)
+}, inserter, acceptor)
+
+inline fun <reified T> nullsafeTypeMapper(
+	dataType: DataType,
+	noinline extractor: (ResultSet, Int) -> T?,
+	crossinline acceptor: (KType) -> Boolean = { it.isSubtypeOf(typeOf<T?>()) }
+) = nullsafeTypeMapper<T, T>(dataType, { set, pos, _ -> extractor(set, pos) }, { it, _ -> it }, { stmt, pos, value ->
+	if (value == null) stmt.setNull(pos, Types.NULL)
+	else stmt.setObject(pos, value)
 }, acceptor)
 
 inline fun <reified T, reified D> delegateTypeMapper(
