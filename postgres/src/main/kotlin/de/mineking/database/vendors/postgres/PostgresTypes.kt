@@ -35,8 +35,6 @@ inline fun <reified T> jsonTypeMapper(
 	{ set, pos, type -> JsonParser.parseString(set.getString(pos)).asJsonObject.parser(type) },
 	{ it, _ -> JsonObject().apply { formatter(it) }.toString() },
 	{ stmt, pos, value ->
-		println(value)
-
 		val obj = PGobject()
 		obj.type = (if (binary) PostgresType.JSONB else PostgresType.JSON).sqlName
 		obj.value = value
@@ -53,8 +51,6 @@ inline fun <reified T> jsonTypeMapper(
 	{ set, pos, type -> Json.decodeFromString(Json.serializersModule.serializer(type), set.getString(pos)) as T },
 	{ value, type -> Json.encodeToString(Json.serializersModule.serializer(type), value) },
 	{ stmt, pos, value ->
-		println(value)
-
 		val obj = PGobject()
 		obj.type = (if (binary) PostgresType.JSONB else PostgresType.JSON).sqlName
 		obj.value = value
