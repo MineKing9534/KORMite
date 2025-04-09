@@ -67,13 +67,7 @@ fun <T: Any> identifyObject(table: TableStructure<T>, obj: T): Where {
 }
 
 @Suppress("UNCHECKED_CAST")
-fun createCondition(node: Node<*>) = object : Where {
-    override fun format(table: TableStructure<*>, prefix: Boolean) = node.format(table, prefix)
-    override fun values(table: TableStructure<*>, column: ColumnContext) = node.values(table, column.takeIf { it.isNotEmpty() } ?: columnContext(table))
-
-    override fun columnContext(table: TableStructure<*>) = node.columnContext(table)
-    override fun columns(table: TableStructure<*>) = node.columns(table)
-}
+fun createCondition(node: Node<*>) = node as Where
 
 infix fun Node<*>.isEqualTo(other: Node<*>) = createCondition(this + " = " + other)
 infix fun Node<*>.isNotEqualTo(other: Node<*>) = createCondition(this + " != " + other)
