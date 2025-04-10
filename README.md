@@ -262,7 +262,7 @@ interface UserTable : Table<UserDao> {
     
     @Select
     //Will select all users older than minAge. You can pass a custom comparison operation as parameter to the @Condition annotation. The default is " = "
-    fun getOlderThan(@Parameter(name = "age", operation = " > ") minAge: Int): List<UserDao>
+    fun getOlderThan(@Condition(name = "age", operation = " > ") minAge: Int): List<UserDao>
     
     @Update // You can create update statements with @Update
     //You can combine @Condition and @Parameter in @Update. As above, @Condition will be used as condition while the parameters with @Parameter will update the respective columns in the rows matching the condition
