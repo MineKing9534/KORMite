@@ -48,6 +48,7 @@ If you want to use SQLite instead, you can use `de.mineking.KORMite:KORMite-sqli
 
 ## Extensions
 There are extensions for discord and minecraft available that provide TypeMappers for some types for the corresponding platform. You can get these from `de.mineking.KORMite:KORMite-discord:VERSION` for JDA or `de.mineking.KORMite:KORMite-minecraft:VERSION` for Paper.
+These only contain a single file defining TypeMappers for common types used in these platforms. They also provide simple extension functions to register them to your `DatabaseConnection`.
 
 ## Usage
 The basic usage looks like this:
@@ -103,28 +104,20 @@ Nodes can also be appended together using the `+` operator.
 
 ##### property
 A property node will reference a database column. You can simply create a property node by calling `property(YouDaoClass::yourProperty)` (Referencing the kotlin property).
-This way the references will automatically infer the property type and always stay synced to your Dao-Classes.
+This way the references will automatically infer the property type and always stay synced to your Dao-Classes. You can also pass multiple property references for column reference chains, e.g. `property(BookDao::author, AuthorDao::name)`.
 
-You can also reference properties by name (`property<Type>("yourProperty")`). Note: you have to specify the kotlin property name, even if you passed a custom name in `@Column`.
-
-There is also a special syntax for accessing more complex columns:
-
-| Name           | Example        | Description                                                                                                     |
-|----------------|----------------|-----------------------------------------------------------------------------------------------------------------|
-| Array Index    | array[0]       | Access an index of an array. This is zero based (like in kotlin) as opposed to how it behaves by default in SQL |
-| Reference      | user->name     | Access a referenced tables' column (See [References](#references)).                                             |
-| Virtual Column | location.world | Access a virtual child of this column (See [Virtual Columns](#virtual-columns))                                 |
-
+You can also reference properties by name, e.g.`property<Type>("yourProperty")` (Not recommended). Note: you have to specify the kotlin property name, even if you passed a custom name in `@Column`.
 
 ##### value
 You can specify any object here. As long as a [TypeMapper](#type-mappers) for that object is found, it will be correctly passed as a statement parameter.
 All values are passed using prepared statement, so you are safe to use them without having to worry about sql injection.
+When passing values that don't have a TypeMapper, a fallback mapper is used that will try to bind the parameter using `setObject`. This will work for most cases, but is not guaranteed to work for all types.
 
 #### Wheres
-Nodes can easily be converted to a where condition. You can simply call `Where(node)`.
+Conditions are just `Node`s of type `Boolean`. To avoid unsafe casts in you code you can use the `createCondition` function to convert any `Node` to a `Where` (This just makes the unsafe cast internally, so it's up to you to ensure that this actually makes sense).
 However, in most cases you shouldn't use this but instead make use of the default functions.
 
-For example `Where(property(UserDao::age) + " isEqualTo " + value(1))` can be written as `property(UserDao::age) isEqualTo value(1)`, because all default operations have (infix) functions available.
+For example `createCondition(property(UserDao::age) + " isEqualTo " + value(1))` can be written as `property(UserDao::age) isEqualTo value(1)`, because all default operations have (infix) functions available.
 
 ### SQL Functions
 Sometimes you want to use some SQL functions when selecting values or other operations. KORMite simply allows you to use SQL functions with the following syntax: `"yourFunction"(node1, node2, ...)`.
@@ -136,7 +129,7 @@ For the most basic SQL functions there are also default extension functions avai
 There are also some Postgres SQL features supported by default (only when importing the KORMite-postgres module as well):
 - Array Indexing (`value(listOf(1, 2))[0]`, also supports nodes as indices. Note: The indexing is zero based and NOT 1 based like in SQL)
 - Array contains check (`value(listOf(1, 2)) contains value(1)`. Supports any combination of value and property nodes)
-- Array size (`value(listOf(1, 2)).size`)
+- Array length (`value(listOf(1, 2)).length`)
 
 And a few more...
 
@@ -149,7 +142,7 @@ fun main() {
 	
     val names = table.selectValue(property(UserDao::name), where = property(UserDao::age) isGreaterThan value(5)).list() //This will only select the name column. You can also specify conditions and all parameters that the normal select supports
     
-    table.update(property(UserDao::name) to value("Test"), where = property(UserDao::age) isGreaterThan value(5)) //Update only the name column. You can also optionally specify a condition here 
+    table.update(property(UserDao::name) to value("Test"), where = property(UserDao::age) isGreaterThan value(5)) //Update only the name column (You can update multiple columns at once as well). You can also optionally specify a condition here 
 }
 ```
 
@@ -159,8 +152,9 @@ You can also select only specific columns and still let them automatically be co
 fun main() {
     //Your connection declaration...
     
-    val user = table.select(property(UserDao::name)).first()
+    val user = table.select(property(UserDao::name), property(UserDao::email)).first()
     assertEquals("Max", user.name)
+    assertEquals("max@example.com", user.email)
     assertEquals(0, user.age) //The age is 0 because the column was not selected so the value provided in the instance creator is not changed
 }
 ```
@@ -193,10 +187,11 @@ fun main() {
     //Your connection declaration...
 	
     //This is how you create and register a custom TypeMapper, on the example of the default implementation of Strings (you don't have to do this to use strings as this mapper is already added by default)
-    connection.typeMappers += typeMapper<String?>(PostgresType.TEXT, ResultSet::getString) { value, statement, position -> statement.setString(position, value) }
+    //In most cases you actually want to use the factory methods prefixed with `nullsafe`. These automatically handle nullability for you
+    connection.typeMappers += typeMapper<String>(PostgresType.TEXT, ResultSet::getString)
     
     //You might have cases where you want to map a complex type, so a simpler type, that is then used for the column
-    connection.typeMappers += typeMapper<Color?, String?>(PostgresMappers.INTEGER, { it?.let { Color(it) } }, Color::rgb)
+    connection.typeMappers += nullsafeDelegateTypeMapper<Color, Int>(PostgresMappers.INTEGER, { it, _ -> Color(it) }, { it.rgb })
     //This creates a TypeMapper with intermediate type INTEGER that then only has to specify how to convert between Color and Int, while the specified intermediate TypeMapper handles the direct access
 }
 ```
@@ -229,18 +224,12 @@ fun main() {
 }
 ```
 
-### Virtual Columns
-Virtual columns can be used to store additional information for a property in a different column in the database.
-An example are `Location`s in Minecraft, where you might want to store the location itself as an array of doubles and the world as a separate column. (This is already implemented in the minecraft extension)
+Accessing references is only available in `select` statements. This is because references are handles via join statements in SQL which cannot be used in other SQL methods.
+These joins are automatically generated by the library, so you don't have to worry about them.
 
-```kotlin
-fun main() {
-    //Your connection and table declaration...
-	
-    val world = table.selectValue(property<World>("location.world")).first() //Select only the world
-    table.update(property<World>("location.world") to value(world2)) //Update only the world
-}
-```
+> [!NOTE]
+> Currently, reference arrays are NOT supported. This is because the current result handler is not capable of handling multiple rows for a single result object.
+> Support for this is planned for the future but this will take a while. Until then, you have to handle cases where you need references arrays manually by storing an array of the key type and resolving the references manually.
 
 ### Data Objects
 DataObject is an interface that your row classes can implement to simplify some operations.
@@ -300,7 +289,7 @@ fun main() {
 }
 ```
 
-> [!WARNING]
+> [!NOTE]
 > Using the autogenerated functions with annotations requires you to keep you parameter names. In gradle you can do this with:
 
 ```gradle
