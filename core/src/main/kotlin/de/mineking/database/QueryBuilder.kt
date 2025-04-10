@@ -38,6 +38,8 @@ class QueryBuilder<T>(private val table: TableImplementation<*>, private val que
 
     fun variables(vararg variables: VariableBinding<*>, position: Int = joins.size) = variables(variables.toList(), position)
     fun variables(variables: Collection<VariableBinding<*>>, position: Int = joins.size) = apply {
+        if (this.variables != null) error("Variables already defined. Currently, multiple variable definitions are not supported.")
+
         this.variables = VariableJoin(variables, VARIABLE_TABLE_NAME)
         this.variablePosition = position
     }
