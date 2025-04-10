@@ -2,12 +2,14 @@ package de.mineking.database
 
 import java.lang.reflect.Method
 import kotlin.reflect.KType
+import kotlin.reflect.full.createType
 import kotlin.reflect.full.findAnnotation
 import kotlin.reflect.full.hasAnnotation
 import kotlin.reflect.full.valueParameters
 import kotlin.reflect.jvm.jvmErasure
 import kotlin.reflect.jvm.kotlinFunction
 import kotlin.reflect.typeOf
+import kotlin.to
 
 val ANNOTATION_EXECUTOR = ThreadLocal<(type: KType) -> Any?>()
 
@@ -148,7 +150,7 @@ object DefaultAnnotationHandlers {
 
         when (type.jvmErasure) {
             Unit::class -> Unit
-            UpdateResult::class -> value
+            Result::class -> value
             structure.component -> if (type.isMarkedNullable) value.value else value.getOrThrow()
             else -> error("Cannot produce $type as result")
         }
@@ -160,27 +162,61 @@ object DefaultAnnotationHandlers {
 
         when (type.jvmErasure) {
             Unit::class -> Unit
-            UpdateResult::class -> value
+            Result::class -> value
             structure.component -> if (type.isMarkedNullable) value.value else value.getOrThrow()
             else -> error("Cannot produce $type as result")
         }
     }
 
+    fun createUpdateList(function: Method, args: Array<out Any?>) = function.parameters
+        .mapIndexed { index, value -> index to value }
+        .filter { (_, it) -> it.isAnnotationPresent(Parameter::class.java) }
+        .map { (index, param) ->
+            property<Any>(param.getAnnotation(Parameter::class.java)!!.name.takeIf { it.isNotBlank() } ?: param.name) to
+            value(args[index], function.kotlinFunction!!.valueParameters[index].type)
+        }
+
     val UPDATE = annotationHandler<Update> { type, function, args, _ ->
-        val updates = function.parameters
-            .mapIndexed { index, value -> index to value }
-            .filter { (_, it) -> it.isAnnotationPresent(Parameter::class.java) }
-            .map { (index, param) ->
-                property<Any>(param.getAnnotation(Parameter::class.java)!!.name.takeIf { it.isNotBlank() } ?: param.name) to
-                value(args[index], function.kotlinFunction!!.valueParameters[index].type)
-            }
+        val updates = createUpdateList(function, args)
 
         val value = update(columns = updates.toTypedArray(), where = createCondition(function, args))
         when (type.jvmErasure) {
             Unit::class -> Unit
-            UpdateResult::class -> value
+            Result::class -> value
             Int::class -> if (type.isMarkedNullable) value.value else value.getOrThrow()
             Boolean::class -> (value.value ?: 0) > 0
+            else -> error("Cannot produce $type as result")
+        }
+    }
+
+    val UPDATE_RETURNING = annotationHandler<UpdateReturning> { type, function, args, annotation ->
+        val updates = createUpdateList(function, args)
+
+        val (resultType, value) =
+            if (annotation.value.isBlank()) structure.component.createType() to updateReturning(columns = updates.toTypedArray(), where = createCondition(function, args))
+            else {
+                val target = if (annotation.raw) unsafe(annotation.value) else property<Any>(annotation.value)
+                val queryType = when (type.jvmErasure) {
+                    ErrorHandledQueryResult::class, QueryResult::class, Result::class, List::class, Set::class -> type.arguments[0].type!!
+                    else -> type
+                }
+
+                queryType to updateReturning(columns = updates.toTypedArray(), target, queryType, where = createCondition(function, args))
+            }
+
+        when (type.jvmErasure) {
+            Unit::class -> Unit
+            ErrorHandledQueryResult::class -> value
+            QueryResult::class -> value.ignoreErrors()
+            Result::class -> when (type.component().jvmErasure) {
+                List::class -> value.list()
+                Set::class -> value.set()
+                resultType.jvmErasure -> if (resultType.isMarkedNullable) value.firstOrNull() else value.first()
+                else -> error("Cannot produce $type as result")
+            }
+            List::class -> value.list().getOrThrow()
+            Set::class -> value.set().getOrThrow()
+            resultType.jvmErasure -> if (resultType.isMarkedNullable) value.firstOrNull().getOrThrow() else value.first().getOrThrow()
             else -> error("Cannot produce $type as result")
         }
     }

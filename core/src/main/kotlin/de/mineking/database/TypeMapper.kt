@@ -183,6 +183,8 @@ inline fun <reified T> binaryTypeMapper(
 
 	override fun toBinary(column: ColumnContext, table: TableStructure<*>, type: KType, value: ByteArray): ByteArray = value
 	override fun fromBinary(column: ColumnContext, type: KType, value: ByteArray, context: ReadContext, position: Int): ByteArray = value
+
+	override fun toString() = "BinaryTypeMapper[${ typeOf<T>() }]"
 }
 
 object ValueTypeMapper : SimpleTypeMapper<Any?> {
@@ -190,4 +192,6 @@ object ValueTypeMapper : SimpleTypeMapper<Any?> {
 	override fun getType(column: PropertyData<*, *>?, table: TableStructure<*>, type: KType): DataType = error("No suitable TypeMapper found for $type [${ column?.property }] (Cannot use value mapper in this context)")
 
 	override fun extract(column: ColumnContext, type: KType, context: ReadContext, pos: Int): Any? = context.read(pos, ResultSet::getObject)
+
+	override fun toString() = "ValueTypeMapper (fallback)"
 }

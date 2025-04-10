@@ -38,7 +38,7 @@ class QueryBuilder<T>(private val table: TableImplementation<*>, private val que
 
     fun variables(vararg variables: VariableBinding<*>, position: Int = joins.size) = variables(variables.toList(), position)
     fun variables(variables: Collection<VariableBinding<*>>, position: Int = joins.size) = apply {
-        this.variables =  VariableJoin(variables, VARIABLE_TABLE_NAME)
+        this.variables = VariableJoin(variables, VARIABLE_TABLE_NAME)
         this.variablePosition = position
     }
 

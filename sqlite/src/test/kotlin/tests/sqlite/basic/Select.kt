@@ -38,7 +38,7 @@ class SelectTest {
 
 	@Test
 	fun selectAll() {
-		assertEquals(5, table.select().list().size)
+		assertEquals(users, table.select().list())
 	}
 
 	@Test

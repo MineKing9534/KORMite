@@ -48,12 +48,12 @@ class SQLiteTable<T: Any>(
 		} }
 	}
 
-	override fun <T> createResult(function: () -> T): UpdateResult<T> {
+	override fun <T> createResult(function: () -> T): Result<T> {
 		return try {
-			UpdateResult(function(), null, uniqueViolation = false, notNullViolation = false)
+			Result(function(), null, uniqueViolation = false, notNullViolation = false)
 		} catch (e: UnableToExecuteStatementException) {
 			val sqlException = e.cause as SQLiteException
-			val result = UpdateResult<T>(null, sqlException, sqlException.resultCode == SQLiteErrorCode.SQLITE_CONSTRAINT_UNIQUE || sqlException.resultCode == SQLiteErrorCode.SQLITE_CONSTRAINT_PRIMARYKEY, sqlException.resultCode == SQLiteErrorCode.SQLITE_CONSTRAINT_NOTNULL)
+			val result = Result<T>(null, sqlException, sqlException.resultCode == SQLiteErrorCode.SQLITE_CONSTRAINT_UNIQUE || sqlException.resultCode == SQLiteErrorCode.SQLITE_CONSTRAINT_PRIMARYKEY, sqlException.resultCode == SQLiteErrorCode.SQLITE_CONSTRAINT_NOTNULL)
 
 			if (!result.uniqueViolation && !result.notNullViolation) throw e
 			result

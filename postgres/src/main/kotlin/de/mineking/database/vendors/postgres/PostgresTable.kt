@@ -49,12 +49,12 @@ class PostgresTable<T: Any>(
 		} }
 	}
 
-	override fun <T> createResult(function: () -> T): UpdateResult<T> {
+	override fun <T> createResult(function: () -> T): Result<T> {
 		return try {
-			UpdateResult(function(), null, uniqueViolation = false, notNullViolation = false)
+			Result(function(), null, uniqueViolation = false, notNullViolation = false)
 		} catch (e: UnableToExecuteStatementException) {
 			val sqlException = e.cause as SQLException
-			val result = UpdateResult<T>(null, sqlException, sqlException.sqlState == PSQLState.UNIQUE_VIOLATION.state, sqlException.sqlState == PSQLState.NOT_NULL_VIOLATION.state)
+			val result = Result<T>(null, sqlException, sqlException.sqlState == PSQLState.UNIQUE_VIOLATION.state, sqlException.sqlState == PSQLState.NOT_NULL_VIOLATION.state)
 
 			if (!result.uniqueViolation && !result.notNullViolation) throw e
 			result

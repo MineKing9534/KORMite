@@ -66,7 +66,24 @@ interface QueryResult<T> {
     fun firstOrNull(): T? = useIterator { if (it.hasNext()) it.next() else null }
 }
 
-data class UpdateResult<out T>(
+interface ErrorHandledQueryResult<T> {
+    fun <R> useIterator(handler: (QueryIterator<T>) -> R): Result<R>
+
+    fun <R> useStream(handler: (Stream<T>) -> R): Result<R> = useIterator { handler(StreamSupport.stream(Spliterators.spliteratorUnknownSize(it, 0), false).onClose(it::close)) }
+    fun <R> useSequence(handler: (Sequence<T>) -> R): Result<R> = useIterator { handler(it.asSequence()) }
+
+    fun list(): Result<List<T>> = useSequence { it.toList() }
+    fun set(): Result<Set<T>> = useSequence { it.toSet() }
+
+    fun first(): Result<T> = useIterator { it.next() }
+    fun firstOrNull(): Result<T?> = useIterator { if (it.hasNext()) it.next() else null }
+
+    fun ignoreErrors() = object : QueryResult<T> {
+        override fun <R> useIterator(handler: (QueryIterator<T>) -> R): R = this@ErrorHandledQueryResult.useIterator(handler).getOrThrow()
+    }
+}
+
+data class Result<out T>(
     val value: T?,
     val error: SQLException?,
 
@@ -88,7 +105,7 @@ data class UpdateResult<out T>(
     }
 }
 
-fun <T> UpdateResult<T>.orElse(other: T) = when {
+fun <T> Result<T>.orElse(other: T) = when {
     isSuccess() -> getOrThrow()
     else -> other
 }

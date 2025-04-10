@@ -77,6 +77,10 @@ annotation class Update
 
 @Target(AnnotationTarget.FUNCTION)
 @Retention(AnnotationRetention.RUNTIME)
+annotation class UpdateReturning(val value: String = "", val raw: Boolean = false)
+
+@Target(AnnotationTarget.FUNCTION)
+@Retention(AnnotationRetention.RUNTIME)
 annotation class Upsert
 
 @Target(AnnotationTarget.FUNCTION)

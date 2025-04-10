@@ -46,7 +46,7 @@ class NullTest {
 	@Test
 	@Suppress("UNCHECKED_CAST")
 	fun updateNullError() {
-		fun checkResult(result: UpdateResult<*>) {
+		fun checkResult(result: Result<*>) {
 			assertTrue(result.isError())
 			assertTrue(result.notNullViolation)
 		}
