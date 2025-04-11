@@ -9,7 +9,6 @@ import kotlin.reflect.full.valueParameters
 import kotlin.reflect.jvm.jvmErasure
 import kotlin.reflect.jvm.kotlinFunction
 import kotlin.reflect.typeOf
-import kotlin.to
 
 val ANNOTATION_EXECUTOR = ThreadLocal<(type: KType) -> Any?>()
 

@@ -50,10 +50,15 @@ interface TypeMapper<T, D> {
 	fun extract(column: ColumnContext, type: KType, context: ReadContext, pos: Int): D
 	fun parse(column: ColumnContext, type: KType, value: D, context: ReadContext, pos: Int): T
 
-	fun write(column: ColumnContext, table: TableStructure<*>, type: KType, value: T): Argument = createArgument(column, table, type, format(column, table, type, value))
-	fun read(column: ColumnContext, type: KType, context: ReadContext, pos: Int): T = parse(column, type, extract(column, type, context, pos), context, pos)
+	fun write(column: ColumnContext, table: TableStructure<*>, type: KType, value: T): Argument =
+		createArgument(column, table, type, format(column, table, type, value))
 
-	fun writeToBinary(column: ColumnContext, table: TableStructure<*>, type: KType, value: T): ByteArray = toBinary(column, table, type, format(column, table, type, value))
+	fun read(column: ColumnContext, type: KType, context: ReadContext, pos: Int): T =
+		parse(column, type, extract(column, type, context, pos), context, pos)
+
+	fun writeToBinary(column: ColumnContext, table: TableStructure<*>, type: KType, value: T): ByteArray =
+		toBinary(column, table, type, format(column, table, type, value))
+
 	fun toBinary(column: ColumnContext, table: TableStructure<*>, type: KType, value: D): ByteArray {
 		val output = ByteArrayOutputStream()
 
@@ -63,8 +68,11 @@ interface TypeMapper<T, D> {
 	}
 
 	@Suppress("UNCHECKED_CAST")
-	fun fromBinary(column: ColumnContext, type: KType, value: ByteArray, context: ReadContext, pos: Int): D = ObjectInputStream(ByteArrayInputStream(value)).use { it.readObject() } as D
-	fun readFromBinary(column: ColumnContext, type: KType, value: ByteArray, context: ReadContext, pos: Int): T = parse(column, type, fromBinary(column, type, value, context, pos), context, pos)
+	fun fromBinary(column: ColumnContext, type: KType, value: ByteArray, context: ReadContext, pos: Int): D =
+		ObjectInputStream(ByteArrayInputStream(value)).use { it.readObject() } as D
+
+	fun readFromBinary(column: ColumnContext, type: KType, value: ByteArray, context: ReadContext, pos: Int): T =
+		parse(column, type, fromBinary(column, type, value, context, pos), context, pos)
 }
 
 interface SimpleTypeMapper<T> : TypeMapper<T, T> {
@@ -189,7 +197,8 @@ inline fun <reified T> binaryTypeMapper(
 
 object ValueTypeMapper : SimpleTypeMapper<Any?> {
 	override fun accepts(manager: DatabaseConnection, property: KProperty<*>?, type: KType): Boolean = true
-	override fun getType(column: PropertyData<*, *>?, table: TableStructure<*>, type: KType): DataType = error("No suitable TypeMapper found for $type [${ column?.property }] (Cannot use value mapper in this context)")
+	override fun getType(column: PropertyData<*, *>?, table: TableStructure<*>, type: KType): DataType =
+		error("No suitable TypeMapper found for $type [${ column?.property }] (Cannot use value mapper in this context)")
 
 	override fun extract(column: ColumnContext, type: KType, context: ReadContext, pos: Int): Any? = context.read(pos, ResultSet::getObject)
 

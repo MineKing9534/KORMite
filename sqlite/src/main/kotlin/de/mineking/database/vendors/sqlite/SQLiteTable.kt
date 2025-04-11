@@ -20,7 +20,10 @@ class SQLiteTable<T: Any>(
 			val type = column.mapper.getType(column, column.table, column.type)
 			return """
 				"${ column.name }" ${ type.sqlName }
-				${ if (column.property.hasDatabaseAnnotation<AutoGenerate>()) " default ${ column.property.getDatabaseAnnotation<AutoGenerate>()?.generator?.takeIf { it.isNotBlank() } ?: structure.manager.autoGenerate(column) } }" else "" }
+				${ 
+					if (column.property.hasDatabaseAnnotation<AutoGenerate>()) " default ${ column.property.getDatabaseAnnotation<AutoGenerate>()?.generator?.takeIf { it.isNotBlank() } ?: structure.manager.autoGenerate(column) } }" 
+					else "" 
+				}
 				${ if (type.nullable) "" else "not null" }
 			"""
 		}
@@ -53,7 +56,11 @@ class SQLiteTable<T: Any>(
 			Result(function(), null, uniqueViolation = false, notNullViolation = false)
 		} catch (e: UnableToExecuteStatementException) {
 			val sqlException = e.cause as SQLiteException
-			val result = Result<T>(null, sqlException, sqlException.resultCode == SQLiteErrorCode.SQLITE_CONSTRAINT_UNIQUE || sqlException.resultCode == SQLiteErrorCode.SQLITE_CONSTRAINT_PRIMARYKEY, sqlException.resultCode == SQLiteErrorCode.SQLITE_CONSTRAINT_NOTNULL)
+			val result = Result<T>(
+				null, sqlException,
+				sqlException.resultCode == SQLiteErrorCode.SQLITE_CONSTRAINT_UNIQUE || sqlException.resultCode == SQLiteErrorCode.SQLITE_CONSTRAINT_PRIMARYKEY,
+				sqlException.resultCode == SQLiteErrorCode.SQLITE_CONSTRAINT_NOTNULL
+			)
 
 			if (!result.uniqueViolation && !result.notNullViolation) throw e
 			result

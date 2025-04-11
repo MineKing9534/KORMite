@@ -17,14 +17,21 @@ interface DefaultTable<T: Any> : Table<T> {
 	fun <C> selectValue(target: Node<C>, type: KType, where: Where = Conditions.EMPTY, order: Order? = null, limit: Int? = null, offset: Int? = null): QueryResult<C>
 
 	fun select(vararg columns: Node<*>, where: Where = Conditions.EMPTY, order: Order? = null, limit: Int? = null, offset: Int? = null): QueryResult<T>
-	fun select(vararg columns: KProperty<*>, where: Where = Conditions.EMPTY, order: Order? = null, limit: Int? = null, offset: Int? = null): QueryResult<T> = select(columns = columns.map { property(it) }.toTypedArray(), where, order, limit, offset)
-	fun select(where: Where = Conditions.EMPTY, order: Order? = null, limit: Int? = null, offset: Int? = null): QueryResult<T> = select(columns = emptyArray<KProperty<*>>(), where, order, limit, offset)
+
+	fun select(vararg columns: KProperty<*>, where: Where = Conditions.EMPTY, order: Order? = null, limit: Int? = null, offset: Int? = null): QueryResult<T> =
+		select(columns = columns.map { property(it) }.toTypedArray(), where, order, limit, offset)
+
+	fun select(where: Where = Conditions.EMPTY, order: Order? = null, limit: Int? = null, offset: Int? = null): QueryResult<T> =
+		select(columns = emptyArray<KProperty<*>>(), where, order, limit, offset)
 
 	fun update(obj: T): Result<T>
 	fun update(vararg columns: Pair<Node<*>, Node<*>>, where: Where = Conditions.EMPTY): Result<Int>
 
-	fun updateReturning(vararg columns: Pair<Node<*>, Node<*>>, where: Where = Conditions.EMPTY): ErrorHandledQueryResult<T> = implementation.updateReturning(*columns, where = where, returning = null, type = null)
-	fun <C> updateReturning(vararg columns: Pair<Node<*>, Node<*>>, returning: Node<C>, type: KType, where: Where = Conditions.EMPTY): ErrorHandledQueryResult<C> = implementation.updateReturning(*columns, where = where, returning = returning as Node<*>?, type = type)
+	fun updateReturning(vararg columns: Pair<Node<*>, Node<*>>, where: Where = Conditions.EMPTY): ErrorHandledQueryResult<T> =
+		implementation.updateReturning(*columns, where = where, returning = null, type = null)
+
+	fun <C> updateReturning(vararg columns: Pair<Node<*>, Node<*>>, returning: Node<C>, type: KType, where: Where = Conditions.EMPTY): ErrorHandledQueryResult<C> =
+		implementation.updateReturning(*columns, where = where, returning = returning as Node<*>?, type = type)
 
 	fun insert(obj: T): Result<T>
 	fun upsert(obj: T): Result<T>
@@ -33,8 +40,11 @@ interface DefaultTable<T: Any> : Table<T> {
 	fun delete(obj: T) = delete(identifyObject(obj))
 }
 
-inline fun <reified T> DefaultTable<*>.selectValue(target: Node<T>, where: Where = Conditions.EMPTY, order: Order? = null, limit: Int? = null, offset: Int? = null): QueryResult<T> = selectValue(target, typeOf<T>(), where, order, limit, offset)
-inline fun <reified T> DefaultTable<*>.updateReturning(vararg columns: Pair<Node<*>, Node<*>>, returning: Node<T>, where: Where = Conditions.EMPTY): ErrorHandledQueryResult<T> = updateReturning(*columns, returning = returning, type = typeOf<T>(), where = where)
+inline fun <reified T> DefaultTable<*>.selectValue(target: Node<T>, where: Where = Conditions.EMPTY, order: Order? = null, limit: Int? = null, offset: Int? = null): QueryResult<T> =
+	selectValue(target, typeOf<T>(), where, order, limit, offset)
+
+inline fun <reified T> DefaultTable<*>.updateReturning(vararg columns: Pair<Node<*>, Node<*>>, returning: Node<T>, where: Where = Conditions.EMPTY): ErrorHandledQueryResult<T> =
+	updateReturning(*columns, returning = returning, type = typeOf<T>(), where = where)
 
 typealias ColumnContext = List<PropertyData<*, *>>
 sealed class PropertyData<O: Any, C>(

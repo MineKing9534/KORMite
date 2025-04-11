@@ -82,7 +82,11 @@ class QueryBuilder<T>(private val table: TableImplementation<*>, private val que
                     val column = context.last()
                     val key = context + column.reference!!.structure.getKeys().single()
 
-                    join(column.reference!!.structure, context.joinToString(".") { it.name }, where = property<Any?>(key.map { it.property }) isEqualTo property<Any?>(context.map { it.property }), index = index++)
+                    join(
+                        column.reference!!.structure, context.joinToString(".") { it.name },
+                        where = property<Any?>(key.map { it.property }) isEqualTo property<Any?>(context.map { it.property }),
+                        index = index++
+                    )
                 }
         }
 

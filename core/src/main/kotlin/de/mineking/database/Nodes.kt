@@ -4,7 +4,6 @@ import org.jdbi.v3.core.argument.Argument
 import kotlin.reflect.KProperty
 import kotlin.reflect.KProperty1
 import kotlin.reflect.KType
-import kotlin.reflect.full.isSubtypeOf
 import kotlin.reflect.jvm.javaField
 import kotlin.reflect.typeOf
 
@@ -101,10 +100,17 @@ fun <T> property(properties: List<KProperty<*>>, tableOverride: TableStructure<*
 	createContext(properties, tableOverride ?: table, tableOverride != null)
 }
 
-fun <T> property(property: KProperty<*>, vararg reference: KProperty<*>, tableOverride: TableStructure<*>? = null) = property<T>(listOf(property) + reference, tableOverride)
-fun <T> property(property: KProperty<T>, tableOverride: TableStructure<*>? = null) = property<T>(property, *emptyArray(), tableOverride = tableOverride)
-fun <T, I> property(property: KProperty<I>, reference: KProperty1<I, T>, tableOverride: TableStructure<*>? = null) = property<T>(property, reference, tableOverride = tableOverride)
-fun <T, I1, I2> property(property: KProperty<I1>, reference1: KProperty1<I1, I2>, reference2: KProperty1<I2, T>, tableOverride: TableStructure<*>? = null) = property<T>(property, reference1, reference2, tableOverride = tableOverride)
+fun <T> property(property: KProperty<*>, vararg reference: KProperty<*>, tableOverride: TableStructure<*>? = null) =
+	property<T>(listOf(property) + reference, tableOverride)
+
+fun <T> property(property: KProperty<T>, tableOverride: TableStructure<*>? = null) =
+	property<T>(property, *emptyArray(), tableOverride = tableOverride)
+
+fun <T, I> property(property: KProperty<I>, reference: KProperty1<I, T>, tableOverride: TableStructure<*>? = null) =
+	property<T>(property, reference, tableOverride = tableOverride)
+
+fun <T, I1, I2> property(property: KProperty<I1>, reference1: KProperty1<I1, I2>, reference2: KProperty1<I2, T>, tableOverride: TableStructure<*>? = null) =
+	property<T>(property, reference1, reference2, tableOverride = tableOverride)
 
 fun <T> property(name: String, tableOverride: TableStructure<*>? = null) = PropertyNode<T> { table ->
 	val column = (tableOverride ?: table).getFromCode(name) ?: error("Column $name not found in ${ table.name }")
@@ -116,7 +122,8 @@ fun <T> value(value: T, type: KType, static: Boolean = false): ValueNode<T> = Va
 	val column = context.lastOrNull()
 
 	@Suppress("UNCHECKED_CAST")
-	val mapper = column?.mapper?.takeIf { !static && it.accepts(table.manager, column.property, type) } as TypeMapper<T, Any?>? ?: table.manager.getTypeMapper<T, Any?>(type, column?.property?.takeIf { !static })
+	val mapper = column?.mapper?.takeIf { !static && it.accepts(table.manager, column.property, type) } as TypeMapper<T, Any?>?
+		?: table.manager.getTypeMapper<T, Any?>(type, column?.property?.takeIf { !static })
 
 	mapper.write(context, table, type, value)
 }

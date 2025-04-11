@@ -5,6 +5,8 @@ import com.google.gson.JsonObject
 import com.google.gson.JsonParser
 import com.google.gson.ToNumberStrategy
 import de.mineking.database.*
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.serializer
 import org.jdbi.v3.core.argument.Argument
 import org.jdbi.v3.core.statement.StatementContext
 import org.postgresql.util.PGobject
@@ -22,8 +24,6 @@ import kotlin.reflect.full.isSubtypeOf
 import kotlin.reflect.jvm.javaType
 import kotlin.reflect.jvm.jvmErasure
 import kotlin.reflect.typeOf
-import kotlinx.serialization.json.Json
-import kotlinx.serialization.serializer
 
 inline fun <reified T> jsonTypeMapper(
 	crossinline parser: JsonObject.(KType) -> T?,
@@ -119,7 +119,9 @@ object PostgresMappers {
 			else -> error("Invalid type")
 		}
 
-		fun Collection<*>.createArray(component: KType) = if (component.jvmErasure.java.isPrimitive) toTypedArray() else (this as java.util.Collection<*>).toArray { java.lang.reflect.Array.newInstance(component.jvmErasure.java, it) as Array<*> }
+		fun Collection<*>.createArray(component: KType) =
+			if (component.jvmErasure.java.isPrimitive) toTypedArray()
+			else (this as java.util.Collection<*>).toArray { java.lang.reflect.Array.newInstance(component.jvmErasure.java, it) as Array<*> }
 
 		override fun accepts(manager: DatabaseConnection, property: KProperty<*>?, type: KType): Boolean = type.isArray()
 		override fun getType(column: PropertyData<*, *>?, table: TableStructure<*>, type: KType): DataType {

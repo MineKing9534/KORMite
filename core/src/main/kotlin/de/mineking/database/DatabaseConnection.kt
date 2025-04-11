@@ -31,13 +31,16 @@ abstract class DatabaseConnection(
     @Suppress("UNCHECKED_CAST")
     fun <T> data(name: String) = data[name] as T
 
-    @Suppress("UNCHECKED_CAST")
-    private fun <T: Any, W: Table<T>> createTableInstance(tableType: KClass<W>, structure: TableStructure<T>, instance: () -> T) = Proxy.newProxyInstance(tableType.java.classLoader, arrayOf(tableType.java), createTableImplementation(tableType, structure, instance)) as W
     protected abstract fun <T: Any> createTableImplementation(tableType: KClass<*>, structure: TableStructure<T>, instance: () -> T): TableImplementation<T>
 
     @Suppress("UNCHECKED_CAST")
+    private fun <T: Any, W: Table<T>> createTableInstance(tableType: KClass<W>, structure: TableStructure<T>, instance: () -> T) =
+        Proxy.newProxyInstance(tableType.java.classLoader, arrayOf(tableType.java), createTableImplementation(tableType, structure, instance)) as W
+
+    @Suppress("UNCHECKED_CAST")
     //findLast because mappers that were added later should have priority
-    fun <T, D> getTypeMapper(type: KType, property: KProperty<*>?) = typeMappers.findLast { it.accepts(this, property, type) } as TypeMapper<T, D>? ?: throw IllegalArgumentException("No suitable TypeMapper found for $type [$property]")
+    fun <T, D> getTypeMapper(type: KType, property: KProperty<*>?) = typeMappers.findLast { it.accepts(this, property, type) } as TypeMapper<T, D>?
+        ?: throw IllegalArgumentException("No suitable TypeMapper found for $type [$property]")
 
     inline fun <reified T> getTypeMapper() = getTypeMapper<T, Any?>(typeOf<T>(), null)
 
