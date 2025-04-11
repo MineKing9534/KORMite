@@ -1,6 +1,7 @@
 package de.mineking.database
 
 import org.jdbi.v3.core.kotlin.useHandleUnchecked
+import org.jdbi.v3.core.statement.Query
 import org.jdbi.v3.core.statement.Update
 import java.lang.reflect.InvocationHandler
 import java.lang.reflect.InvocationTargetException
@@ -100,15 +101,18 @@ abstract class TableImplementation<T: Any>(
     fun query(sql: String, parameters: Map<String, Any?> = emptyMap(), definitions: Map<String, Any?> = emptyMap(), columns: List<ColumnContext> = emptyList()): QueryResult<T> = query(sql, structure.component.createType(), mapper as TypeMapper<T, *>, parameters, definitions, columns = columns)
     fun <T> query(sql: String, type: KType, mapper: TypeMapper<T, *>, parameters: Map<String, Any?> = emptyMap(), definitions: Map<String, Any?> = emptyMap(), position: Int = 1, column: ColumnContext = emptyList(), columns: List<ColumnContext> = emptyList()) = object : QueryResult<T> {
         override fun <R> useIterator(handler: (QueryIterator<T>) -> R): R = structure.manager.execute {
-            val result = it.createQuery(sql)
+            it.createQuery(sql)
                 .bindMap(parameters)
                 .apply {
                     define("TABLE", structure.name)
                     definitions.forEach { define(it.key, it.value) }
                 }
-                .scanResultSet { set, ctx -> QueryIterator<T>(ReadContext(this@TableImplementation, set.get(), columns, column), ctx, position, column, type, mapper) }
-
-            result.use(handler)
+                .scanResultSet { set, ctx ->
+                    ctx.use {
+                        val iterator = QueryIterator<T>(ReadContext(this@TableImplementation, set.get(), columns, column), ctx, position, column, type, mapper)
+                        iterator.use(handler)
+                    }
+                }
         }
     }
 
@@ -225,21 +229,36 @@ abstract class TableImplementation<T: Any>(
             returning ${ returnColumns.joinToString(", ") { property(it.single().property).format(structure) } }
 		""".trim().replace("\\s+".toRegex(), " ")
 
+        fun <T> execute(executor: (Query) -> T) = createResult { structure.manager.execute {
+            it.createQuery(sql)
+                .bindMap(specs.flatMap { (column, value) -> column.first.values(structure, column.second).entries + value.first.values(structure, value.second.takeIf { it.isNotEmpty() } ?: column.second).entries }.associate { it.toPair() })
+                .bindMap(where.values(structure))
+                .apply { define("TABLE", structure.name) }
+                .let { executor(it) }
+        } }
+
         return object : ErrorHandledQueryResult<C> {
-            override fun <R> useIterator(handler: (QueryIterator<C>) -> R): Result<R> = createResult { structure.manager.execute {
-                val result = it.createQuery(sql)
-                    .bindMap(specs.flatMap { (column, value) -> column.first.values(structure, column.second).entries + value.first.values(structure, value.second.takeIf { it.isNotEmpty() } ?: column.second).entries }.associate { it.toPair() })
-                    .bindMap(where.values(structure))
-                    .apply { define("TABLE", structure.name) }
-                    .scanResultSet { set, ctx ->
+            override fun execute() = execute {
+                it.execute { stmt, ctx ->
+                    //Only execute statement without parsing results
+                    ctx.use {
+                        stmt.get()
+                        Unit
+                    }
+                }
+            }
+
+            override fun <R> useIterator(handler: (QueryIterator<C>) -> R): Result<R> = execute {
+                it.scanResultSet { set, ctx ->
+                    ctx.use {
                         @Suppress("UNCHECKED_CAST")
                         val mapper = if (type == null) mapper as TypeMapper<C, *> else structure.manager.getTypeMapper<C, Any?>(type, null)
 
-                        QueryIterator<C>(ReadContext(this@TableImplementation, set.get(), returnColumns), ctx, 1, emptyList(), type ?: structure.component.createType(), mapper)
+                        val iterator = QueryIterator<C>(ReadContext(this@TableImplementation, set.get(), returnColumns), ctx, 1, emptyList(), type ?: structure.component.createType(), mapper)
+                        iterator.use(handler)
                     }
-
-                result.use(handler)
-            } }
+                }
+            }
         }
     }
 

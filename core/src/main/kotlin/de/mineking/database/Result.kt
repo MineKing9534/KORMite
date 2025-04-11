@@ -67,6 +67,7 @@ interface QueryResult<T> {
 }
 
 interface ErrorHandledQueryResult<T> {
+    fun execute(): Result<Unit>
     fun <R> useIterator(handler: (QueryIterator<T>) -> R): Result<R>
 
     fun <R> useStream(handler: (Stream<T>) -> R): Result<R> = useIterator { handler(StreamSupport.stream(Spliterators.spliteratorUnknownSize(it, 0), false).onClose(it::close)) }
