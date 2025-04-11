@@ -116,7 +116,7 @@ fun <T> value(value: T, type: KType, static: Boolean = false): ValueNode<T> = Va
 	val column = context.lastOrNull()
 
 	@Suppress("UNCHECKED_CAST")
-	val mapper = column?.takeIf { !static && it.type.isSubtypeOf(type) }?.mapper as TypeMapper<T, Any?>? ?: table.manager.getTypeMapper<T, Any?>(type, column?.property?.takeIf { !static })
+	val mapper = column?.mapper?.takeIf { !static && it.accepts(table.manager, column.property, type) } as TypeMapper<T, Any?>? ?: table.manager.getTypeMapper<T, Any?>(type, column?.property?.takeIf { !static })
 
 	mapper.write(context, table, type, value)
 }
