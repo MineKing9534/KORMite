@@ -1,105 +1,90 @@
 package de.mineking.database
 
-import de.mineking.database.Where.Companion.combine
-import org.jdbi.v3.core.argument.Argument
-import kotlin.reflect.KProperty
-
-fun interface Order {
-    fun get(): String
-    fun format(): String = get().takeIf { it.isNotBlank() }?.let { "order by $it" } ?: ""
-
-    infix fun andThen(other: Order): Order = Order { "${ this.get() }, ${ other.get() }" }
+typealias Where = Node<Boolean>
+object Conditions {
+    val ALL = node<Boolean>("true")
+    val NONE = node<Boolean>("false")
+    val EMPTY = node<Boolean>("")
 }
 
-fun ascendingBy(name: String) = Order { "\"$name\" asc" }
-fun ascendingBy(property: KProperty<*>) = ascendingBy(property.name)
+fun Where.formatCondition(table: TableStructure<*>) = format(table).takeIf { it.isNotBlank() }?.let { "where $it" } ?: ""
 
-fun descendingBy(name: String) = Order { "\"$name\" desc" }
-fun descendingBy(property: KProperty<*>) = descendingBy(property.name)
+fun Where.combineWith(other: Where, format: (String, String) -> String) = object : Where {
+    override fun format(table: TableStructure<*>, prefix: Boolean): String {
+        val a = this@combineWith.format(table, prefix)
+        val b = other.format(table, prefix)
 
-interface Where : Node<Any?> {
-    companion object {
-        val ALL = unsafe("true")
-        val NONE = unsafe("false")
-        val EMPTY = unsafe("")
-
-        fun combine(string: (TableStructure<*>) -> String, vararg components: Where) = object : Where {
-            override fun get(table: TableStructure<*>): String = string(table)
-            override fun values(table: TableStructure<*>): Map<String, Argument> = components.filter { it.get(table).isNotBlank() }.flatMap { it.values(table).map { it.key to it.value } }.toMap()
+        return when {
+            a.isBlank() -> b
+            b.isBlank() -> a
+            else -> format(a, b)
         }
     }
 
-    fun get(table: TableStructure<*>): String
-    fun format(table: TableStructure<*>): String = get(table).takeIf { it.isNotBlank() }?.let { "where $it" } ?: ""
-
-    fun values(table: TableStructure<*>): Map<String, Argument> = emptyMap()
-
-    override fun format(table: TableStructure<*>, formatter: (ColumnInfo) -> String) = format(table)
-    override fun values(table: TableStructure<*>, column: ColumnData<*, *>?) = values(table)
+    override fun values(table: TableStructure<*>, column: ColumnContext) = this@combineWith.values(table, column) + other.values(table, column)
+    override fun columnContext(table: TableStructure<*>) = this@combineWith.columnContext(table) + other.columnContext(table)
+    override fun columns(table: TableStructure<*>) = this@combineWith.columns(table) + other.columns(table)
 }
 
-infix fun Where.or(other: Where): Where = combine({ when {
-    get(it).isBlank() -> other.get(it)
-    other.get(it).isBlank() -> get(it)
-    else -> "(${ get(it) }) or (${ other.get(it) })"
-} }, this, other)
+infix fun Where.or(other: Where) = combineWith(other) { a, b -> "($a) or ($b)" }
+infix fun Where.and(other: Where) = combineWith(other) { a, b -> "($a) and ($b)" }
 
-infix fun Where.and(other: Where): Where = combine({ when {
-    get(it).isBlank() -> other.get(it)
-    other.get(it).isBlank() -> get(it)
-    else -> "(${ get(it) }) and (${ other.get(it) })"
-} }, this, other)
+operator fun Where.not(): Where = combineWith(Conditions.ALL) { a, b -> "not ($a)" }
 
-operator fun Where.not(): Where = combine({ "not (${ get(it) })" }, this)
+fun combine(conditions: Collection<Where>, delimiter: String, transform: (Where) -> Where = { it }): Where {
+    if (conditions.isEmpty()) return Conditions.EMPTY
+    return object : Where {
+        override fun format(table: TableStructure<*>, prefix: Boolean) = conditions.mapNotNull { transform(it).format(table, prefix).takeIf { it.isNotBlank() } }.joinToString(delimiter) { "($it)" }
+        override fun values(table: TableStructure<*>, column: ColumnContext) = conditions.filter { it.format(table).isNotBlank() }.flatMap { it.values(table, column).map { it.key to it.value } }.toMap()
 
-fun unsafe(string: String) = object : Where { override fun get(table: TableStructure<*>) = string }
+        override fun columnContext(table: TableStructure<*>): ColumnContext {
+            for (node in conditions) {
+                val temp = node.columnContext(table)
+                if (temp.isNotEmpty()) return temp
+            }
 
-fun allOf(vararg conditions: Where): Where = allOf(arrayListOf(*conditions))
-fun allOf(conditions: Collection<Where>): Where = if (conditions.isEmpty()) Where.EMPTY else object : Where {
-    override fun get(table: TableStructure<*>): String = conditions.filter { it.get(table).isNotBlank() }.joinToString(" and ") { "(${it.get(table)})" }
-    override fun values(table: TableStructure<*>): Map<String, Argument> = conditions.filter { it.get(table).isNotBlank() }.flatMap { it.values(table).map { it.key to it.value } }.toMap()
+            return emptyList()
+        }
+
+        override fun columns(table: TableStructure<*>) = conditions.flatMap { it.columns(table) }
+    }
 }
 
-fun anyOf(vararg conditions: Where): Where = anyOf(arrayListOf(*conditions))
-fun anyOf(conditions: Collection<Where>): Where = if (conditions.isEmpty()) Where.NONE else object : Where {
-    override fun get(table: TableStructure<*>): String = conditions.filter { it.get(table).isNotBlank() }.joinToString(" or ") { "(${it.get(table)})" }
-    override fun values(table: TableStructure<*>): Map<String, Argument> = conditions.filter { it.get(table).isNotBlank() }.flatMap { it.values(table).map { it.key to it.value } }.toMap()
-}
+fun allOf(vararg conditions: Where) = allOf(arrayListOf(*conditions))
+fun allOf(conditions: Collection<Where>) = combine(conditions, " and ")
 
-fun noneOf(vararg conditions: Where): Where = noneOf(arrayListOf(*conditions))
-fun noneOf(conditions: Collection<Where>): Where = if (conditions.isEmpty()) Where.EMPTY else object : Where {
-    override fun get(table: TableStructure<*>): String = conditions.filter { it.get(table).isNotBlank() }.joinToString(" and ") { "not (${it.get(table)})" }
-    override fun values(table: TableStructure<*>): Map<String, Argument> = conditions.filter { it.get(table).isNotBlank() }.flatMap { it.values(table).map { it.key to it.value } }.toMap()
-}
+fun anyOf(vararg conditions: Where) = anyOf(arrayListOf(*conditions))
+fun anyOf(conditions: Collection<Where>) = combine(conditions, " or ")
+
+fun noneOf(vararg conditions: Where) = noneOf(arrayListOf(*conditions))
+fun noneOf(conditions: Collection<Where>) = combine(conditions, " and ") { !it }
 
 fun <T: Any> identifyObject(table: TableStructure<T>, obj: T): Where {
     val keys = table.getKeys()
     require(keys.isNotEmpty()) { "Cannot identify object without keys" }
 
-    return allOf(keys.map { unsafeNode(it.name) isEqualTo value(it.get(obj), it.type) })
+    return allOf(keys.map { unsafe(it.name) isEqualTo value(it.get(obj), it.type) })
 }
 
-fun Where(node: Node<*>): Where = object : Where {
-    override fun get(table: TableStructure<*>): String = node.format(table)
-    override fun values(table: TableStructure<*>): Map<String, Argument> = node.values(table, node.columnContext(table)?.column)
-}
+@Suppress("UNCHECKED_CAST")
+fun createCondition(node: Node<*>) = node as Where
 
-infix fun Node<*>.isEqualTo(other: Node<*>) = Where(this + " = " + other)
-infix fun Node<*>.isNotEqualTo(other: Node<*>) = Where(this + " != " + other)
+infix fun Node<*>.isEqualTo(other: Node<*>) = createCondition(this + " = " + other)
+infix fun Node<*>.isNotEqualTo(other: Node<*>) = createCondition(this + " != " + other)
 
-infix fun Node<*>.isLike(other: Node<String>) = Where(this + " like " + other)
-infix fun Node<*>.isLikeIgnoreCase(other: Node<String>) = Where(this + " ilike " + other)
+infix fun Node<*>.isLike(other: Node<String>) = createCondition(this + " like " + other)
+infix fun Node<*>.isLikeIgnoreCase(other: Node<String>) = createCondition(this + " ilike " + other)
 
-fun Node<*>.isIn(nodes: Array<Node<*>>) = Where(this + " in (" + nodes.join() + ")")
-fun Node<*>.isIn(nodes: Collection<Node<*>>) = isIn(nodes.toTypedArray())
+fun Node<*>.isIn(vararg nodes: Node<*>) = isIn(nodes.toList())
+fun Node<*>.isIn(nodes: Collection<Node<*>>) = createCondition(this + " in (" + nodes.join() + ")")
 
-infix fun Node<*>.isGreaterThan(other: Node<*>) = Where(this + " > " + other)
-infix fun Node<*>.isGreaterThanOrEqual(other: Node<*>) = Where(this + " >= " + other)
+infix fun Node<*>.isGreaterThan(other: Node<*>) = createCondition(this + " > " + other)
+infix fun Node<*>.isGreaterThanOrEqual(other: Node<*>) = createCondition(this + " >= " + other)
 
-infix fun Node<*>.isLowerThan(other: Node<*>) = Where(this + " < " + other)
-infix fun Node<*>.isLowerThanOrEqual(other: Node<*>) = Where(this + " <= " + other)
+infix fun Node<*>.isLowerThan(other: Node<*>) = createCondition(this + " < " + other)
+infix fun Node<*>.isLowerThanOrEqual(other: Node<*>) = createCondition(this + " <= " + other)
 
-fun Node<*>.isBetween(a: Node<*>, b: Node<*>) = Where(this + " between " + a + " and " + b)
+fun Node<*>.isBetween(a: Node<*>, b: Node<*>) = createCondition(this + " between " + a + " and " + b)
 
-fun Node<*>.isNull(): Where = Where(this + " is null")
-fun Node<*>.isNotNull(): Where = Where(this + " is not null")
+fun Node<*>.isNull() = createCondition(this + " is null")
+fun Node<*>.isNotNull() = createCondition(this + " is not null")

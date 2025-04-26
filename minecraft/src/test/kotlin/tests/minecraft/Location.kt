@@ -1,7 +1,6 @@
 package tests.minecraft
 
 import de.mineking.database.*
-import de.mineking.database.vendors.postgres.PostgresMappers
 import org.bukkit.Location
 import org.bukkit.World
 import org.junit.jupiter.api.Assertions.assertEquals
@@ -9,32 +8,27 @@ import org.junit.jupiter.api.Test
 import setup.*
 import java.util.*
 
+private val DUMMY_WORLD = createDummy<World>()
+
 data class LocationDao(
 	@AutoIncrement @Key @Column val id: Int = 0,
 	@Column val location1: Location = Location(null, 0.0, 0.0, 0.0),
-	@LocationWorldColumn(name = "worldTest") @Column val location2: Location = Location(null, 0.0, 0.0, 0.0),
-	@Column(name = "world") val worldTest: World = createWorld()
+	@Column val location2: Location = Location(null, 0.0, 0.0, 0.0),
+	@Column val world: World = DUMMY_WORLD,
+	@SelectAs("location1 ->> 'world'") val locationWorld: World = DUMMY_WORLD
 )
 
 class LocationTest {
-	val connection = createConnection()
-	val table: Table<LocationDao>
+	val id = UUID.randomUUID()
+	val world = createWorld(id)
 
-	val id1 = UUID.randomUUID()
-	val id2 = UUID.randomUUID()
-
-	val worlds = listOf(
-		createWorld(id1),
-		createWorld(id2)
-	)
+	val connection = createConnection().apply { registerMinecraftMappers(createServer(worlds = listOf(world))) }
+	val table = connection.getDefaultTable(name = "location_test") { LocationDao() }
 
 	init {
-		connection.registerMinecraftMappers(createServer(worlds = worlds), PostgresMappers.STRING, PostgresMappers.UUID_MAPPER, PostgresMappers.ARRAY, PostgresMappers.DOUBLE)
-		table = connection.getTable(name = "location_test") { LocationDao() }
-
 		table.recreate()
 
-		table.insert(LocationDao(location1 = Location(worlds[0], 0.0, 5.0, 0.0), location2 = Location(null, 0.0, 0.0, 0.0), worldTest = worlds[1]))
+		table.insert(LocationDao(location1 = Location(world, 0.0, 5.0, 0.0), location2 = Location(null, 0.0, 10.0, 0.0), world = world))
 
 		connection.driver.setSqlLogger(ConsoleSqlLogger)
 	}
@@ -44,24 +38,26 @@ class LocationTest {
 		val result = table.select().list()
 
 		assertEquals(result.size, 1)
-		assertEquals(id1, result.first().location1.world.uid)
-		assertEquals(id2, result.first().location2.world.uid)
-		assertEquals(id2, result.first().worldTest.uid)
+
+		assertEquals(id, result.first().location1.world.uid)
+		assertEquals(id, result.first().locationWorld.uid)
+		assertEquals(null, result.first().location2.world)
+
+		assertEquals(id, result.first().world.uid)
 	}
 
 	@Test
-	fun coordinates() {
-		assertEquals(1, table.selectRowCount(where = property<Double>("location1[0]") isEqualTo property<Double>("location1.x")))
-		assertEquals(0.0, table.selectValue(property<Double>("location1.x")).first())
+	fun selectValue() {
+		assertEquals(5.0, table.selectValue(property(LocationDao::location1).y).first())
+		assertEquals(10.0, table.selectValue(property(LocationDao::location2).y).first())
+
+		assertEquals(id, table.selectValue(property(LocationDao::location1).world).first().uid)
+		assertEquals(null, table.selectValue(property(LocationDao::location2).world).first())
 	}
 
 	@Test
-	fun selectColumn() {
-		assertEquals(Location(worlds[0], 0.0, 5.0, 0.0), table.selectValue(property(LocationDao::location1)).first())
-
-		assertEquals(id1, table.selectValue(property<World>("location1.world")).first().uid)
-
-		assertEquals(id2, table.selectValue(property(LocationDao::worldTest)).first().uid)
-		assertEquals(id2, table.selectValue(property<World>("location2.world")).first().uid)
+	fun update() {
+		table.update(property(LocationDao::location1).y to value(20))
+		assertEquals(20.0, table.selectValue(property(LocationDao::location1).y).first())
 	}
 }

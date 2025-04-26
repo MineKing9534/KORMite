@@ -1,8 +1,12 @@
 package de.mineking.database.vendors.postgres
 
 import com.google.gson.GsonBuilder
+import com.google.gson.JsonObject
+import com.google.gson.JsonParser
 import com.google.gson.ToNumberStrategy
 import de.mineking.database.*
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.serializer
 import org.jdbi.v3.core.argument.Argument
 import org.jdbi.v3.core.statement.StatementContext
 import org.postgresql.util.PGobject
@@ -16,41 +20,75 @@ import java.util.*
 import kotlin.math.max
 import kotlin.reflect.KProperty
 import kotlin.reflect.KType
-import kotlin.reflect.KTypeProjection
-import kotlin.reflect.KVariance
-import kotlin.reflect.full.createType
+import kotlin.reflect.full.isSubtypeOf
 import kotlin.reflect.jvm.javaType
 import kotlin.reflect.jvm.jvmErasure
+import kotlin.reflect.typeOf
+
+inline fun <reified T> jsonTypeMapper(
+	crossinline parser: JsonObject.(KType) -> T?,
+	crossinline formatter: JsonObject.(T) -> Unit,
+	crossinline acceptor: (KType) -> Boolean = { it.isSubtypeOf(typeOf<T?>()) },
+	binary: Boolean = true
+) = nullsafeTypeMapper<T, String>(
+	if (binary) PostgresType.JSONB else PostgresType.JSON,
+	{ set, pos, type -> JsonParser.parseString(set.getString(pos)).asJsonObject.parser(type) },
+	{ it, _ -> JsonObject().apply { formatter(it) }.toString() },
+	{ stmt, pos, value ->
+		val obj = PGobject()
+		obj.type = (if (binary) PostgresType.JSONB else PostgresType.JSON).sqlName
+		obj.value = value
+		stmt.setObject(pos, obj)
+	},
+	acceptor
+)
+
+inline fun <reified T> jsonTypeMapper(
+	crossinline acceptor: (KType) -> Boolean = { it.isSubtypeOf(typeOf<T?>()) },
+	binary: Boolean = true
+) = nullsafeTypeMapper(
+	if (binary) PostgresType.JSONB else PostgresType.JSON,
+	{ set, pos, type -> Json.decodeFromString(Json.serializersModule.serializer(type), set.getString(pos)) as T },
+	{ value, type -> Json.encodeToString(Json.serializersModule.serializer(type), value) },
+	{ stmt, pos, value ->
+		val obj = PGobject()
+		obj.type = (if (binary) PostgresType.JSONB else PostgresType.JSON).sqlName
+		obj.value = value
+		stmt.setObject(pos, obj)
+	},
+	acceptor
+)
 
 object PostgresMappers {
-	val ANY = ValueTypeMapper
+	val BOOLEAN = nullsafeTypeMapper<Boolean>(PostgresType.BOOLEAN, ResultSet::getBoolean)
+	val BYTE_ARRAy = nullsafeTypeMapper<ByteArray>(PostgresType.BYTE_ARRAY, ResultSet::getBytes)
+	val BLOB = nullsafeTypeMapper<Blob>(PostgresType.BYTE_ARRAY, ResultSet::getBlob)
 
-	val BOOLEAN = nullSafeTypeMapper<Boolean>(PostgresType.BOOLEAN, ResultSet::getBoolean)
-	val BYTE_ARRAy = typeMapper<ByteArray?>(PostgresType.BYTE_ARRAY, { set, name -> set.getBytes(name) })
-	val BLOB = typeMapper<Blob?>(PostgresType.BYTE_ARRAY, { set, name -> set.getBlob(name) })
+	val SHORT = nullsafeTypeMapper<Short>(PostgresType.SMALL_INT, ResultSet::getShort)
+	val INTEGER = nullsafeTypeMapper<Int>(PostgresType.INTEGER, ResultSet::getInt)
+	val LONG = nullsafeTypeMapper<Long>(PostgresType.BIG_INT, ResultSet::getLong)
+	val BIG_INTEGER = nullsafeTypeMapper<BigInteger>(PostgresType.BIG_INT, { set, position -> set.getObject(position, BigInteger::class.java) })
 
-	val SHORT = nullSafeTypeMapper<Short>(PostgresType.SMALL_INT, ResultSet::getShort)
-	val INTEGER = nullSafeTypeMapper<Int>(PostgresType.INTEGER, ResultSet::getInt)
-	val LONG = nullSafeTypeMapper<Long>(PostgresType.BIG_INT, ResultSet::getLong)
-	val BIG_INTEGER = typeMapper<BigInteger>(PostgresType.BIG_INT, { set, name -> set.getObject(name, BigInteger::class.java) })
+	val FLOAT = nullsafeTypeMapper<Float>(PostgresType.REAL, ResultSet::getFloat)
+	val DOUBLE = nullsafeTypeMapper<Double>(PostgresType.DOUBLE_PRECISION, ResultSet::getDouble)
+	val BIG_DECIMAL = nullsafeTypeMapper<BigDecimal>(PostgresType.NUMERIC, ResultSet::getBigDecimal)
 
-	val FLOAT = nullSafeTypeMapper<Float>(PostgresType.REAL, ResultSet::getFloat)
-	val DOUBLE = nullSafeTypeMapper<Double>(PostgresType.DOUBLE_PRECISION, ResultSet::getDouble)
-	val BIG_DECIMAL = typeMapper<BigDecimal>(PostgresType.NUMERIC, ResultSet::getBigDecimal)
+	val STRING = nullsafeTypeMapper<String>(PostgresType.TEXT, ResultSet::getString)
+	val ENUM = nullsafeDelegateTypeMapper<Enum<*>, String>(STRING, { name, type -> type.jvmErasure.java.enumConstants.map { it as Enum<*> }.first { it.name == name } }, Enum<*>::name)
 
-	val STRING = typeMapper<String?>(PostgresType.TEXT, ResultSet::getString)
-	val ENUM = object : TypeMapper<Enum<*>?, String?> {
-		override fun accepts(manager: DatabaseConnection, property: KProperty<*>?, type: KType): Boolean = type.jvmErasure.java.isEnum
-		override fun getType(column: ColumnData<*, *>?, table: TableStructure<*>, type: KType): DataType =
-            PostgresType.TEXT
+	val INSTANT = nullsafeTypeMapper<Instant, Timestamp>(PostgresType.TIMESTAMP, { set, position, _ -> set.getTimestamp(position).toInstant() }, {it, _ -> Timestamp.from(it) })
+	val LOCAL_DATE_TIME = nullsafeTypeMapper<LocalDateTime, Timestamp>(PostgresType.TIMESTAMP, { set, position, _ -> set.getTimestamp(position).toLocalDateTime() }, { it, _ -> Timestamp.valueOf(it) })
+	val OFFSET_DATE_TIME = nullsafeTypeMapper<OffsetDateTime, Timestamp>(PostgresType.TIMESTAMPTZ, { set, position, _ -> set.getObject(position, OffsetDateTime::class.java) }, { it, _ -> Timestamp.valueOf(it.toLocalDateTime()) })
+	val ZONED_DATE_TIME = nullsafeTypeMapper<ZonedDateTime, Timestamp>(PostgresType.TIMESTAMPTZ, { set, position, _ -> set.getObject(position, OffsetDateTime::class.java).toZonedDateTime() }, { it, _ -> Timestamp.valueOf(it.toLocalDateTime()) })
+	val LOCAL_DATE = nullsafeTypeMapper<LocalDate, Date>(PostgresType.DATE, { set, position, _ -> set.getDate(position).toLocalDate() }, { it, _ -> Date.valueOf(it) })
+	val LoCAL_TIME = nullsafeTypeMapper<LocalTime, Time>(PostgresType.TIME, { set, name, _ -> set.getObject(name, LocalTime::class.java) }, { it, _ -> Time.valueOf(it) })
+	val OFFSET_TIME = nullsafeTypeMapper<OffsetTime, Time>(PostgresType.TIMETZ, { set, name, _ -> set.getObject(name, OffsetTime::class.java) }, { it, _ -> Time.valueOf(it.toLocalTime()) })
 
-		override fun format(column: ColumnData<*, *>?, table: TableStructure<*>, type: KType, value: Enum<*>?): String? = value?.name
+	val LOCALE = nullsafeDelegateTypeMapper(STRING, { it, _ -> Locale.forLanguageTag(it) }, Locale::toLanguageTag)
+	val COLOR = nullsafeDelegateTypeMapper(INTEGER, { it, _ -> Color(it, true) }, Color::getRGB)
 
-		override fun extract(column: DirectColumnData<*, *>?, type: KType, context: ReadContext, name: String): String? = STRING.extract(column, type, context, name)
-		override fun parse(column: DirectColumnData<*, *>?, type: KType, value: String?, context: ReadContext, name: String): Enum<*>? = value?.let { name -> type.jvmErasure.java.enumConstants.map { it as Enum<*> }.first { it.name == name } }
-	}
+	val UUID_MAPPER = nullsafeTypeMapper<UUID>(PostgresType.UUID, { set, position -> UUID.fromString(set.getString(position)) })
 
-	val UUID_MAPPER = typeMapper<UUID?>(PostgresType.UUID, { set, name -> UUID.fromString(set.getString(name)) }, { value, statement, pos -> statement.setObject(pos, value) })
 	val JSON = object : TypeMapper<Any?, String?> {
 		val numberStrategy = ToNumberStrategy { reader ->
 			val str = reader!!.nextString()
@@ -61,36 +99,18 @@ object PostgresMappers {
 			.setObjectToNumberStrategy(numberStrategy)
 			.create()
 
-		override fun accepts(manager: DatabaseConnection, property: KProperty<*>?, type: KType): Boolean = property?.hasDatabaseAnnotation<Json>() == true
-		override fun getType(column: ColumnData<*, *>?, table: TableStructure<*>, type: KType): DataType = if (column?.getRootColumn()?.property?.getDatabaseAnnotation<Json>()?.binary == true) PostgresType.JSONB else PostgresType.JSON
-
-		override fun format(column: ColumnData<*, *>?, table: TableStructure<*>, type: KType, value: Any?): String? = value?.let { gson.toJson(value) }
-		override fun createArgument(column: ColumnData<*, *>?, table: TableStructure<*>, type: KType, value: String?): Argument = object : Argument {
-			override fun apply(position: Int, statement: PreparedStatement?, ctx: StatementContext?) {
-				if (value == null) statement?.setNull(position, Types.NULL)
-				else {
-					val obj = PGobject()
-					obj.type = getType(column, table, type).sqlName
-					obj.value = value
-					statement?.setObject(position, obj)
-				}
-			}
-
-			override fun toString(): String = value.toString()
+		override fun accepts(manager: DatabaseConnection, property: KProperty<*>?, type: KType): Boolean = property?.hasDatabaseAnnotation<de.mineking.database.Json>() == true
+		override fun getType(column: PropertyData<*, *>?, table: TableStructure<*>, type: KType): DataType {
+			val raw = if (column?.property?.getDatabaseAnnotation<de.mineking.database.Json>()?.binary == true) PostgresType.JSONB else PostgresType.JSON
+			return raw.withNullability(type.isMarkedNullable)
 		}
 
-		override fun extract(column: DirectColumnData<*, *>?, type: KType, context: ReadContext, name: String): String? = STRING.extract(column, type, context, name)
-		override fun parse(column: DirectColumnData<*, *>?, type: KType, value: String?, context: ReadContext, name: String): Any? = value?.let { gson.fromJson(it, type.javaType) }
+		override fun format(column: ColumnContext, table: TableStructure<*>, type: KType, value: Any?): String? = value?.let { gson.toJson(value) }
+		override fun createArgument(column: ColumnContext, table: TableStructure<*>, type: KType, value: String?) = createCustomArgument(value, column, table, type)
+
+		override fun extract(column: ColumnContext, type: KType, context: ReadContext, position: Int): String? = STRING.extract(column, type, context, position)
+		override fun parse(column: ColumnContext, type: KType, value: String?, context: ReadContext, position: Int): Any? = value?.let { gson.fromJson(it, type.javaType) }
 	}
-
-	val INSTANT = typeMapper<Instant?>(PostgresType.TIMESTAMP, { set, name -> set.getTimestamp(name).toInstant() }, { value, statement, position -> statement.setTimestamp(position, value?.let { Timestamp.from(it) }) })
-	val LOCAL_DATE_TIME = typeMapper<LocalDateTime?>(PostgresType.TIMESTAMP, { set, name -> set.getTimestamp(name).toLocalDateTime() }, { value, statement, position -> statement.setTimestamp(position, value?.let { Timestamp.valueOf(it) }) })
-	val OFFSET_DATE_TIME = typeMapper<OffsetDateTime?>(PostgresType.TIMESTAMPTZ, { set, name -> set.getObject(name, OffsetDateTime::class.java) }, { value, statement, position -> statement.setTimestamp(position, value?.let { Timestamp.valueOf(it.toLocalDateTime()) }) })
-	val ZONED_DATE_TIME = typeMapper<ZonedDateTime?>(PostgresType.TIMESTAMPTZ, { set, name -> set.getObject(name, OffsetDateTime::class.java).toZonedDateTime() }, { value, statement, position -> statement.setTimestamp(position, value?.let { Timestamp.valueOf(it.toLocalDateTime()) }) })
-	val LOCAL_DATE = typeMapper<LocalDate?>(PostgresType.DATE, { set, name -> set.getDate(name).toLocalDate() }, { value, statement, position -> statement.setDate(position, value?.let { Date.valueOf(it) }) })
-
-	val LOCALE = typeMapper(STRING, { it?.let { Locale.forLanguageTag(it) } }, { it?.toLanguageTag() })
-	val COLOR = typeMapper(INTEGER, { it?.let { Color(it, true) }  }, { it?.rgb })
 
 	val ARRAY = object : TypeMapper<Any?, Array<*>?> {
 		fun Any.asArray(): Array<*> = when (this) {
@@ -99,28 +119,30 @@ object PostgresMappers {
 			else -> error("Invalid type")
 		}
 
-		fun Collection<*>.createArray(component: KType) = if (component.jvmErasure.java.isPrimitive) toTypedArray() else (this as java.util.Collection<*>).toArray { java.lang.reflect.Array.newInstance(component.jvmErasure.java, it) as Array<*> }
+		fun Collection<*>.createArray(component: KType) =
+			if (component.jvmErasure.java.isPrimitive) toTypedArray()
+			else (this as java.util.Collection<*>).toArray { java.lang.reflect.Array.newInstance(component.jvmErasure.java, it) as Array<*> }
 
 		override fun accepts(manager: DatabaseConnection, property: KProperty<*>?, type: KType): Boolean = type.isArray()
-		override fun getType(column: ColumnData<*, *>?, table: TableStructure<*>, type: KType): DataType {
+		override fun getType(column: PropertyData<*, *>?, table: TableStructure<*>, type: KType): DataType {
 			val component = type.component()
-			val componentMapper = table.manager.getTypeMapper<Any, Any>(component, column?.getRootColumn()?.property) ?: throw IllegalArgumentException("No TypeMapper found for $component")
+			val componentMapper = table.manager.getTypeMapper<Any, Any>(component, column?.property)
 			val componentType = componentMapper.getType(column, table, component)
-			return DataType.of("${ componentType.sqlName }[]")
+			return DataType.of("${ componentType.sqlName }[]").withNullability(type.isMarkedNullable)
 		}
 
-		override fun <O: Any> initialize(column: DirectColumnData<O, *>, type: KType) {
+		override fun <O: Any> initialize(column: PropertyData<O, *>, type: KType) {
 			val component = type.component()
-			val componentMapper = column.table.manager.getTypeMapper<Any, Any>(component, column.property) ?: throw IllegalArgumentException("No TypeMapper found for $component")
+			val componentMapper = column.table.manager.getTypeMapper<Any, Any>(component, column.property)
 
 			componentMapper.initialize(column, component)
 		}
 
-		override fun format(column: ColumnData<*, *>?, table: TableStructure<*>, type: KType, value: Any?): Array<*>? {
+		override fun format(column: ColumnContext, table: TableStructure<*>, type: KType, value: Any?): Array<*>? {
 			if (value == null) return null
 
 			val component = type.component()
-			val mapper = table.manager.getTypeMapper<Any?, Any?>(component, if (column is DirectColumnData) column.property else null) ?: throw IllegalArgumentException("No TypeMapper found for $component")
+			val mapper = table.manager.getTypeMapper<Any?, Any?>(component, column.lastOrNull()?.property)
 
 			return if (component.isArray()) {
 				var maxLength = 0
@@ -129,106 +151,38 @@ object PostgresMappers {
 					.map { if (it == null) emptyArray<Any>() else it as Array<*> }
 					.onEach { maxLength = max(maxLength, it.size) }
 
-				array.map { Arrays.copyOf(it, maxLength) as Array<*> }.toTypedArray()
+				array.map { it.copyOf(maxLength) as Array<*> }.toTypedArray()
 			} else value.asArray()
 				.map { mapper.format(column, table, component, it) }
 				.toTypedArray()
 		}
 
-		override fun createArgument(column: ColumnData<*, *>?, table: TableStructure<*>, type: KType, value: Array<*>?): Argument = object : Argument {
+		override fun createArgument(column: ColumnContext, table: TableStructure<*>, type: KType, value: Array<*>?): Argument = object : Argument {
 			override fun apply(position: Int, statement: PreparedStatement?, ctx: StatementContext?) {
 				if (value == null) statement?.setNull(position, Types.NULL)
 				else {
 					val component = type.component()
-					val mapper = table.manager.getTypeMapper<Any, Any>(component, if (column is DirectColumnData) column.property else null) ?: throw IllegalArgumentException("No TypeMapper found for $component")
+					val mapper = table.manager.getTypeMapper<Any, Any>(component, column.lastOrNull()?.property)
 
-					statement?.setArray(position, statement.connection.createArrayOf(mapper.getType(column, table, component).sqlName.replace("\\[]+$".toRegex(), ""), value))
+					statement?.setArray(position, statement.connection.createArrayOf(mapper.getType(column.lastOrNull(), table, component).sqlName.replace("\\[]+$".toRegex(), ""), value))
 				}
 			}
 
 			override fun toString(): String = value.contentDeepToString()
 		}
 
-		override fun extract(column: DirectColumnData<*, *>?, type: KType, context: ReadContext, name: String): Array<*>? = context.read(name, ResultSet::getArray)?.let { it.array as Array<*> }
-		override fun parse(column: DirectColumnData<*, *>?, type: KType, value: Array<*>?, context: ReadContext, name: String): Any? {
+		override fun extract(column: ColumnContext, type: KType, context: ReadContext, position: Int): Array<*>? = context.read(position, ResultSet::getArray)?.let { it.array as Array<*> }
+		override fun parse(column: ColumnContext, type: KType, value: Array<*>?, context: ReadContext, position: Int): Any? {
 			if (value == null) return null
 
 			val component = type.component()
+			val mapper = context.table.structure.manager.getTypeMapper<Any?, Any?>(component, column.lastOrNull()?.property)
 
-			if (column?.reference == null) {
-				val mapper = context.table.manager.getTypeMapper<Any?, Any?>(component, if (column is DirectColumnData) column.property else null) ?: throw IllegalArgumentException("No TypeMapper found for $component")
-
-				return type.createCollection(value
-					.filter { component.isArray() || it != null }
-					.map { mapper.parse(column, component, it, context, name) }
-					.createArray(component)
-				)
-			} else {
-				@Suppress("UNCHECKED_CAST")
-				val key = column.reference!!.structure.getKeys()[0] as ColumnData<Any, Any>
-
-				val rows = column.reference!!.select(where = value(value.filterNotNull(), List::class.createType(arguments = listOf(KTypeProjection(KVariance.INVARIANT, key.type)))) contains property(key.name)).list().associateBy { key.get(it) }
-
-				return type.createCollection(value.map { rows[it] }.createArray(component))
-			}
-		}
-	}
-
-	val REFERENCE = object : TypeMapper<Any?, Any?> {
-		override fun accepts(manager: DatabaseConnection, property: KProperty<*>?, type: KType): Boolean = property?.hasDatabaseAnnotation<Reference>() == true && !type.isArray()
-
-		override fun <O: Any> initialize(column: DirectColumnData<O, *>, type: KType) {
-			val table = column.property.getDatabaseAnnotation<Reference>()?.table ?: throw IllegalArgumentException("No table specified")
-
-			val reference = column.table.manager.getCachedTable<Any>(table)
-			column.reference = reference
-
-			require(reference.structure.name != column.table.name) { "Cannot create a self-reference" }
-			require(reference.structure.getKeys().size == 1) { "Can only reference a table with exactly one key" }
-		}
-
-		override fun getType(column: ColumnData<*, *>?, table: TableStructure<*>, type: KType): DataType {
-			require(column is DirectColumnData) { "Something went really wrong" }
-
-			val key = column.reference!!.structure.getKeys().first()
-			return key.mapper.getType(column, table, key.type)
-		}
-
-		@Suppress("UNCHECKED_CAST")
-		override fun format(column: ColumnData<*, *>?, table: TableStructure<*>, type: KType, value: Any?): Any? {
-			require(column is DirectColumnData) { "Cannot use references for virtual columns" }
-
-			val reference = column.reference!! as Table<Any>
-			val key = reference.structure.getKeys().first() as DirectColumnData<Any, Any>
-
-			return value?.let { key.mapper.format(column, reference.structure, key.type, key.get(it )) }
-		}
-
-		@Suppress("UNCHECKED_CAST")
-		override fun createArgument(column: ColumnData<*, *>?, table: TableStructure<*>, type: KType, value: Any?): Argument {
-			require(column is DirectColumnData) { "Cannot use references for virtual columns" }
-
-			val reference = column.reference!! as Table<Any>
-			val key = reference.structure.getKeys().first() as DirectColumnData<Any, Any?>
-
-			return key.mapper.write(key, reference.structure, key.type, value)
-		}
-
-		override fun extract(column: DirectColumnData<*, *>?, type: KType, context: ReadContext, name: String): Any? = null
-
-		@Suppress("UNCHECKED_CAST")
-		override fun parse(column: DirectColumnData<*, *>?, type: KType, value: Any?, context: ReadContext, name: String): Any? {
-			require(column != null) { "Cannot parse reference without column context" }
-
-			val reference = column.reference!! as Table<Any>
-			val key = reference.structure.getKeys().first() as DirectColumnData<Any, Any?>
-
-			val context = context.nest(column.name, column.reference!!.implementation)
-			if (key.mapper.read(column, key.type, context, key.name) == null) return null
-
-			column.reference!!.implementation.parseResult(context)
-
-			return context.instance
+			return type.createCollection(value
+				.filter { component.isArray() || it != null }
+				.map { mapper.parse(column, component, it, context, position) }
+				.createArray(component)
+			)
 		}
 	}
 }
@@ -281,4 +235,18 @@ enum class PostgresType(override val sqlName: String) : DataType {
 	PG_SNAPSHOT("pg_snapshot"); //user-level transaction ID snapshot
 
 	override fun toString(): String = sqlName
+}
+
+fun TypeMapper<*, *>.createCustomArgument(value: String?, column: ColumnContext, table: TableStructure<*>, type: KType) = object : Argument {
+	override fun apply(position: Int, statement: PreparedStatement?, ctx: StatementContext?) {
+		if (value == null) statement?.setNull(position, Types.NULL)
+		else {
+			val obj = PGobject()
+			obj.type = getType(column.lastOrNull(), table, type).sqlName
+			obj.value = value
+			statement?.setObject(position, obj)
+		}
+	}
+
+	override fun toString(): String = value.toString()
 }

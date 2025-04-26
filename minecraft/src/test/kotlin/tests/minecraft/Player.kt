@@ -1,22 +1,20 @@
 package tests.minecraft
 
 import de.mineking.database.*
-import de.mineking.database.vendors.postgres.PostgresMappers
 import org.bukkit.OfflinePlayer
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Test
 import setup.*
 import java.util.*
 
+private val DUMMY_PLAYER = createDummy<OfflinePlayer>()
+
 data class PlayerDao(
 	@AutoIncrement @Key @Column val id: Int = 0,
-	@Column val player: OfflinePlayer = createPlayer()
+	@Column val player: OfflinePlayer = DUMMY_PLAYER
 )
 
 class PlayerTest {
-	val connection = createConnection()
-	val table: Table<PlayerDao>
-
 	val id1 = UUID.randomUUID()
 	val id2 = UUID.randomUUID()
 
@@ -25,10 +23,10 @@ class PlayerTest {
 		createPlayer(id2)
 	)
 
-	init {
-		connection.registerMinecraftMappers(createServer(players = players), PostgresMappers.STRING, PostgresMappers.UUID_MAPPER, PostgresMappers.ARRAY, PostgresMappers.DOUBLE)
-		table = connection.getTable(name = "player_test") { PlayerDao() }
+	val connection = createConnection().apply { registerMinecraftMappers(createServer(players = players)) }
+	val table = connection.getDefaultTable(name = "player_test") { PlayerDao() }
 
+	init {
 		table.recreate()
 
 		table.insert(PlayerDao(player = players[0]))

@@ -3,7 +3,7 @@ package tests.postgres.specific
 import de.mineking.database.*
 import de.mineking.database.vendors.postgres.contains
 import de.mineking.database.vendors.postgres.get
-import de.mineking.database.vendors.postgres.size
+import de.mineking.database.vendors.postgres.length
 import org.junit.jupiter.api.Assertions.assertArrayEquals
 import org.junit.jupiter.api.Test
 import setup.ConsoleSqlLogger
@@ -23,7 +23,7 @@ data class ArrayDao(
 
 class ArrayTest {
 	val connection = createConnection()
-	val table = connection.getTable(name = "array_test") { ArrayDao() }
+	val table = connection.getDefaultTable(name = "array_test") { ArrayDao() }
 
 	init {
 		table.recreate()
@@ -66,15 +66,13 @@ class ArrayTest {
 
 	@Test
 	fun selectLength() {
-		assertEquals(3, table.selectValue(property(ArrayDao::stringList).size).first())
-		assertEquals(3, table.selectValue(property(ArrayDao::arrayList).size).first())
+		assertEquals(3, table.selectValue(property(ArrayDao::stringList).length).first())
+		assertEquals(3, table.selectValue(property(ArrayDao::arrayList).length).first())
 	}
 
 	@Test
 	fun selectIndex() {
 		assertEquals("a", table.selectValue(property(ArrayDao::stringList)[property(ArrayDao::a)]).first())
-		assertEquals("a", table.selectValue(property<String>("stringList[a]")).first())
-
 		assertEquals("b", table.selectValue(property(ArrayDao::stringList)[1]).first())
 	}
 

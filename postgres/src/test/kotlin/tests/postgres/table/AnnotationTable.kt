@@ -13,6 +13,9 @@ interface IdentifiableTable<T: Identifiable> : Table<T> {
 interface AnnotationTable : IdentifiableTable<UserDao> {
     @Insert fun createUser(@Parameter name: String, @Parameter email: String, @Parameter age: Int): UserDao
 
+    @Query("select :test") fun queryConstant(@Parameter test: List<Int>): QueryResult<List<Int>>
+    @Query("select id, email, age, :name from <TABLE>", ["id", "email", "age", "name"]) fun query(@Parameter name: String): List<UserDao>
+
     @Select fun getAllUsers(): List<UserDao>
     @Select fun getUserByEmail(@Condition email: String): UserDao?
     @Select fun modifiedSelect(): Set<UserDao> = execute<List<UserDao>>().toSet()
@@ -24,6 +27,10 @@ interface AnnotationTable : IdentifiableTable<UserDao> {
 
     @Update fun update(@Condition id: Int, @Parameter name: String): Int
 
+    @UpdateReturning fun updateReturningFull(@Condition id: Int, @Parameter name: String): UserDao
+    @UpdateReturning("name") fun updateReturningName(@Condition id: Int, @Parameter name: String): String
+    @UpdateReturning("email") fun updateReturningEmail(@Condition id: Int, @Parameter email: String): Result<String?>
+
     @Delete fun deleteUser(@Condition email: String): Int
     @Delete fun deleteUser(@Condition id: Int): Boolean
 }
@@ -32,14 +39,18 @@ class AnnotationTableTest {
     val connection = createConnection()
     val table = connection.getTable<_, AnnotationTable>(name = "basic_test") { UserDao() }
 
+    val users = listOf(
+        UserDao(name = "Tom", email = "tom@example.com", age = 12),
+        UserDao(name = "Alex", email = "alex@example.com", age = 23),
+        UserDao(name = "Bob", email = "bob@example.com", age = 50),
+        UserDao(name = "Eve", email = "eve@example.com", age = 42),
+        UserDao(name = "Max", email = "max@example.com", age = 20)
+    )
+
     init {
         table.recreate()
 
-        table.createUser(name = "Tom", email = "tom@example.com", age = 12)
-        table.createUser(name = "Alex", email = "alex@example.com", age = 23)
-        table.createUser(name = "Bob", email = "bob@example.com", age = 50)
-        table.createUser(name = "Eve", email = "eve@example.com", age = 42)
-        table.createUser(name = "Max", email = "max@example.com", age = 20)
+        users.forEach { table.implementation.insert(it) }
 
         connection.driver.setSqlLogger(ConsoleSqlLogger)
     }
@@ -47,6 +58,19 @@ class AnnotationTableTest {
     @Test
     fun create() {
         assertEquals(6, table.createUser(name = "Test", email = "test@example.com", age = 0).id)
+    }
+
+    @Test
+    fun constantQuery() {
+        val list = listOf(0, 1, 2)
+        assertEquals(list, table.queryConstant(list).first())
+    }
+
+    @Test
+    fun query() {
+        val result = table.query("test")
+        assertEquals(5, result.size)
+        result.forEach { assertEquals("test", it.name) }
     }
 
     @Test
@@ -92,10 +116,24 @@ class AnnotationTableTest {
     }
 
     @Test
+    fun updateReturning() {
+        assertEquals(users[0].copy(name = "Test1"), table.updateReturningFull(1, "Test1"))
+        assertEquals("Test2", table.updateReturningName(1, "Test2"))
+    }
+
+    @Test
+    fun updateReturningError() {
+        assertEquals("test@example.com", table.updateReturningEmail(1, "test@example.com").getOrThrow())
+        assertTrue(table.updateReturningEmail(2, "test@example.com").isError())
+
+        assertEquals(null, table.updateReturningEmail(0, "test@example.com").getOrThrow())
+    }
+
+    @Test
     fun delete() {
         assertEquals(1, table.deleteUser("alex@example.com"))
         assertTrue(table.deleteUser(1))
 
-        assertEquals(3, table.selectRowCount())
+        assertEquals(3, table.implementation.selectRowCount())
     }
 }

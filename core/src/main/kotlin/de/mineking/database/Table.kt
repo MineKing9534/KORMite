@@ -1,405 +1,117 @@
 package de.mineking.database
 
-import org.jdbi.v3.core.kotlin.useHandleUnchecked
-import org.jdbi.v3.core.result.ResultIterable
-import java.lang.reflect.InvocationHandler
-import java.lang.reflect.InvocationTargetException
-import java.lang.reflect.Method
 import kotlin.reflect.*
-import kotlin.reflect.full.functions
-import kotlin.reflect.full.valueParameters
 import kotlin.reflect.jvm.javaField
-import kotlin.reflect.jvm.kotlinFunction
 
 interface Table<T: Any> {
 	val structure: TableStructure<T>
 	val implementation: TableImplementation<T>
-
-	fun identifyObject(obj: T) = identifyObject(structure, obj)
-
-	fun createTable()
-	fun dropTable() = structure.manager.driver.useHandleUnchecked { it.createUpdate("drop table ${ structure.name }").execute() }
-
-	fun selectRowCount(where: Where = Where.EMPTY): Int
-	fun <C> selectValue(target: Node<C>, type: KType, where: Where = Where.EMPTY, order: Order? = null, limit: Int? = null, offset: Int? = null): QueryResult<C>
-
-	fun select(vararg columns: Node<*>, where: Where = Where.EMPTY, order: Order? = null, limit: Int? = null, offset: Int? = null): QueryResult<T>
-	fun select(vararg columns: KProperty<*>, where: Where = Where.EMPTY, order: Order? = null, limit: Int? = null, offset: Int? = null): QueryResult<T> = select(columns = columns.map { property(it) }.toTypedArray(), where, order, limit, offset)
-	fun select(where: Where = Where.EMPTY, order: Order? = null, limit: Int? = null, offset: Int? = null): QueryResult<T> = select(columns = emptyArray<KProperty<*>>(), where, order, limit, offset)
-
-	fun update(obj: T): UpdateResult<T>
-	fun update(vararg columns: Pair<Node<*>, Node<*>>, where: Where = Where.EMPTY): UpdateResult<Int>
-
-	fun insert(obj: T): UpdateResult<T>
-	fun upsert(obj: T): UpdateResult<T>
-
-	fun delete(where: Where = Where.EMPTY): Int
-	fun delete(obj: T) = delete(identifyObject(obj))
 }
 
 fun <T> Table<*>.data(name: String) = structure.manager.data<T>(name)
 
-inline fun <reified T> Table<*>.selectValue(target: Node<T>, where: Where = Where.EMPTY, order: Order? = null, limit: Int? = null, offset: Int? = null): QueryResult<T> = selectValue(target, typeOf<T>(), where, order, limit, offset)
+interface DefaultTable<T: Any> : Table<T> {
+	fun identifyObject(obj: T) = identifyObject(structure, obj)
 
-abstract class TableImplementation<T: Any>(
-	val type: KClass<*>,
-	override val structure: TableStructure<T>,
-	val instance: () -> T
-) : Table<T>, InvocationHandler {
-	override val implementation: TableImplementation<T> = this
+	fun selectRowCount(where: Where = Conditions.EMPTY): Int
+	fun <C> selectValue(target: Node<C>, type: KType, where: Where = Conditions.EMPTY, order: Order? = null, limit: Int? = null, offset: Int? = null): QueryResult<C>
 
-	open fun parseResult(context: ReadContext) {
-		@Suppress("UNCHECKED_CAST")
-		val instance = context.instance as T
+	fun select(vararg columns: Node<*>, where: Where = Conditions.EMPTY, order: Order? = null, limit: Int? = null, offset: Int? = null): QueryResult<T>
 
-		fun <C> setField(column: DirectColumnData<T, C>) = column.set(instance, column.mapper.read(column, column.type, context, column.name))
-		structure.columns.forEach { if (context.shouldRead(it.name)) setField(it) }
+	fun select(vararg columns: KProperty<*>, where: Where = Conditions.EMPTY, order: Order? = null, limit: Int? = null, offset: Int? = null): QueryResult<T> =
+		select(columns = columns.map { property(it) }.toTypedArray(), where, order, limit, offset)
 
-		if (context.instance is DataObject<*>) context.instance.afterRead()
-	}
+	fun select(where: Where = Conditions.EMPTY, order: Order? = null, limit: Int? = null, offset: Int? = null): QueryResult<T> =
+		select(columns = emptyArray<KProperty<*>>(), where, order, limit, offset)
 
-	private fun createJoinList(columns: Collection<DirectColumnData<*, *>>, prefix: Array<String> = emptyArray()): List<String> {
-		val temp = columns.filter { it.reference != null }.filter { !it.type.isArray() }
+	fun update(obj: T): Result<T>
+	fun update(vararg columns: Pair<Node<*>, Node<*>>, where: Where = Conditions.EMPTY): Result<Int>
 
-		if (temp.isEmpty()) return emptyList()
-		return temp.flatMap { listOf("""
-			left join ${ it.reference!!.structure.name } 
-			as "${ (prefix + it.name).joinToString(".") }" 
-			on ${ (
-				unsafeNode("\"${ (prefix + it.name).joinToString(".") }\".\"${ it.reference!!.structure.getKeys().first().name }\"")
-						isEqualTo
-						unsafeNode("\"${ prefix.joinToString(".").takeIf { it.isNotBlank() } ?: structure.name }\".\"${ it.name }\"")
-				).get(structure) }
-		""") + createJoinList(it.reference!!.structure.columns, prefix + it.name) }
-	}
+	fun updateReturning(vararg columns: Pair<Node<*>, Node<*>>, where: Where = Conditions.EMPTY): ErrorHandledQueryResult<T> =
+		implementation.updateReturning(*columns, where = where, returning = null, type = null)
 
-	override fun selectRowCount(where: Where): Int {
-		val sql = """
-			select count(*) from ${ structure.name }
-			${ createJoinList(structure.columns).joinToString(" ") }
-			${ where.format(structure) }
-		""".trim().replace("\\s+".toRegex(), " ")
+	fun <C> updateReturning(vararg columns: Pair<Node<*>, Node<*>>, returning: Node<C>, type: KType, where: Where = Conditions.EMPTY): ErrorHandledQueryResult<C> =
+		implementation.updateReturning(*columns, where = where, returning = returning as Node<*>?, type = type)
 
-		return structure.manager.execute { it.createQuery(sql)
-			.bindMap(where.values(structure))
-			.mapTo(Int::class.java)
-			.first()
-		}
-	}
+	fun insert(obj: T): Result<T>
+	fun upsert(obj: T): Result<T>
 
-	private fun createSelect(columns: String, where: Where, order: Order?, limit: Int?, offset: Int?): String = """
-		select $columns
-		from ${ structure.name }
-		${ createJoinList(structure.columns.reversed()).joinToString(" ") }
-		${ where.format(structure) } 
-		${ order?.format() ?: "" } 
-		${ limit?.let { "limit $it" } ?: "" }
-		${ offset?.let { "offset $it" } ?: "" } 
-	""".trim().replace("\\s+".toRegex(), " ")
-
-	override fun select(vararg columns: Node<*>, where: Where, order: Order?, limit: Int?, offset: Int?): QueryResult<T> {
-		fun convert(columns: Collection<ColumnData<*, *>>): List<Node<Any>> = columns.flatMap { column -> when (column) {
-			is DirectColumnData -> convert(column.getChildren().filter { it.shouldCreate() }) + property(column.property.name)
-			is VirtualColumnData -> listOf(property("${ column.parent.property.name }.${ column.simpleName }"))
-			else -> error("")
-		} }
-		fun createColumnList(columns: Collection<Node<*>>, context: TableStructure<*>, prefix: Array<String> = emptyArray()): List<Pair<String, Pair<String, String>>> {
-			if (columns.isEmpty()) return emptyList()
-
-			return columns.flatMap {
-				val column = it.columnContext(context)!!.column
-
-				listOf(it.format(context) {
-					val temp = it.context.toMutableList()
-					if (temp.isNotEmpty()) temp.removeAt(0)
-					temp.addAll(0, prefix.toList())
-
-					it.copy(context = temp.toTypedArray()).build()
-				} to ((prefix.joinToString(".").takeIf { it.isNotBlank() } ?: structure.name) to column.name)) +
-						if (column is DirectColumnData && column.reference != null && !column.type.isArray()) createColumnList(convert(column.reference!!.structure.getAllColumns()), column.reference!!.structure, prefix + column.name)
-						else emptyList()
-			}
-		}
-
-		val columnList = createColumnList(
-			if (columns.isEmpty()) convert(structure.getAllColumns())
-			else columns.toSet(),
-			structure
-		)
-
-		val sql = createSelect(columnList.joinToString { (value, name) -> "$value as \"${ name.first }.${ name.second }\"" }, where, order, limit, offset)
-		return object : SimpleQueryResult<T> {
-			override fun <O> execute(handler: (ResultIterable<T>) -> O): O = structure.manager.execute { handler(it.createQuery(sql)
-				.bindMap(columns.flatMap { it.values(structure, it.columnContext(structure)?.column).entries }.associate { it.toPair() })
-				.bindMap(where.values(structure))
-				.map { set, _ ->
-					val instance = instance()
-					parseResult(ReadContext(instance, structure, set, columnList.map { (_, name) -> "${ name.first }.${ name.second }" }))
-					instance
-				}
-			) }
-		}
-	}
-
-	override fun <C> selectValue(target: Node<C>, type: KType, where: Where, order: Order?, limit: Int?, offset: Int?): QueryResult<C> {
-		val column = target.columnContext(structure)
-		val mapper = structure.manager.getTypeMapper<C, Any>(type, column?.column?.getRootColumn()?.property) ?: throw IllegalArgumentException("No suitable TypeMapper found for $type")
-
-		fun createColumnList(columns: List<ColumnData<*, *>>, prefix: Array<String> = emptyArray()): List<Pair<String, String>> {
-			if (columns.isEmpty()) return emptyList()
-			return columns
-				.filterIsInstance<DirectColumnData<*, *>>()
-				.filter { it.reference != null }
-				.flatMap { createColumnList(it.reference!!.structure.getAllColumns(), prefix + it.name) } +
-				(columns + columns.flatMap { if (it is DirectColumnData) it.getChildren() else emptyList() }).map { (prefix.joinToString(".").takeIf { it.isNotBlank() } ?: structure.name) to it.name }
-		}
-
-		val columnList = createColumnList(column?.column?.let { listOf(it) } ?: emptyList())
-
-		val sql = createSelect((columnList.map { "\"${ it.first }\".\"${ it.second }\" as \"${ it.first }.${ it.second }\"" } + "(${ target.format(structure) }) as \"value\"").joinToString(), where, order, limit, offset)
-		return object : SimpleQueryResult<C> {
-			override fun <O> execute(handler: (ResultIterable<C>) -> O): O = structure.manager.execute { handler(it.createQuery(sql)
-				.bindMap(target.values(structure, column?.column))
-				.bindMap(where.values(structure))
-				.map { set, _ -> mapper.read(column?.column?.getRootColumn(), type, ReadContext(it, structure, set, columnList.map { "${ it.first }.${ it.second }" } + "value", autofillPrefix = { it != "value" }, shouldRead = false), "value") }
-			) }
-		}
-	}
-
-	private fun executeUpdate(update: org.jdbi.v3.core.statement.Update, obj: T) {
-		val columns = structure.getAllColumns()
-
-		columns.forEach {
-			fun <C> createArgument(column: ColumnData<T, C>) = column.mapper.write(column, structure, column.type, column.get(obj))
-			update.bind(it.name, createArgument(it))
-		}
-
-		update.execute { stmt, ctx -> ctx.use {
-			val statement = stmt.get()
-			val set = statement.resultSet
-
-			if (set.next()) parseResult(ReadContext(obj, structure, set, columns.filter { it.getRootColumn().reference == null }.map { it.name }, autofillPrefix = { false }))
-		} }
-	}
-
-	abstract fun <T> createResult(function: () -> T): UpdateResult<T>
-
-	override fun update(obj: T): UpdateResult<T> {
-		if (obj is DataObject<*>) obj.beforeWrite()
-		val identity = identifyObject(obj)
-
-		val columns = structure.getAllColumns().filter { !it.getRootColumn().key }
-
-		val sql = """
-			update ${ structure.name }
-			set ${columns.joinToString { "\"${ it.name }\" = :${ it.name }" }}
-			${ identity.format(structure) }
-			returning *
-		""".trim().replace("\\s+".toRegex(), " ")
-
-		return createResult {
-			structure.manager.execute { executeUpdate(it.createUpdate(sql).bindMap(identity.values(structure)), obj) }
-			if (obj is DataObject<*>) obj.afterRead()
-			obj
-		}
-	}
-
-	override fun update(vararg columns: Pair<Node<*>, Node<*>>, where: Where): UpdateResult<Int > {
-		val specs = columns.associate { (column, value) -> (column to column.columnContext(structure)!!) to (value to value.columnContext(structure)) }
-
-		require(specs.all { (column) -> column.second.context.isEmpty() }) { "Cannot update reference, update in the table directly" }
-		require(specs.none { (column) -> column.second.column.getRootColumn().key }) { "Cannot update key" }
-
-		val sql = """
-			update ${ structure.name } 
-			set ${ specs.entries.joinToString { (column, value) -> "${ column.first.format(structure) { it.build(prefix = false) } } = ${ value.first.format(structure) }" } }
-			${ where.format(structure) } 
-		""".trim().replace("\\s+".toRegex(), " ")
-
-		return createResult { structure.manager.execute { it.createUpdate(sql)
-			.bindMap(specs.flatMap { (column, value) -> column.first.values(structure, column.second.column).entries + value.first.values(structure, value.second?.column ?: column.second.column).entries }.associate { it.toPair() })
-			.bindMap(where.values(structure))
-			.execute()
-		} }
-	}
-
-	override fun insert(obj: T): UpdateResult<T> {
-		if (obj is DataObject<*>) obj.beforeWrite()
-
-		val columns = structure.getAllColumns().filter {
-			if (!it.getRootColumn().autogenerate) true
-			else {
-				val value = it.get(obj)
-				value != 0 && value != null
-			}
-		}
-
-		val sql = """
-			insert into ${ structure.name }
-			(${ columns.joinToString { "\"${ it.name }\"" } })
-			values(${ columns.joinToString { ":${ it.name }" } }) 
-			returning *
-		""".trim().replace("\\s+".toRegex(), " ")
-
-		return createResult {
-			structure.manager.execute { executeUpdate(it.createUpdate(sql), obj) }
-			if (obj is DataObject<*>) obj.afterRead()
-			obj
-		}
-	}
-
-	override fun upsert(obj: T): UpdateResult<T> {
-		if (obj is DataObject<*>) obj.beforeWrite()
-
-		val insertColumns = structure.getAllColumns().filter {
-			if (!it.getRootColumn().autogenerate) true
-			else {
-				val value = it.get(obj)
-				value != 0 && value != null
-			}
-		}
-
-		val updateColumns = structure.getAllColumns().filter { !it.getRootColumn().key }
-
-
-		val sql = """
-			insert into ${ structure.name }
-			(${ insertColumns.joinToString { "\"${ it.name }\"" } })
-			values(${ insertColumns.joinToString { ":${ it.name }" } }) 
-			on conflict (${ structure.getKeys().joinToString { "\"${ it.name }\"" } }) do update set
-			${ updateColumns.joinToString { "\"${ it.name }\" = :${ it.name }" } }
-			returning *
-		""".trim().replace("\\s+".toRegex(), " ")
-
-		return createResult {
-			structure.manager.execute { executeUpdate(it.createUpdate(sql), obj) }
-			if (obj is DataObject<*>) obj.afterRead()
-			obj
-		}
-	}
-
-	/**
-	 * Does not support reference conditions (because postgres doesn't allow join in delete)
-	 */
-	override fun delete(where: Where): Int {
-		val sql = "delete from ${ structure.name } ${ where.format(structure) }"
-		return structure.manager.execute { it.createUpdate(sql)
-			.bindMap(where.values(structure))
-			.execute()
-		}
-	}
-
-	override fun invoke(proxy: Any?, method: Method?, args: Array<out Any?>?): Any? {
-		require(method != null)
-		val args = args ?: emptyArray()
-
-		val annotationHandler = structure.manager.annotationHandlers.find { it.accepts(this, method, args) }
-		if (annotationHandler != null) {
-			ANNOTATION_EXECUTOR.set { annotationHandler.execute(this, it, method, args) }
-			return invokeDefault(type, method, proxy, args) {
-				execute(type.functions.firstOrNull {
-					it.name == method.name && it.valueParameters.map { p -> p.type } == method.kotlinFunction?.valueParameters?.map { p -> p.type }
-				}!!.returnType)
-			}
-		}
-
-		return try {
-			javaClass.getMethod(method.name, *method.parameterTypes).invoke(this, *args)
-		} catch(_: NoSuchMethodException) {
-			invokeDefault(type, method, proxy, args) { throw RuntimeException(it) }
-		} catch(e: IllegalAccessException) {
-			throw RuntimeException(e)
-		} catch(e: InvocationTargetException) {
-			throw e.cause!!
-		}
-	}
+	fun delete(where: Where = Conditions.EMPTY): Int
+	fun delete(obj: T) = delete(identifyObject(obj))
 }
 
-private fun invokeDefault(type: KClass<*>, method: Method, instance: Any?, args: Array<out Any?>, default: (e: NoSuchMethodException) -> Any?): Any? {
-	return try {
-		type.java.classes.find { it.simpleName == "DefaultImpls" }?.getMethod(method.name, type.java, *method.parameterTypes)?.invoke(null, instance, *args)
-	} catch (e: IllegalAccessException) {
-		throw RuntimeException(e)
-	} catch (e: NoSuchMethodException) {
-		default(e)
-	} catch (e: InvocationTargetException) {
-		throw e.cause!!
-	}
-}
+inline fun <reified T> DefaultTable<*>.selectValue(target: Node<T>, where: Where = Conditions.EMPTY, order: Order? = null, limit: Int? = null, offset: Int? = null): QueryResult<T> =
+	selectValue(target, typeOf<T>(), where, order, limit, offset)
 
-sealed class ColumnData<O: Any, C>(
+inline fun <reified T> DefaultTable<*>.updateReturning(vararg columns: Pair<Node<*>, Node<*>>, returning: Node<T>, where: Where = Conditions.EMPTY): ErrorHandledQueryResult<T> =
+	updateReturning(*columns, returning = returning, type = typeOf<T>(), where = where)
+
+typealias ColumnContext = List<PropertyData<*, *>>
+sealed class PropertyData<O: Any, C>(
 	val table: TableStructure<O>,
-	val baseName: String,
-	val name: String,
 	val mapper: TypeMapper<C, *>,
-	val type: KType
+	val property: KProperty1<O, C>
 ) {
-	abstract fun get(obj: O): C
-	abstract fun getRootColumn(): DirectColumnData<O, *>
+	val meta = MetaData()
+	val type get() = property.returnType
 
-	open fun shouldCreate(): Boolean = true
-}
+	abstract val name: String
 
-abstract class VirtualColumnData<O: Any, C> internal constructor(
-	table: TableStructure<O>,
-	baseName: String,
-	name: String,
-	val simpleName: String,
-	mapper: TypeMapper<C, *>,
-	type: KType,
-	val parent: DirectColumnData<O, *>,
-	val transform: ((String) -> String)?
-) : ColumnData<O, C>(table, baseName, name, mapper, type) {
-	override fun getRootColumn(): DirectColumnData<O, *> = parent
-}
-
-class DirectColumnData<O: Any, C> internal constructor(
-	table: TableStructure<O>,
-	baseName: String,
-	name: String,
-	mapper: TypeMapper<C, *>,
-	val property: KProperty1<O, C>,
-	val key: Boolean,
-	val autogenerate: Boolean
-) : ColumnData<O, C>(table, baseName, name, mapper, property.returnType) {
-	var reference: Table<*>? = null
-	private val children: MutableList<VirtualColumnData<O, *>> = arrayListOf()
-
-	override fun get(obj: O): C = property.get(obj)
+	fun get(obj: O): C = property.get(obj)
 	fun set(obj: O, value: C?) = property.javaField?.apply { trySetAccessible() }?.set(obj, value) //Allow writing final
 
-	fun getChildren(): List<VirtualColumnData<O, *>> = children
+	abstract fun format(context: ColumnContext, prefix: Boolean): String
+}
 
-	override fun getRootColumn(): DirectColumnData<O, *> = this
-	fun <T> createVirtualChild(baseName: String, name: String, simpleName: String, mapper: TypeMapper<T, *>, type: KType, isReference: Boolean = false, transform: ((String) -> String)? = null, value: (O) -> T): VirtualColumnData<O, T> {
-		val column = object : VirtualColumnData<O, T>(table, baseName, name, simpleName, mapper, type, this, transform) {
-			override fun get(obj: O): T = value(obj)
-			override fun shouldCreate(): Boolean = !isReference
-		}
+class ColumnData<O: Any, C>(
+	table: TableStructure<O>,
+	override val name: String,
+	mapper: TypeMapper<C, *>,
+	property: KProperty1<O, C>,
+	val key: Boolean,
+	val autogenerate: Boolean
+) : PropertyData<O, C>(table, mapper, property) {
+	override fun format(context: ColumnContext, prefix: Boolean) =
+		if (prefix) "\"${ if (context.size == 1) table.name else context.dropLast(1).joinToString(".") { it.name } }\".\"$name\""
+		else "\"$name\""
+}
 
-		children.add(column)
-		return column
-	}
+class SelectOnlyPropertyData<O: Any, C>(
+	table: TableStructure<O>,
+	mapper: TypeMapper<C, *>,
+	property: KProperty1<O, C>,
+	val sql: String
+) : PropertyData<O, C>(table, mapper, property) {
+	override val name = property.name
+	override fun format(context: ColumnContext, prefix: Boolean) = sql
 }
 
 data class TableStructure<T: Any>(
 	val manager: DatabaseConnection,
 	val name: String,
 	val namingStrategy: NamingStrategy,
-	val columns: List<DirectColumnData<T, *>>,
+	val properties: List<PropertyData<T, *>>,
 	val component: KClass<T>
 ) {
-	fun getColumnFromDatabase(name: String): ColumnData<T, *>? = getAllColumns().find { it.name == name }
-	fun getColumnFromCode(name: String): DirectColumnData<T, *>? = columns.find { it.property.name == name }
+	val columns get() = properties.filterIsInstance<ColumnData<T, *>>()
 
-	fun getAllColumns(): List<ColumnData<T, *>> {
-		val result = arrayListOf<ColumnData<T, *>>()
+	fun getFromDatabase(name: String) = columns.find { it.name == name }
+	fun getFromCode(name: String) = properties.find { it.property.name == name }
 
-		result += columns
-		result += columns.flatMap { it.getChildren() }.filter { result.none { test -> test.name == it.name } }
-
-		return result.filter { it.shouldCreate() }
-	}
-
-	fun getKeys(): List<ColumnData<T, *>> = getAllColumns().filter { it.getRootColumn().key }.filter { it.shouldCreate() }
+	fun getKeys() = columns.filter { it.key }
 }
+
+data class MetaKey<T>(val name: String)
+data class MetaData(private val data: MutableMap<String, Any?> = mutableMapOf()) {
+	@Suppress("UNCHECKED_CAST")
+	operator fun <T> get(key: MetaKey<T>) = data[key.name] as T?
+	operator fun <T> set(key: MetaKey<T>, value: T) = data.put(key.name, value)
+}
+
+
+val REFERENCE_META_KEY = MetaKey<Table<*>>("reference")
+var PropertyData<*, *>.reference: Table<*>?
+	get() = meta[REFERENCE_META_KEY]
+	set(value) {
+		meta[REFERENCE_META_KEY] = value!!
+	}

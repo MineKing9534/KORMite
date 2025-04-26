@@ -1,4 +1,4 @@
-package tests.postgres.general
+package tests.sqlite.basic
 
 import org.junit.jupiter.api.Test
 import setup.ConsoleSqlLogger
@@ -11,7 +11,7 @@ import kotlin.test.assertTrue
 
 class InsertTest {
     val connection = createConnection()
-    val table = connection.getTable(name = "basic_test") { UserDao() }
+    val table = connection.getDefaultTable(name = "basic_test") { UserDao() }
 
     val users = listOf(
         UserDao(name = "Tom", email = "tom@example.com", age = 12),
@@ -38,6 +38,8 @@ class InsertTest {
     fun insert() {
         val obj = UserDao(name = "Test", email = "test@example.com", age = 50)
         val result = table.insert(obj)
+
+        result.error?.printStackTrace()
 
         assertTrue(result.isSuccess())
         assertEquals(obj, result.value)

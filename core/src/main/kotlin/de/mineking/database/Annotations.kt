@@ -1,10 +1,12 @@
 package de.mineking.database
 
-import kotlin.reflect.KClass
-
 @Target(AnnotationTarget.FIELD)
 @Retention(AnnotationRetention.RUNTIME)
 annotation class Column(val name: String = "")
+
+@Target(AnnotationTarget.FIELD)
+@Retention(AnnotationRetention.RUNTIME)
+annotation class SelectAs(val sql: String)
 
 @Target(AnnotationTarget.FIELD)
 @Retention(AnnotationRetention.RUNTIME)
@@ -38,6 +40,10 @@ annotation class Parameter(val name: String = "")
 
 @Target(AnnotationTarget.VALUE_PARAMETER)
 @Retention(AnnotationRetention.RUNTIME)
+annotation class Define(val name: String = "")
+
+@Target(AnnotationTarget.VALUE_PARAMETER)
+@Retention(AnnotationRetention.RUNTIME)
 annotation class Condition(val name: String = "", val operation: String = " = ")
 
 @Target(AnnotationTarget.VALUE_PARAMETER)
@@ -51,11 +57,15 @@ annotation class Offset
 
 @Target(AnnotationTarget.FUNCTION)
 @Retention(AnnotationRetention.RUNTIME)
+annotation class Query(val sql: String, val columns: Array<String> = [], val position: Int = 1)
+
+@Target(AnnotationTarget.FUNCTION)
+@Retention(AnnotationRetention.RUNTIME)
 annotation class Select
 
 @Target(AnnotationTarget.FUNCTION)
 @Retention(AnnotationRetention.RUNTIME)
-annotation class SelectValue(val value: String, val type: KClass<*> = Unit::class, val typeParameters: Array<KClass<*>> = [])
+annotation class SelectValue(val value: String, val raw: Boolean = false)
 
 @Target(AnnotationTarget.FUNCTION)
 @Retention(AnnotationRetention.RUNTIME)
@@ -64,6 +74,10 @@ annotation class Insert
 @Target(AnnotationTarget.FUNCTION)
 @Retention(AnnotationRetention.RUNTIME)
 annotation class Update
+
+@Target(AnnotationTarget.FUNCTION)
+@Retention(AnnotationRetention.RUNTIME)
+annotation class UpdateReturning(val value: String = "", val raw: Boolean = false)
 
 @Target(AnnotationTarget.FUNCTION)
 @Retention(AnnotationRetention.RUNTIME)

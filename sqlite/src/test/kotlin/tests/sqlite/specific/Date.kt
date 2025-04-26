@@ -18,7 +18,7 @@ data class DateDao(
 
 class DateTest {
 	val connection = createConnection()
-	val table = connection.getTable(name = "date_test") { DateDao() }
+	val table = connection.getDefaultTable(name = "date_test") { DateDao() }
 
 	val time = Instant.now()
 	val date = LocalDate.now()

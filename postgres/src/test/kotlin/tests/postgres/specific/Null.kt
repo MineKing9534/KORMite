@@ -16,7 +16,7 @@ data class NullDao(
 
 class NullTest {
 	val connection = createConnection()
-	val table = connection.getTable(name = "null_test") { NullDao() }
+	val table = connection.getDefaultTable(name = "null_test") { NullDao() }
 
 	init {
 		table.recreate()
@@ -46,7 +46,7 @@ class NullTest {
 	@Test
 	@Suppress("UNCHECKED_CAST")
 	fun updateNullError() {
-		fun checkResult(result: UpdateResult<*>) {
+		fun checkResult(result: Result<*>) {
 			assertTrue(result.isError())
 			assertTrue(result.notNullViolation)
 		}

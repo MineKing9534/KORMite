@@ -22,31 +22,26 @@ import kotlin.reflect.jvm.javaType
 import kotlin.reflect.jvm.jvmErasure
 
 object SQLiteMappers {
-	val ANY = ValueTypeMapper
+	val BOOLEAN = nullsafeTypeMapper<Boolean, Int>(SQLiteType.INTEGER, { set, position, _ -> set.getInt(position) > 0 }, { it, _ -> if (it) 1 else 0 })
+	val BYTE_ARRAy = nullsafeTypeMapper<ByteArray?>(SQLiteType.BLOB, ResultSet::getBytes)
+	val BLOB = nullsafeTypeMapper<Blob?>(SQLiteType.BLOB, ResultSet::getBlob)
 
-	val BOOLEAN = nullSafeTypeMapper<Boolean>(SQLiteType.INTEGER, { set, name -> set.getInt(name) > 0 }, { value, statement, position -> statement.setInt(position, if (value) 1 else 0) })
-	val BYTE_ARRAy = typeMapper<ByteArray?>(SQLiteType.BLOB, { set, name -> set.getBytes(name) })
-	val BLOB = typeMapper<Blob?>(SQLiteType.BLOB, { set, name -> set.getBlob(name) })
+	val SHORT = nullsafeTypeMapper<Short>(SQLiteType.INTEGER, ResultSet::getShort)
+	val INTEGER = nullsafeTypeMapper<Int>(SQLiteType.INTEGER, ResultSet::getInt)
+	val LONG = nullsafeTypeMapper<Long>(SQLiteType.INTEGER, ResultSet::getLong)
 
-	val SHORT = nullSafeTypeMapper<Short>(SQLiteType.INTEGER, ResultSet::getShort)
-	val INTEGER = nullSafeTypeMapper<Int>(SQLiteType.INTEGER, ResultSet::getInt)
-	val LONG = nullSafeTypeMapper<Long>(SQLiteType.INTEGER, ResultSet::getLong)
+	val FLOAT = nullsafeTypeMapper<Float>(SQLiteType.REAL, ResultSet::getFloat)
+	val DOUBLE = nullsafeTypeMapper<Double>(SQLiteType.REAL, ResultSet::getDouble)
 
-	val FLOAT = nullSafeTypeMapper<Float>(SQLiteType.REAL, ResultSet::getFloat)
-	val DOUBLE = nullSafeTypeMapper<Double>(SQLiteType.REAL, ResultSet::getDouble)
+	val STRING = nullsafeTypeMapper<String>(SQLiteType.TEXT, ResultSet::getString)
+	val ENUM = nullsafeDelegateTypeMapper<Enum<*>, String>(STRING, { name, type -> type.jvmErasure.java.enumConstants.map { it as Enum<*> }.first { it.name == name } }, Enum<*>::name)
 
-	val STRING = typeMapper<String?>(SQLiteType.TEXT, ResultSet::getString)
-	val ENUM = object : TypeMapper<Enum<*>?, String?> {
-		override fun accepts(manager: DatabaseConnection, property: KProperty<*>?, type: KType): Boolean = type.jvmErasure.java.isEnum
+	val INSTANT = nullsafeTypeMapper<Instant, Timestamp>(SQLiteType.INTEGER, { set, position, _ -> set.getTimestamp(position).toInstant() }, {it, _ -> Timestamp.from(it) })
+	val LOCAL_DATE_TIME = nullsafeTypeMapper<LocalDateTime, Timestamp>(SQLiteType.INTEGER, { set, position, _ -> set.getTimestamp(position).toLocalDateTime() }, { it, _ -> Timestamp.valueOf(it) })
+	val LOCAL_DATE = nullsafeTypeMapper<LocalDate, Date>(SQLiteType.INTEGER, { set, position, _ -> set.getDate(position).toLocalDate() }, { it, _ -> Date.valueOf(it) })
 
-		override fun getType(column: ColumnData<*, *>?, table: TableStructure<*>, type: KType): DataType =
-            SQLiteType.TEXT
-
-		override fun format(column: ColumnData<*, *>?, table: TableStructure<*>, type: KType, value: Enum<*>?): String? = value?.name
-
-		override fun extract(column: DirectColumnData<*, *>?, type: KType, context: ReadContext, name: String): String? = STRING.extract(column, type, context, name)
-		override fun parse(column: DirectColumnData<*, *>?, type: KType, value: String?, context: ReadContext, name: String): Enum<*>? = value?.let { name -> type.jvmErasure.java.enumConstants.map { it as Enum<*> }.first { it.name == name } }
-	}
+	val LOCALE = nullsafeDelegateTypeMapper(STRING, { it, type -> Locale.forLanguageTag(it) }, Locale::toLanguageTag)
+	val COLOR = nullsafeDelegateTypeMapper(INTEGER, { it, type -> Color(it, true) }, Color::getRGB)
 
 	val JSON = object : TypeMapper<Any?, String?> {
 		val numberStrategy = ToNumberStrategy { reader ->
@@ -59,11 +54,10 @@ object SQLiteMappers {
 			.create()
 
 		override fun accepts(manager: DatabaseConnection, property: KProperty<*>?, type: KType): Boolean = property?.hasDatabaseAnnotation<Json>() == true
-		override fun getType(column: ColumnData<*, *>?, table: TableStructure<*>, type: KType): DataType =
-            SQLiteType.TEXT
+		override fun getType(column: PropertyData<*, *>?, table: TableStructure<*>, type: KType): DataType = SQLiteType.TEXT.withNullability(type.isMarkedNullable)
 
-		override fun format(column: ColumnData<*, *>?, table: TableStructure<*>, type: KType, value: Any?): String? = value?.let { gson.toJson(value) }
-		override fun createArgument(column: ColumnData<*, *>?, table: TableStructure<*>, type: KType, value: String?): Argument = object : Argument {
+		override fun format(column: ColumnContext, table: TableStructure<*>, type: KType, value: Any?): String? = value?.let { gson.toJson(value) }
+		override fun createArgument(column: ColumnContext, table: TableStructure<*>, type: KType, value: String?): Argument = object : Argument {
 			override fun apply(position: Int, statement: PreparedStatement?, ctx: StatementContext?) {
 				if (value == null) statement?.setNull(position, Types.NULL)
 				else statement?.setString(position, value)
@@ -72,16 +66,9 @@ object SQLiteMappers {
 			override fun toString(): String = value.toString()
 		}
 
-		override fun extract(column: DirectColumnData<*, *>?, type: KType, context: ReadContext, name: String): String? = STRING.extract(column, type, context, name)
-		override fun parse(column: DirectColumnData<*, *>?, type: KType, value: String?, context: ReadContext, name: String): Any? = value?.let { gson.fromJson(it, type.javaType) }
+		override fun extract(column: ColumnContext, type: KType, context: ReadContext, position: Int): String? = STRING.extract(column, type, context, position)
+		override fun parse(column: ColumnContext, type: KType, value: String?, context: ReadContext, position: Int): Any? = value?.let { gson.fromJson(it, type.javaType) }
 	}
-
-	val INSTANT = typeMapper<Instant?>(SQLiteType.INTEGER, { set, name -> set.getTimestamp(name).toInstant() }, { value, statement, position -> statement.setTimestamp(position, value?.let { Timestamp.from(it) }) })
-	val LOCAL_DATE_TIME = typeMapper<LocalDateTime?>(SQLiteType.INTEGER, { set, name -> set.getTimestamp(name).toLocalDateTime() }, { value, statement, position -> statement.setTimestamp(position, value?.let { Timestamp.valueOf(it) }) })
-	val LOCAL_DATE = typeMapper<LocalDate?>(SQLiteType.INTEGER, { set, name -> set.getDate(name).toLocalDate() }, { value, statement, position -> statement.setDate(position, value?.let { Date.valueOf(it) }) })
-
-	val LOCALE = typeMapper(STRING, { it?.let { Locale.forLanguageTag(it) } }, { it?.toLanguageTag() })
-	val COLOR = typeMapper(INTEGER, { it?.let { Color(it, true) }  }, { it?.rgb })
 
 	val ARRAY = object : TypeMapper<Any?, ByteArray> {
 		fun Any.asArray(): Array<*> = when (this) {
@@ -93,21 +80,20 @@ object SQLiteMappers {
 		fun Collection<*>.createArray(component: KType) = if (component.jvmErasure.java.isPrimitive) toTypedArray() else (this as java.util.Collection<*>).toArray { java.lang.reflect.Array.newInstance(component.jvmErasure.java, it) as Array<*> }
 
 		override fun accepts(manager: DatabaseConnection, property: KProperty<*>?, type: KType): Boolean = type.isArray()
-		override fun getType(column: ColumnData<*, *>?, table: TableStructure<*>, type: KType): DataType =
-            SQLiteType.BLOB
+		override fun getType(column: PropertyData<*, *>?, table: TableStructure<*>, type: KType): DataType = SQLiteType.BLOB.withNullability(type.isMarkedNullable)
 
-		override fun <O: Any> initialize(column: DirectColumnData<O, *>, type: KType) {
+		override fun <O: Any> initialize(column: PropertyData<O, *>, type: KType) {
 			val component = type.component()
-			val componentMapper = column.table.manager.getTypeMapper<Any, Any>(component, column.property) ?: throw IllegalArgumentException("No TypeMapper found for $component")
+			val componentMapper = column.table.manager.getTypeMapper<Any, Any>(component, column.property)
 
 			componentMapper.initialize(column, component)
 		}
 
-		override fun format(column: ColumnData<*, *>?, table: TableStructure<*>, type: KType, value: Any?): ByteArray {
+		override fun format(column: ColumnContext, table: TableStructure<*>, type: KType, value: Any?): ByteArray {
 			if (value == null) return ByteArray(0)
 
 			val component = type.component()
-			val mapper = table.manager.getTypeMapper<Any?, Any?>(component, if (column is DirectColumnData) column.property else null) ?: throw IllegalArgumentException("No TypeMapper found for $component")
+			val mapper = table.manager.getTypeMapper<Any?, Any?>(component, column.lastOrNull()?.property)
 
 			val result = ByteArrayOutputStream()
 			val array = value.asArray()
@@ -124,12 +110,12 @@ object SQLiteMappers {
 			return result.toByteArray()
 		}
 
-		override fun extract(column: DirectColumnData<*, *>?, type: KType, context: ReadContext, name: String): ByteArray = context.read(name, ResultSet::getBytes)
-		override fun parse(column: DirectColumnData<*, *>?, type: KType, value: ByteArray, context: ReadContext, name: String): Any? {
+		override fun extract(column: ColumnContext, type: KType, context: ReadContext, position: Int): ByteArray = context.read(position, ResultSet::getBytes)
+		override fun parse(column: ColumnContext, type: KType, value: ByteArray, context: ReadContext, position: Int): Any? {
 			if (value.isEmpty()) return null
 
 			val component = type.component()
-			val mapper = context.table.manager.getTypeMapper<Any?, Any?>(component, if (column is DirectColumnData) column.property else null) ?: throw IllegalArgumentException("No TypeMapper found for $component")
+			val mapper = context.table.structure.manager.getTypeMapper<Any?, Any?>(component, column.lastOrNull()?.property)
 
 			val array = ObjectInputStream(ByteArrayInputStream(value)).use { stream ->
 				val size = stream.readInt()
@@ -138,78 +124,11 @@ object SQLiteMappers {
 					.toTypedArray()
 			}
 
-			if (column?.reference == null) return type.createCollection(array.map { mapper.readFromBinary(column, component, it, context, name) }.createArray(component))
-			else {
-				@Suppress("UNCHECKED_CAST")
-				val key = column.reference!!.structure.getKeys()[0] as ColumnData<Any, Any>
-
-				val ids = array.map { key.mapper.readFromBinary(column, key.type, it, context, name) }
-				val rows = column.reference!!.select(where = property<Any>(key.name).isIn(ids.map { value(it, key.type) })).list().associateBy { key.get(it) }
-
-				return type.createCollection(ids.map { rows[it] }.createArray(component))
-			}
+			return type.createCollection(array.map { mapper.readFromBinary(column, component, it, context, position) }.createArray(component))
 		}
 
-		override fun toBinary(column: ColumnData<*, *>?, table: TableStructure<*>, type: KType, value: ByteArray): ByteArray = value
-		override fun fromBinary(column: DirectColumnData<*, *>?, type: KType, value: ByteArray, context: ReadContext, name: String): ByteArray = value
-	}
-
-	val REFERENCE = object : TypeMapper<Any?, Any?> {
-		override fun accepts(manager: DatabaseConnection, property: KProperty<*>?, type: KType): Boolean = property?.hasDatabaseAnnotation<Reference>() == true && !type.isArray()
-
-		override fun <O: Any> initialize(column: DirectColumnData<O, *>, type: KType) {
-			val table = column.property.getDatabaseAnnotation<Reference>()?.table ?: throw IllegalArgumentException("No table specified")
-
-			val reference = column.table.manager.getCachedTable<Any>(table)
-			column.reference = reference
-
-			require(reference.structure.name != column.table.name) { "Cannot create a self-reference" }
-			require(reference.structure.getKeys().size == 1) { "Can only reference a table with exactly one key" }
-		}
-
-		override fun getType(column: ColumnData<*, *>?, table: TableStructure<*>, type: KType): DataType {
-			require(column is DirectColumnData) { "Something went really wrong" }
-
-			val key = column.reference!!.structure.getKeys().first()
-			return key.mapper.getType(column, table, key.type)
-		}
-
-		@Suppress("UNCHECKED_CAST")
-		override fun format(column: ColumnData<*, *>?, table: TableStructure<*>, type: KType, value: Any?): Any? {
-			require(column is DirectColumnData) { "Cannot use references for virtual columns" }
-
-			val reference = column.reference!! as Table<Any>
-			val key = reference.structure.getKeys().first() as DirectColumnData<Any, Any>
-
-			return value?.let { key.mapper.format(column, reference.structure, key.type, key.get(it )) }
-		}
-
-		@Suppress("UNCHECKED_CAST")
-		override fun createArgument(column: ColumnData<*, *>?, table: TableStructure<*>, type: KType, value: Any?): Argument {
-			require(column is DirectColumnData) { "Cannot use references for virtual columns" }
-
-			val reference = column.reference!! as Table<Any>
-			val key = reference.structure.getKeys().first() as DirectColumnData<Any, Any?>
-
-			return key.mapper.write(key, reference.structure, key.type, value)
-		}
-
-		override fun extract(column: DirectColumnData<*, *>?, type: KType, context: ReadContext, name: String): Any? = null
-
-		@Suppress("UNCHECKED_CAST")
-		override fun parse(column: DirectColumnData<*, *>?, type: KType, value: Any?, context: ReadContext, name: String): Any? {
-			require(column != null) { "Cannot parse reference without column context" }
-
-			val reference = column.reference!! as Table<Any>
-			val key = reference.structure.getKeys().first() as DirectColumnData<Any, Any?>
-
-			val context = context.nest(column.name, column.reference!!.implementation)
-			if (key.mapper.read(column, key.type, context, key.name) == null) return null
-
-			column.reference!!.implementation.parseResult(context)
-
-			return context.instance
-		}
+		override fun toBinary(column: ColumnContext, table: TableStructure<*>, type: KType, value: ByteArray): ByteArray = value
+		override fun fromBinary(column: ColumnContext, type: KType, value: ByteArray, context: ReadContext, position: Int): ByteArray = value
 	}
 }
 

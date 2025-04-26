@@ -1,43 +1,90 @@
 package de.mineking.database
 
-import org.jdbi.v3.core.result.ResultIterable
+import org.jdbi.v3.core.statement.StatementContext
 import java.sql.ResultSet
 import java.sql.SQLException
+import java.util.*
 import java.util.stream.Stream
+import java.util.stream.StreamSupport
+import kotlin.reflect.KType
 
-data class ReadContext(val instance: Any?, val table: TableStructure<*>, val set: ResultSet, val selected: List<String>?, val prefix: Array<String> = emptyArray(), val autofillPrefix: (String) -> Boolean = { true }, var shouldRead: Boolean = true) {
-    fun formatName(name: String) = ((prefix.takeIf { it.isNotEmpty() || !autofillPrefix(name) } ?: arrayOf(table.name)) + name).joinToString(".")
+class QueryIterator<T>(val context: ReadContext, val statement: StatementContext, val position: Int, val column: ColumnContext, val type: KType, val mapper: TypeMapper<T, *>) : Iterator<T>, AutoCloseable {
+    private var closed = false
 
-    fun <T> read(name: String, reader: (ResultSet, String) -> T): T = reader(set, formatName(name))
-    fun shouldRead(name: String) = selected == null || formatName(name) in selected
+    private var hasNext = false
+    private var moved = false
 
-    fun nest(name: String, table: TableImplementation<*>) = copy(instance = table.instance(), table = table.structure, prefix = prefix + name)
+    override fun hasNext(): Boolean {
+        if (closed) return false
+        if (moved) return hasNext
+
+        hasNext = next0()
+
+        if (hasNext) moved = true
+        else close()
+
+        return hasNext
+    }
+
+    override fun next(): T {
+        if (!hasNext()) {
+            close()
+            error("No new element available")
+        }
+
+        try {
+            return mapper.read(column, type, context, position)
+        } finally {
+            moved = next0()
+            if (!moved) close()
+        }
+    }
+
+    override fun close() {
+        closed = true
+        statement.close()
+    }
+
+    private fun next0() = context.set.next()
+}
+
+data class ReadContext(val table: TableImplementation<*>, val set: ResultSet, val columns: List<ColumnContext>, val currentContext: ColumnContext = emptyList(), val instance: Any? = null) {
+    fun <T> read(position: Int, extractor: (ResultSet, Int) -> T): T = extractor(set, position)
+    fun nest(column: PropertyData<*, *>) = copy(currentContext = currentContext + column, instance = null)
 }
 
 interface QueryResult<T> {
-    fun list(): List<T>
+    fun <R> useIterator(handler: (QueryIterator<T>) -> R): R
 
-    fun first(): T
-    fun findFirst(): T?
+    fun <R> useStream(handler: (Stream<T>) -> R): R = useIterator { handler(StreamSupport.stream(Spliterators.spliteratorUnknownSize(it, 0), false).onClose(it::close)) }
+    fun <R> useSequence(handler: (Sequence<T>) -> R): R = useIterator { handler(it.asSequence()) }
 
-    fun stream(): Stream<T>
-    fun <R> withStream(handler: (Stream<T>) -> R): R = stream().use(handler)
+    fun list(): List<T> = useSequence { it.toList() }
+    fun set(): Set<T> = useSequence { it.toSet() }
+
+    fun first(): T = useIterator { it.next() }
+    fun firstOrNull(): T? = useIterator { if (it.hasNext()) it.next() else null }
 }
 
-interface SimpleQueryResult<T>: QueryResult<T> {
-    fun <O> execute(handler: (ResultIterable<T>) -> O): O
+interface ErrorHandledQueryResult<T> {
+    fun execute(): Result<Unit>
+    fun <R> useIterator(handler: (QueryIterator<T>) -> R): Result<R>
 
-    override fun list(): List<T> = execute { it.list() }
-    override fun first(): T = execute { it.first() }
-    override fun findFirst(): T? = execute { it.findFirst().orElse(null) }
+    fun <R> useStream(handler: (Stream<T>) -> R): Result<R> = useIterator { handler(StreamSupport.stream(Spliterators.spliteratorUnknownSize(it, 0), false).onClose(it::close)) }
+    fun <R> useSequence(handler: (Sequence<T>) -> R): Result<R> = useIterator { handler(it.asSequence()) }
 
-    /**
-     * Note: The returned stream has to be closed by the user!
-     */
-    override fun stream(): Stream<T> = execute { it.stream() }
+    fun list(): Result<List<T>> = useSequence { it.toList() }
+    fun set(): Result<Set<T>> = useSequence { it.toSet() }
+
+    fun first(): Result<T> = useIterator { it.next() }
+    fun firstOrNull(): Result<T?> = useIterator { if (it.hasNext()) it.next() else null }
+
+    fun ignoreErrors() = object : QueryResult<T> {
+        override fun <R> useIterator(handler: (QueryIterator<T>) -> R): R = this@ErrorHandledQueryResult.useIterator(handler).getOrThrow()
+    }
 }
 
-data class UpdateResult<T>(
+data class Result<out T>(
     val value: T?,
     val error: SQLException?,
 
@@ -52,4 +99,14 @@ data class UpdateResult<T>(
         error != null -> throw error
         else -> value as T
     }
+
+    fun orNull(): T? = when {
+        error != null -> null
+        else -> value
+    }
+}
+
+fun <T> Result<T>.orElse(other: T) = when {
+    isSuccess() -> getOrThrow()
+    else -> other
 }

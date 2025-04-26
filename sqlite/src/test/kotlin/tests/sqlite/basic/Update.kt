@@ -1,4 +1,4 @@
-package tests.postgres.general
+package tests.sqlite.basic
 
 import de.mineking.database.*
 import org.junit.jupiter.api.Test
@@ -11,7 +11,7 @@ import kotlin.test.assertTrue
 
 class UpdateTest {
     val connection = createConnection()
-    val table = connection.getTable(name = "basic_test") { UserDao() }
+    val table = connection.getDefaultTable(name = "basic_test") { UserDao() }
 
     val users = listOf(
         UserDao(name = "Tom", email = "tom@example.com", age = 12),
@@ -50,5 +50,28 @@ class UpdateTest {
 
         assertTrue(result.isSuccess())
         assertEquals(firstUser, result.value)
+    }
+
+    @Test
+    fun updateReturning() {
+        val result = table.updateReturning(property(UserDao::name) to value("Test"))
+        assertEquals(users.map { it.copy(name = "Test") }, result.list().getOrThrow())
+    }
+
+    @Test
+    fun updateReturningSingle() {
+        val result = table.updateReturning(property(UserDao::name) to value("Test"), where = property(UserDao::id) isEqualTo value(1), returning = property(UserDao::name))
+
+        val list = result.list().getOrThrow()
+        assertEquals(1, list.size)
+        assertEquals(listOf("Test"), list)
+    }
+
+    @Test
+    fun updateReturningConflict() {
+        val result = table.updateReturning(property(UserDao::email) to value("test@example.com"))
+
+        assertTrue(result.first().isError())
+        assertEquals(users, table.select().list())
     }
 }

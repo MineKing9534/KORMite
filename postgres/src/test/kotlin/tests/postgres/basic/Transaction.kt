@@ -1,4 +1,4 @@
-package tests.sqlite.general
+package tests.postgres.basic
 
 import org.junit.jupiter.api.Test
 import setup.ConsoleSqlLogger
@@ -9,7 +9,7 @@ import kotlin.test.assertEquals
 
 class TransactionTest {
 	val connection = createConnection()
-	val table = connection.getTable(name = "basic_test") { UserDao() }
+	val table = connection.getDefaultTable(name = "basic_test") { UserDao() }
 
 	init {
 		table.recreate()

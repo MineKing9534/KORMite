@@ -17,14 +17,14 @@ data class DataObjectDao(
 	val main: DataObjectTest,
 	@AutoIncrement @Key @Column val id: Int = 0,
 	@Column val name: String = ""
-) : DataObject<DataObjectDao> {
+) : DefaultDataObject<DataObjectDao> {
 	override val table = main.table
 }
 
 class DataObjectTest {
 	val connection = createConnection()
-	val referenceTable = connection.getTable(name = "data_object_reference_test") { DataObjectReferenceDao() }
-	val table = connection.getTable(name = "data_object_test") { DataObjectDao(this) }
+	val referenceTable = connection.getDefaultTable(name = "data_object_reference_test") { DataObjectReferenceDao() }
+	val table = connection.getDefaultTable(name = "data_object_test") { DataObjectDao(this) }
 
 	val references = arrayListOf<DataObjectReferenceDao>()
 
