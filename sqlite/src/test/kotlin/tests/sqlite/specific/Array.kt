@@ -11,7 +11,7 @@ import setup.recreate
 import kotlin.test.assertContentEquals
 import kotlin.test.assertEquals
 
-data class ArrayDao(
+data class ArrayTestObject(
 	@AutoIncrement @Key @Column val id: Int = 0,
 	@Column val a: Int = 0,
 	@Column val intList: List<Int> = listOf(), //Just to ensure correct io for this
@@ -21,19 +21,19 @@ data class ArrayDao(
 
 class ArrayTest {
 	val connection = createConnection()
-	val table = connection.getDefaultTable(name = "array_test") { ArrayDao() }
+	val table = connection.getDefaultTable(name = "array_test") { ArrayTestObject() }
 
 	init {
 		table.recreate()
 
-		table.insert(ArrayDao(
+		table.insert(ArrayTestObject(
 			a = 0,
 			intList = listOf(1, 2, 3),
 			stringList = listOf("a", "b", "c"),
 			arrayList = listOf(arrayOf("a", "b"), arrayOf("c", "d"), arrayOf("e"))
 		))
 
-		table.insert(ArrayDao(
+		table.insert(ArrayTestObject(
 			a = 5,
 			intList = listOf(1, 2, 3),
 			stringList = listOf("d", "e", "f"),

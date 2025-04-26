@@ -9,7 +9,7 @@ interface Identifiable {
 	val id: Int
 }
 
-data class UserDao(
+data class User(
 	@AutoIncrement @Key @Column override val id: Int = 0,
 	@Unique @Column val email: String = "",
 	@Column val name: String = "",

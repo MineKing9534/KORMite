@@ -7,7 +7,7 @@ import setup.createConnection
 import setup.recreate
 import kotlin.test.assertEquals
 
-data class JsonDao(
+data class JsonTestObject(
 	@AutoIncrement @Key @Column val id: Int = 0,
 	@Json @Column val map1: LinkedHashMap<String, String> = linkedMapOf(),
 	@Json(binary = true) @Column val map2: LinkedHashMap<String, String> = linkedMapOf()
@@ -15,12 +15,12 @@ data class JsonDao(
 
 class JsonTest {
 	val connection = createConnection()
-	val table = connection.getDefaultTable(name = "json_test") { JsonDao() }
+	val table = connection.getDefaultTable(name = "json_test") { JsonTestObject() }
 
 	init {
 		table.recreate()
 
-		table.insert(JsonDao(map1 = linkedMapOf("a" to "b", "b" to "a"), map2 = linkedMapOf("a" to "b", "b" to "a")))
+		table.insert(JsonTestObject(map1 = linkedMapOf("a" to "b", "b" to "a"), map2 = linkedMapOf("a" to "b", "b" to "a")))
 
 		connection.driver.setSqlLogger(ConsoleSqlLogger)
 	}
@@ -35,6 +35,6 @@ class JsonTest {
 
 	@Test
 	fun selectSingle() {
-		assertEquals(linkedMapOf("a" to "b", "b" to "a"), table.selectValue(property(JsonDao::map1)).first())
+		assertEquals(linkedMapOf("a" to "b", "b" to "a"), table.selectValue(property(JsonTestObject::map1)).first())
 	}
 }

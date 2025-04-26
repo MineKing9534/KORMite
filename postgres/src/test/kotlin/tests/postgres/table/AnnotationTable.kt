@@ -10,15 +10,15 @@ interface IdentifiableTable<T: Identifiable> : Table<T> {
     @Select fun getById(@Condition id: Int): T?
 }
 
-interface AnnotationTable : IdentifiableTable<UserDao> {
-    @Insert fun createUser(@Parameter name: String, @Parameter email: String, @Parameter age: Int): UserDao
+interface AnnotationTable : IdentifiableTable<User> {
+    @Insert fun createUser(@Parameter name: String, @Parameter email: String, @Parameter age: Int): User
 
     @Query("select :test") fun queryConstant(@Parameter test: List<Int>): QueryResult<List<Int>>
-    @Query("select id, email, age, :name from <TABLE>", ["id", "email", "age", "name"]) fun query(@Parameter name: String): List<UserDao>
+    @Query("select id, email, age, :name from <TABLE>", ["id", "email", "age", "name"]) fun query(@Parameter name: String): List<User>
 
-    @Select fun getAllUsers(): List<UserDao>
-    @Select fun getUserByEmail(@Condition email: String): UserDao?
-    @Select fun modifiedSelect(): Set<UserDao> = execute<List<UserDao>>().toSet()
+    @Select fun getAllUsers(): List<User>
+    @Select fun getUserByEmail(@Condition email: String): User?
+    @Select fun modifiedSelect(): Set<User> = execute<List<User>>().toSet()
 
     @SelectValue("name") fun selectFirst(@Limit limit: Int, order: Order): List<String>
 
@@ -27,7 +27,7 @@ interface AnnotationTable : IdentifiableTable<UserDao> {
 
     @Update fun update(@Condition id: Int, @Parameter name: String): Int
 
-    @UpdateReturning fun updateReturningFull(@Condition id: Int, @Parameter name: String): UserDao
+    @UpdateReturning fun updateReturningFull(@Condition id: Int, @Parameter name: String): User
     @UpdateReturning("name") fun updateReturningName(@Condition id: Int, @Parameter name: String): String
     @UpdateReturning("email") fun updateReturningEmail(@Condition id: Int, @Parameter email: String): Result<String?>
 
@@ -37,14 +37,14 @@ interface AnnotationTable : IdentifiableTable<UserDao> {
 
 class AnnotationTableTest {
     val connection = createConnection()
-    val table = connection.getTable<_, AnnotationTable>(name = "basic_test") { UserDao() }
+    val table = connection.getTable<_, AnnotationTable>(name = "basic_test") { User() }
 
     val users = listOf(
-        UserDao(name = "Tom", email = "tom@example.com", age = 12),
-        UserDao(name = "Alex", email = "alex@example.com", age = 23),
-        UserDao(name = "Bob", email = "bob@example.com", age = 50),
-        UserDao(name = "Eve", email = "eve@example.com", age = 42),
-        UserDao(name = "Max", email = "max@example.com", age = 20)
+        User(name = "Tom", email = "tom@example.com", age = 12),
+        User(name = "Alex", email = "alex@example.com", age = 23),
+        User(name = "Bob", email = "bob@example.com", age = 50),
+        User(name = "Eve", email = "eve@example.com", age = 42),
+        User(name = "Max", email = "max@example.com", age = 20)
     )
 
     init {
@@ -99,7 +99,7 @@ class AnnotationTableTest {
 
     @Test
     fun selectFirst() {
-        assertEquals(listOf("Tom", "Max"), table.selectFirst(2, order = ascendingBy(UserDao::age)))
+        assertEquals(listOf("Tom", "Max"), table.selectFirst(2, order = ascendingBy(User::age)))
     }
 
     @Test

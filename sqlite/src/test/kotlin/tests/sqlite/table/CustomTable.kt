@@ -5,7 +5,7 @@ import de.mineking.database.isEqualTo
 import de.mineking.database.property
 import de.mineking.database.value
 import setup.ConsoleSqlLogger
-import setup.UserDao
+import setup.User
 import setup.createConnection
 import setup.recreate
 import kotlin.test.Test
@@ -13,16 +13,16 @@ import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
-interface UserTable : Table<UserDao> {
-    fun createUser(name: String, email: String, age: Int): UserDao = implementation.insert(UserDao(name = name, email = email, age = age)).getOrThrow()
-    fun getUserByEmail(email: String): UserDao? = implementation.select(where = property(UserDao::email) isEqualTo value(email)).firstOrNull()
+interface UserTable : Table<User> {
+    fun createUser(name: String, email: String, age: Int): User = implementation.insert(User(name = name, email = email, age = age)).getOrThrow()
+    fun getUserByEmail(email: String): User? = implementation.select(where = property(User::email) isEqualTo value(email)).firstOrNull()
 
-    fun updateName(email: String, name: String) = (implementation.update(property(UserDao::name) to value(name), where = property(UserDao::email) isEqualTo value(email)).value ?: 0) > 0
+    fun updateName(email: String, name: String) = (implementation.update(property(User::name) to value(name), where = property(User::email) isEqualTo value(email)).value ?: 0) > 0
 }
 
 class CustomTableTest {
     val connection = createConnection()
-    val table = connection.getTable<_, UserTable>(name = "basic_test") { UserDao() }
+    val table = connection.getTable<_, UserTable>(name = "basic_test") { User() }
 
     init {
         table.recreate()

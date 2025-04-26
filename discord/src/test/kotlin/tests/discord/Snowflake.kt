@@ -8,7 +8,7 @@ import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Test
 import setup.*
 
-data class SnowflakeDao(
+data class SnowflakeTestObject(
 	@AutoIncrement @Key @Column val id: Int = 0,
 	@Column val snowflake: ISnowflake? = null,
 )
@@ -25,12 +25,12 @@ class SnowflakeTest {
 
 	//Use STRING mappers because they are more likely to fail
 	val connection = createConnection().apply { registerDiscordStringMappers(createJDA(guilds, roles)) }
-	val table = connection.getDefaultTable(name = "snowflake_test") { SnowflakeDao() }
+	val table = connection.getDefaultTable(name = "snowflake_test") { SnowflakeTestObject() }
 
 	init {
 		table.recreate()
 
-		table.insert(SnowflakeDao(snowflake = guilds[0]))
+		table.insert(SnowflakeTestObject(snowflake = guilds[0]))
 
 		connection.driver.setSqlLogger(ConsoleSqlLogger)
 	}
@@ -44,18 +44,18 @@ class SnowflakeTest {
 
 	@Test
 	fun selectColumn() {
-		assertEquals(guilds[0], table.selectValue(property(SnowflakeDao::snowflake)).first())
+		assertEquals(guilds[0], table.selectValue(property(SnowflakeTestObject::snowflake)).first())
 	}
 
 	@Test
 	fun selectCondition() {
-		assertEquals(1, table.selectRowCount(where = property(SnowflakeDao::snowflake).id isEqualTo value(guilds[0])))
-		assertEquals(0, table.selectRowCount(where = property(SnowflakeDao::snowflake).id isEqualTo value(guilds[1])))
+		assertEquals(1, table.selectRowCount(where = property(SnowflakeTestObject::snowflake).id isEqualTo value(guilds[0])))
+		assertEquals(0, table.selectRowCount(where = property(SnowflakeTestObject::snowflake).id isEqualTo value(guilds[1])))
 	}
 
 	@Test
 	fun update(){
-		table.update(property(SnowflakeDao::snowflake) to value(roles[0]))
+		table.update(property(SnowflakeTestObject::snowflake) to value(roles[0]))
 		assertEquals(roles[0], table.select().first().snowflake)
 	}
 }

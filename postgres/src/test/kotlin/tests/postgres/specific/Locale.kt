@@ -8,25 +8,25 @@ import setup.recreate
 import java.util.*
 import kotlin.test.assertEquals
 
-data class LocaleDao(
+data class LocaleTestObject(
 	@AutoIncrement @Key @Column val id: Int = 0,
 	@Column val locale: Locale = Locale.ENGLISH,
 )
 
 class LocaleTest {
 	val connection = createConnection()
-	val table = connection.getDefaultTable(name = "locale_test") { LocaleDao() }
+	val table = connection.getDefaultTable(name = "locale_test") { LocaleTestObject() }
 
 	init {
 		table.recreate()
 
-		table.insert(LocaleDao(locale = Locale.GERMAN))
+		table.insert(LocaleTestObject(locale = Locale.GERMAN))
 
 		connection.driver.setSqlLogger(ConsoleSqlLogger)
 	}
 
 	@Test
 	fun selectAll() {
-		assertEquals(Locale.GERMAN, table.selectValue(property(LocaleDao::locale)).first())
+		assertEquals(Locale.GERMAN, table.selectValue(property(LocaleTestObject::locale)).first())
 	}
 }

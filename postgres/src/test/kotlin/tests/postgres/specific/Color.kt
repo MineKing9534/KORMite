@@ -8,25 +8,25 @@ import setup.recreate
 import java.awt.Color
 import kotlin.test.assertEquals
 
-data class ColorDao(
+data class ColorTestObject(
 	@AutoIncrement @Key @Column val id: Int = 0,
 	@Column val color: Color = Color.WHITE
 )
 
 class ColorTest {
 	val connection = createConnection()
-	val table = connection.getDefaultTable(name = "color_test") { ColorDao() }
+	val table = connection.getDefaultTable(name = "color_test") { ColorTestObject() }
 
 	init {
 		table.recreate()
 
-		table.insert(ColorDao(color = Color.GREEN))
+		table.insert(ColorTestObject(color = Color.GREEN))
 
 		connection.driver.setSqlLogger(ConsoleSqlLogger)
 	}
 
 	@Test
 	fun selectAll() {
-		assertEquals(Color.GREEN, table.selectValue(property(ColorDao::color)).first())
+		assertEquals(Color.GREEN, table.selectValue(property(ColorTestObject::color)).first())
 	}
 }

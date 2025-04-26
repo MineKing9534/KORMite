@@ -9,7 +9,7 @@ import java.util.*
 
 private val DUMMY_PLAYER = createDummy<OfflinePlayer>()
 
-data class PlayerDao(
+data class PlayerTestObject(
 	@AutoIncrement @Key @Column val id: Int = 0,
 	@Column val player: OfflinePlayer = DUMMY_PLAYER
 )
@@ -24,13 +24,13 @@ class PlayerTest {
 	)
 
 	val connection = createConnection().apply { registerMinecraftMappers(createServer(players = players)) }
-	val table = connection.getDefaultTable(name = "player_test") { PlayerDao() }
+	val table = connection.getDefaultTable(name = "player_test") { PlayerTestObject() }
 
 	init {
 		table.recreate()
 
-		table.insert(PlayerDao(player = players[0]))
-		table.insert(PlayerDao(player = players[1]))
+		table.insert(PlayerTestObject(player = players[0]))
+		table.insert(PlayerTestObject(player = players[1]))
 
 		connection.driver.setSqlLogger(ConsoleSqlLogger)
 	}
@@ -46,9 +46,9 @@ class PlayerTest {
 
 	@Test
 	fun selectColumn() {
-		assertEquals(id1, table.selectValue(property(PlayerDao::player), limit = 1).first().uniqueId)
+		assertEquals(id1, table.selectValue(property(PlayerTestObject::player), limit = 1).first().uniqueId)
 
-		assertEquals(1, table.selectRowCount(where = property(PlayerDao::player) isEqualTo value(id1)))
-		assertEquals(1, table.selectRowCount(where = property(PlayerDao::player) isEqualTo value(createPlayer(id1))))
+		assertEquals(1, table.selectRowCount(where = property(PlayerTestObject::player) isEqualTo value(id1)))
+		assertEquals(1, table.selectRowCount(where = property(PlayerTestObject::player) isEqualTo value(createPlayer(id1))))
 	}
 }

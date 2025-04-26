@@ -10,7 +10,7 @@ import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Test
 import setup.*
 
-data class DiscordDao(
+data class DiscordTestObject(
 	@AutoIncrement @Key @Column val id: Int = 0,
 	@Column val guild: Guild = createSnowflake(),
 	@Column val role: Role = createSnowflake(),
@@ -59,12 +59,12 @@ class DiscordTest {
 
 	//Use STRING mappers because they are more likely to fail
 	val connection = createConnection().apply { registerDiscordStringMappers(createJDA(guilds, roles, channels, emojis, events, users), PostgresMappers.STRING) }
-	val table = connection.getDefaultTable(name = "discord_test") { DiscordDao() }
+	val table = connection.getDefaultTable(name = "discord_test") { DiscordTestObject() }
 
 	init {
 		table.recreate()
 
-		table.insert(DiscordDao(guild = guilds[0], role = roles[0], channel = channels[0], emoji = emojis[0], event = events[0], user = users[0], userSnowflake = userSnowflakes[0]))
+		table.insert(DiscordTestObject(guild = guilds[0], role = roles[0], channel = channels[0], emoji = emojis[0], event = events[0], user = users[0], userSnowflake = userSnowflakes[0]))
 
 		connection.driver.setSqlLogger(ConsoleSqlLogger)
 	}
@@ -78,12 +78,12 @@ class DiscordTest {
 
 	@Test
 	fun selectColumn() {
-		assertEquals(guilds[0], table.selectValue(property(DiscordDao::guild)).first())
+		assertEquals(guilds[0], table.selectValue(property(DiscordTestObject::guild)).first())
 	}
 
 	@Test
 	fun selectCondition() {
-		assertEquals(1, table.selectRowCount(where = property(DiscordDao::guild) isEqualTo value(guilds[0])))
-		assertEquals(0, table.selectRowCount(where = property(DiscordDao::guild) isEqualTo value(guilds[1])))
+		assertEquals(1, table.selectRowCount(where = property(DiscordTestObject::guild) isEqualTo value(guilds[0])))
+		assertEquals(0, table.selectRowCount(where = property(DiscordTestObject::guild) isEqualTo value(guilds[1])))
 	}
 }

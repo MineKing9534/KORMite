@@ -9,43 +9,43 @@ import kotlin.test.assertContentEquals
 import kotlin.test.assertEquals
 import kotlin.test.assertNull
 
-data class PublisherDao(
+data class Publisher(
 	@AutoIncrement @Key @Column val id: Int = 0,
 	@Column val name: String = ""
 )
 
-data class AuthorDao(
+data class Author(
 	@AutoIncrement @Key @Column val id: Int = 0,
 	@Column val name: String = "",
-	@Reference("publisher_test") @Column val publisher: PublisherDao = PublisherDao()
+	@Reference("publisher_test") @Column val publisher: Publisher = Publisher()
 )
 
-data class BookDao(
+data class Book(
 	@AutoIncrement @Key @Column val id: Int = 0,
 	@Column val title: String = "",
 	@Column val year: Int = 0,
-	@Reference(table = "author_test") @Column val author: AuthorDao = AuthorDao(),
-	@Reference(table = "publisher_test") @Column val publisher: PublisherDao? = PublisherDao()
+	@Reference(table = "author_test") @Column val author: Author = Author(),
+	@Reference(table = "publisher_test") @Column val publisher: Publisher? = Publisher()
 )
 
 class ReferenceTest {
 	val connection = createConnection()
-	val publisherTable = connection.getDefaultTable(name = "publisher_test") { PublisherDao() }
-	val authorTable = connection.getDefaultTable(name = "author_test") { AuthorDao() }
-	val bookTable = connection.getDefaultTable(name = "book_test") { BookDao() }
+	val publisherTable = connection.getDefaultTable(name = "publisher_test") { Publisher() }
+	val authorTable = connection.getDefaultTable(name = "author_test") { Author() }
+	val bookTable = connection.getDefaultTable(name = "book_test") { Book() }
 
-	val publisherA = PublisherDao(name = "A")
-	val publisherB = PublisherDao(name = "B")
+	val publisherA = Publisher(name = "A")
+	val publisherB = Publisher(name = "B")
 
-	val shakespeare = AuthorDao(name = "William Shakespeare", publisher = publisherA)
-	val tolkien = AuthorDao(name = "J.R.R. Tolkien", publisher = publisherB)
+	val shakespeare = Author(name = "William Shakespeare", publisher = publisherA)
+	val tolkien = Author(name = "J.R.R. Tolkien", publisher = publisherB)
 
-	val hamlet = BookDao(title = "Hamlet", year = 1601, author = shakespeare, publisher = null)
-	val romeoAndJuliet = BookDao(title = "Romeo and Juliet", year = 1595, author = shakespeare, publisher = publisherA)
+	val hamlet = Book(title = "Hamlet", year = 1601, author = shakespeare, publisher = null)
+	val romeoAndJuliet = Book(title = "Romeo and Juliet", year = 1595, author = shakespeare, publisher = publisherA)
 
-	val hobbit = BookDao(title = "The Hobbit", year = 1937, author = tolkien, publisher = publisherA)
-	val lotr = BookDao(title = "The Lord of the Rings", year = 1949, author = tolkien, publisher = publisherB)
-	val silmarillion = BookDao(title = "Silmarillion", year = 1977, author = tolkien, publisher = publisherB)
+	val hobbit = Book(title = "The Hobbit", year = 1937, author = tolkien, publisher = publisherA)
+	val lotr = Book(title = "The Lord of the Rings", year = 1949, author = tolkien, publisher = publisherB)
+	val silmarillion = Book(title = "Silmarillion", year = 1977, author = tolkien, publisher = publisherB)
 
 	init {
 		publisherTable.recreate()
@@ -79,17 +79,17 @@ class ReferenceTest {
 
 	@Test
 	fun selectReferenceCondition() {
-		assertEquals(2, bookTable.select(where = property(BookDao::author, AuthorDao::name) isEqualTo value("William Shakespeare")).list().size)
-		assertEquals(3, bookTable.select(where = property(BookDao::author, AuthorDao::name) isEqualTo value("J.R.R. Tolkien")).list().size)
+		assertEquals(2, bookTable.select(where = property(Book::author, Author::name) isEqualTo value("William Shakespeare")).list().size)
+		assertEquals(3, bookTable.select(where = property(Book::author, Author::name) isEqualTo value("J.R.R. Tolkien")).list().size)
 
-		assertEquals(2, bookTable.select(where = property(BookDao::author, AuthorDao::publisher, PublisherDao::name) isEqualTo value("A")).list().size)
-		assertEquals(3, bookTable.select(where = property(BookDao::author, AuthorDao::publisher, PublisherDao::name) isEqualTo value("B")).list().size)
+		assertEquals(2, bookTable.select(where = property(Book::author, Author::publisher, Publisher::name) isEqualTo value("A")).list().size)
+		assertEquals(3, bookTable.select(where = property(Book::author, Author::publisher, Publisher::name) isEqualTo value("B")).list().size)
 	}
 
 	@Test
 	fun selectValue() {
-		val result = bookTable.selectValue(property(BookDao::title).uppercase(), where = property(
-			BookDao::publisher) isNotEqualTo property(BookDao::author, AuthorDao::publisher)).list()
+		val result = bookTable.selectValue(property(Book::title).uppercase(), where = property(
+			Book::publisher) isNotEqualTo property(Book::author, Author::publisher)).list()
 
 		assertEquals(1, result.size)
 		assertEquals("THE HOBBIT", result.first())
@@ -97,24 +97,24 @@ class ReferenceTest {
 
 	@Test
 	fun selectReference() {
-		assertEquals(tolkien, bookTable.selectValue(property(BookDao::author), where = property(
-			BookDao::title) isEqualTo value("The Hobbit")).first())
-		assertEquals(tolkien.id, bookTable.selectValue(property<Int>(BookDao::author), where = property(
-			BookDao::title) isEqualTo value("The Hobbit")).first())
+		assertEquals(tolkien, bookTable.selectValue(property(Book::author), where = property(
+			Book::title) isEqualTo value("The Hobbit")).first())
+		assertEquals(tolkien.id, bookTable.selectValue(property<Int>(Book::author), where = property(
+			Book::title) isEqualTo value("The Hobbit")).first())
 	}
 
 	@Test
 	fun updateReference() {
-		bookTable.update(property(BookDao::publisher) to value(publisherB), where = property(
-			BookDao::title) isEqualTo value("The Hobbit"))
-		assertEquals(publisherB, bookTable.selectValue(property(BookDao::publisher), where = property(
-			BookDao::title) isEqualTo value("The Hobbit")).first())
+		bookTable.update(property(Book::publisher) to value(publisherB), where = property(
+			Book::title) isEqualTo value("The Hobbit"))
+		assertEquals(publisherB, bookTable.selectValue(property(Book::publisher), where = property(
+			Book::title) isEqualTo value("The Hobbit")).first())
 	}
 
 	@Test
 	fun deletedReference() {
 		authorTable.delete(tolkien)
-		val result = bookTable.select(where = property(BookDao::author) isEqualTo value(tolkien)).list()
+		val result = bookTable.select(where = property(Book::author) isEqualTo value(tolkien)).list()
 
 		assertEquals(3, result.size)
 		result.forEach { assertNull(it.author) }

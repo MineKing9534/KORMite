@@ -12,7 +12,7 @@ import java.math.BigDecimal
 import java.math.BigInteger
 import kotlin.test.assertEquals
 
-data class NumericDao(
+data class NumericTestObject(
 	@AutoIncrement @Key @Column val id: Int = 0,
 	@Column val short: Short = 0,
 	@Column val int: Int = 0,
@@ -25,12 +25,12 @@ data class NumericDao(
 
 class NumericTest {
 	val connection = createConnection()
-	val table = connection.getDefaultTable(name = "numeric_test") { NumericDao() }
+	val table = connection.getDefaultTable(name = "numeric_test") { NumericTestObject() }
 
 	init {
 		table.recreate()
 
-		table.insert(NumericDao(short = Short.MAX_VALUE, int = Int.MAX_VALUE, long = Long.MAX_VALUE, bigInt = Long.MAX_VALUE.toBigInteger(), float = Float.MAX_VALUE, double = Double.MAX_VALUE, bigDecimal = BigDecimal("${ Double.MAX_VALUE.toBigDecimal().toPlainString() }0.5")))
+		table.insert(NumericTestObject(short = Short.MAX_VALUE, int = Int.MAX_VALUE, long = Long.MAX_VALUE, bigInt = Long.MAX_VALUE.toBigInteger(), float = Float.MAX_VALUE, double = Double.MAX_VALUE, bigDecimal = BigDecimal("${ Double.MAX_VALUE.toBigDecimal().toPlainString() }0.5")))
 
 		connection.driver.setSqlLogger(ConsoleSqlLogger)
 	}

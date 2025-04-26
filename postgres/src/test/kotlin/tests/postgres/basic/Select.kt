@@ -5,7 +5,7 @@ import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertDoesNotThrow
 import org.junit.jupiter.api.assertThrows
 import setup.ConsoleSqlLogger
-import setup.UserDao
+import setup.User
 import setup.createConnection
 import setup.recreate
 import kotlin.test.assertContains
@@ -13,14 +13,14 @@ import kotlin.test.assertEquals
 
 class SelectTest {
 	val connection = createConnection()
-	val table = connection.getDefaultTable(name = "basic_test") { UserDao() }
+	val table = connection.getDefaultTable(name = "basic_test") { User() }
 
 	val users = listOf(
-		UserDao(name = "Tom", email = "tom@example.com", age = 12),
-		UserDao(name = "Alex", email = "alex@example.com", age = 23),
-		UserDao(name = "Bob", email = "bob@example.com", age = 50),
-		UserDao(name = "Eve", email = "eve@example.com", age = 42),
-		UserDao(name = "Max", email = "max@example.com", age = 20)
+		User(name = "Tom", email = "tom@example.com", age = 12),
+		User(name = "Alex", email = "alex@example.com", age = 23),
+		User(name = "Bob", email = "bob@example.com", age = 50),
+		User(name = "Eve", email = "eve@example.com", age = 42),
+		User(name = "Max", email = "max@example.com", age = 20)
 	)
 
 	init {
@@ -44,7 +44,7 @@ class SelectTest {
 	@Test
 	fun selectOutOfOrder() {
 		assertDoesNotThrow {
-			table.select(property(UserDao::id), property(UserDao::email), property(UserDao::name), value(""), value(""), property(UserDao::age)).list()
+			table.select(property(User::id), property(User::email), property(User::name), value(""), value(""), property(User::age)).list()
 		}
 	}
 
@@ -68,13 +68,13 @@ class SelectTest {
 
 	@Test
 	fun selectBetween() {
-		assertEquals(2, table.selectRowCount(where = property(UserDao::age).isBetween(value(18), value(25))))
-		assertEquals(2, table.select(where = property(UserDao::age).isBetween(value(18), value(25))).list().size)
+		assertEquals(2, table.selectRowCount(where = property(User::age).isBetween(value(18), value(25))))
+		assertEquals(2, table.select(where = property(User::age).isBetween(value(18), value(25))).list().size)
 	}
 
 	@Test
 	fun selectSingle() {
-		val result = table.select(where = property(UserDao::name) isEqualTo value("Max")).list()
+		val result = table.select(where = property(User::name) isEqualTo value("Max")).list()
 
 		assertEquals(1, result.size)
 
@@ -84,7 +84,7 @@ class SelectTest {
 
 	@Test
 	fun selectSpecifiedColumns() {
-		val result = table.select(UserDao::email, UserDao::name, where = property(UserDao::name) isEqualTo value("Max")).list()
+		val result = table.select(User::email, User::name, where = property(User::name) isEqualTo value("Max")).list()
 
 		assertEquals(1, result.size)
 
@@ -94,7 +94,7 @@ class SelectTest {
 
 	@Test
 	fun selectComplexSpecifiedColumns() {
-		val result = table.select(property(UserDao::name).uppercase(), value(Integer.MAX_VALUE).withContext(UserDao::age), where = property(UserDao::name) isEqualTo value("Max")).list()
+		val result = table.select(property(User::name).uppercase(), value(Integer.MAX_VALUE).withContext(User::age), where = property(User::name) isEqualTo value("Max")).list()
 
 		assertEquals(1, result.size)
 
@@ -104,27 +104,27 @@ class SelectTest {
 
 	@Test
 	fun selectColumn() {
-		val result = table.selectValue(property(UserDao::age), where = property(UserDao::name) isEqualTo value("Max")).list()
+		val result = table.selectValue(property(User::age), where = property(User::name) isEqualTo value("Max")).list()
 
 		assertEquals(1, result.size)
 		assertEquals(20, result.first())
 
-		assertEquals(3, table.selectValue(property(UserDao::name).length, where = property(UserDao::name) isEqualTo value("Max")).first())
+		assertEquals(3, table.selectValue(property(User::name).length, where = property(User::name) isEqualTo value("Max")).first())
 	}
 
 	@Test
 	fun selectComplex() {
-		assertEquals(42, table.selectValue(value(42), where = property(UserDao::name) isEqualTo value("Max")).first())
+		assertEquals(42, table.selectValue(value(42), where = property(User::name) isEqualTo value("Max")).first())
 
-		assertEquals(21, table.selectValue(property(UserDao::age) + " + 1", where = property(UserDao::name) isEqualTo value("Max")).first())
-		assertEquals(40, table.selectValue(property(UserDao::age) + " * 2", where = property(UserDao::name) isEqualTo value("Max")).first())
+		assertEquals(21, table.selectValue(property(User::age) + " + 1", where = property(User::name) isEqualTo value("Max")).first())
+		assertEquals(40, table.selectValue(property(User::age) + " * 2", where = property(User::name) isEqualTo value("Max")).first())
 
-		assertEquals("MAX", table.selectValue(property(UserDao::name).uppercase(), where = property(UserDao::name) isEqualTo value("Max")).first())
+		assertEquals("MAX", table.selectValue(property(User::name).uppercase(), where = property(User::name) isEqualTo value("Max")).first())
 	}
 
 	@Test
 	fun limit() {
-		val result = table.selectValue(property(UserDao::name), limit = 2).list()
+		val result = table.selectValue(property(User::name), limit = 2).list()
 
 		assertEquals(2, result.size)
 		assertContains(result, "Tom")
@@ -133,7 +133,7 @@ class SelectTest {
 
 	@Test
 	fun offset() {
-		val result = table.selectValue(property(UserDao::name), limit = 1, offset = 1).list()
+		val result = table.selectValue(property(User::name), limit = 1, offset = 1).list()
 
 		assertEquals(1, result.size)
 		assertContains(result, "Alex")
@@ -141,17 +141,17 @@ class SelectTest {
 
 	@Test
 	fun order() {
-		val result1 = table.selectValue(property(UserDao::name), order = ascendingBy(UserDao::id)).list()
+		val result1 = table.selectValue(property(User::name), order = ascendingBy(User::id)).list()
 
 		assertEquals("Tom", result1[0])
 		assertEquals("Max", result1[4])
 
-		val result2 = table.selectValue(property(UserDao::name), order = descendingBy(UserDao::id)).list()
+		val result2 = table.selectValue(property(User::name), order = descendingBy(User::id)).list()
 
 		assertEquals("Max", result2[0])
 		assertEquals("Tom", result2[4])
 
-		val result3 = table.selectValue(property(UserDao::name), order = ascendingBy(UserDao::name)).list()
+		val result3 = table.selectValue(property(User::name), order = ascendingBy(User::name)).list()
 
 		assertEquals("Alex", result3[0])
 		assertEquals("Tom", result3[4])

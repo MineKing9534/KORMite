@@ -2,7 +2,7 @@ package tests.sqlite.basic
 
 import org.junit.jupiter.api.Test
 import setup.ConsoleSqlLogger
-import setup.UserDao
+import setup.User
 import setup.createConnection
 import setup.recreate
 import kotlin.test.assertContentEquals
@@ -11,14 +11,14 @@ import kotlin.test.assertTrue
 
 class InsertTest {
     val connection = createConnection()
-    val table = connection.getDefaultTable(name = "basic_test") { UserDao() }
+    val table = connection.getDefaultTable(name = "basic_test") { User() }
 
     val users = listOf(
-        UserDao(name = "Tom", email = "tom@example.com", age = 12),
-        UserDao(name = "Alex", email = "alex@example.com", age = 23),
-        UserDao(name = "Bob", email = "bob@example.com", age = 50),
-        UserDao(name = "Eve", email = "eve@example.com", age = 42),
-        UserDao(name = "Max", email = "max@example.com", age = 20)
+        User(name = "Tom", email = "tom@example.com", age = 12),
+        User(name = "Alex", email = "alex@example.com", age = 23),
+        User(name = "Bob", email = "bob@example.com", age = 50),
+        User(name = "Eve", email = "eve@example.com", age = 42),
+        User(name = "Max", email = "max@example.com", age = 20)
     )
 
     init {
@@ -36,7 +36,7 @@ class InsertTest {
 
     @Test
     fun insert() {
-        val obj = UserDao(name = "Test", email = "test@example.com", age = 50)
+        val obj = User(name = "Test", email = "test@example.com", age = 50)
         val result = table.insert(obj)
 
         result.error?.printStackTrace()
@@ -48,7 +48,7 @@ class InsertTest {
 
     @Test
     fun insertCollision() {
-        fun checkResult(obj: UserDao) {
+        fun checkResult(obj: User) {
             val old = obj.copy()
             val result = table.insert(obj)
 
@@ -58,7 +58,7 @@ class InsertTest {
             assertEquals(old.id, obj.id)
         }
 
-        checkResult(UserDao(name = "Test", email = "tom@example.com", age = 50))
-        checkResult(UserDao(id = 1, name = "Test", email = "test@example.com", age = 50))
+        checkResult(User(name = "Test", email = "tom@example.com", age = 50))
+        checkResult(User(id = 1, name = "Test", email = "test@example.com", age = 50))
     }
 }

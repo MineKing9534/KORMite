@@ -10,7 +10,7 @@ import setup.createConnection
 import setup.recreate
 import kotlin.test.assertEquals
 
-data class NumericDao(
+data class NumericTestObject(
 	@AutoIncrement @Key @Column val id: Int = 0,
 	@Column val short: Short = 0,
 	@Column val int: Int = 0,
@@ -21,12 +21,12 @@ data class NumericDao(
 
 class NumericTest {
 	val connection = createConnection()
-	val table = connection.getDefaultTable(name = "numeric_test") { NumericDao() }
+	val table = connection.getDefaultTable(name = "numeric_test") { NumericTestObject() }
 
 	init {
 		table.recreate()
 
-		table.insert(NumericDao(short = Short.MAX_VALUE, int = Int.MAX_VALUE, long = Long.MAX_VALUE, float = Float.MAX_VALUE, double = Double.MAX_VALUE))
+		table.insert(NumericTestObject(short = Short.MAX_VALUE, int = Int.MAX_VALUE, long = Long.MAX_VALUE, float = Float.MAX_VALUE, double = Double.MAX_VALUE))
 
 		connection.driver.setSqlLogger(ConsoleSqlLogger)
 	}

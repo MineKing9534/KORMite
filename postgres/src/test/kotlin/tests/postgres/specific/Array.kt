@@ -13,7 +13,7 @@ import kotlin.test.assertContentEquals
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 
-data class ArrayDao(
+data class ArrayTestObject(
 	@AutoIncrement @Key @Column val id: Int = 0,
 	@Column val a: Int = 0,
 	@Column val intList: List<Int> = listOf(), //Just to ensure correct io for this
@@ -23,19 +23,19 @@ data class ArrayDao(
 
 class ArrayTest {
 	val connection = createConnection()
-	val table = connection.getDefaultTable(name = "array_test") { ArrayDao() }
+	val table = connection.getDefaultTable(name = "array_test") { ArrayTestObject() }
 
 	init {
 		table.recreate()
 
-		table.insert(ArrayDao(
+		table.insert(ArrayTestObject(
 			a = 0,
 			intList = listOf(1, 2, 3),
 			stringList = listOf("a", "b", "c"),
 			arrayList = listOf(arrayOf("a", "b"), arrayOf("c", "d"), arrayOf("e"))
 		))
 
-		table.insert(ArrayDao(
+		table.insert(ArrayTestObject(
 			a = 5,
 			intList = listOf(1, 2, 3),
 			stringList = listOf("d", "e", "f"),
@@ -58,32 +58,32 @@ class ArrayTest {
 
 	@Test
 	fun selectContains() {
-		assertEquals(1, table.selectRowCount(where = property(ArrayDao::stringList) contains value("c")))
+		assertEquals(1, table.selectRowCount(where = property(ArrayTestObject::stringList) contains value("c")))
 
-		assertEquals(1, table.selectRowCount(where = value(listOf(1, 5)) contains property(ArrayDao::a)))
-		assertEquals(2, table.selectRowCount(where = value(listOf(0, 5)) contains property(ArrayDao::a)))
+		assertEquals(1, table.selectRowCount(where = value(listOf(1, 5)) contains property(ArrayTestObject::a)))
+		assertEquals(2, table.selectRowCount(where = value(listOf(0, 5)) contains property(ArrayTestObject::a)))
 	}
 
 	@Test
 	fun selectLength() {
-		assertEquals(3, table.selectValue(property(ArrayDao::stringList).length).first())
-		assertEquals(3, table.selectValue(property(ArrayDao::arrayList).length).first())
+		assertEquals(3, table.selectValue(property(ArrayTestObject::stringList).length).first())
+		assertEquals(3, table.selectValue(property(ArrayTestObject::arrayList).length).first())
 	}
 
 	@Test
 	fun selectIndex() {
-		assertEquals("a", table.selectValue(property(ArrayDao::stringList)[property(ArrayDao::a)]).first())
-		assertEquals("b", table.selectValue(property(ArrayDao::stringList)[1]).first())
+		assertEquals("a", table.selectValue(property(ArrayTestObject::stringList)[property(ArrayTestObject::a)]).first())
+		assertEquals("b", table.selectValue(property(ArrayTestObject::stringList)[1]).first())
 	}
 
 	@Test
 	fun indexCondition() {
-		assertEquals(1, table.selectRowCount(where = property(ArrayDao::stringList)[0] isEqualTo value("a")))
+		assertEquals(1, table.selectRowCount(where = property(ArrayTestObject::stringList)[0] isEqualTo value("a")))
 	}
 
 	@Test
 	fun updateCondition() {
-		assertTrue(table.update(property(ArrayDao::stringList)[0] to value("e")).isSuccess())
-		assertEquals(2, table.selectRowCount(where = property(ArrayDao::stringList)[0] isEqualTo value("e")))
+		assertTrue(table.update(property(ArrayTestObject::stringList)[0] to value("e")).isSuccess())
+		assertEquals(2, table.selectRowCount(where = property(ArrayTestObject::stringList)[0] isEqualTo value("e")))
 	}
 }

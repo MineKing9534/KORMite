@@ -2,14 +2,14 @@ package tests.sqlite.basic
 
 import org.junit.jupiter.api.Test
 import setup.ConsoleSqlLogger
-import setup.UserDao
+import setup.User
 import setup.createConnection
 import setup.recreate
 import kotlin.test.assertEquals
 
 class TransactionTest {
 	val connection = createConnection()
-	val table = connection.getDefaultTable(name = "basic_test") { UserDao() }
+	val table = connection.getDefaultTable(name = "basic_test") { User() }
 
 	init {
 		table.recreate()
@@ -20,7 +20,7 @@ class TransactionTest {
 	@Test
 	fun default() {
 		connection.inTransaction {
-			table.insert(UserDao(name = "Tom", email = "tom@example.com", age = 12))
+			table.insert(User(name = "Tom", email = "tom@example.com", age = 12))
 		}
 
 		assertEquals(1, table.selectRowCount())
@@ -29,7 +29,7 @@ class TransactionTest {
 	@Test
 	fun rollback() {
 		connection.inTransaction {
-			table.insert(UserDao(name = "Tom", email = "tom@example.com", age = 12))
+			table.insert(User(name = "Tom", email = "tom@example.com", age = 12))
 			it.rollback()
 		}
 

@@ -10,7 +10,7 @@ import kotlin.test.assertContains
 import kotlin.test.assertEquals
 
 enum class TestEnum { A, B, C }
-data class EnumDao(
+data class EnumTestObject(
 	@AutoIncrement @Key @Column val id: Int = 0,
 	@Column val single: TestEnum = TestEnum.A,
 	@Column val multi: EnumSet<TestEnum> = EnumSet.noneOf(TestEnum::class.java)
@@ -18,12 +18,12 @@ data class EnumDao(
 
 class EnumTest {
 	val connection = createConnection()
-	val table = connection.getDefaultTable(name = "enum_test") { EnumDao() }
+	val table = connection.getDefaultTable(name = "enum_test") { EnumTestObject() }
 
 	init {
 		table.recreate()
 
-		table.insert(EnumDao(single = TestEnum.A, multi = EnumSet.of(TestEnum.A, TestEnum.C)))
+		table.insert(EnumTestObject(single = TestEnum.A, multi = EnumSet.of(TestEnum.A, TestEnum.C)))
 
 		connection.driver.setSqlLogger(ConsoleSqlLogger)
 	}
@@ -41,6 +41,6 @@ class EnumTest {
 
 	@Test
 	fun selectSingle() {
-		assertEquals(TestEnum.A, table.selectValue(property(EnumDao::single)).first())
+		assertEquals(TestEnum.A, table.selectValue(property(EnumTestObject::single)).first())
 	}
 }

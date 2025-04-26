@@ -10,7 +10,7 @@ import java.util.*
 
 private val DUMMY_WORLD = createDummy<World>()
 
-data class LocationDao(
+data class LocationTestObject(
 	@AutoIncrement @Key @Column val id: Int = 0,
 	@Column val location1: Location = Location(null, 0.0, 0.0, 0.0),
 	@Column val location2: Location = Location(null, 0.0, 0.0, 0.0),
@@ -23,12 +23,12 @@ class LocationTest {
 	val world = createWorld(id)
 
 	val connection = createConnection().apply { registerMinecraftMappers(createServer(worlds = listOf(world))) }
-	val table = connection.getDefaultTable(name = "location_test") { LocationDao() }
+	val table = connection.getDefaultTable(name = "location_test") { LocationTestObject() }
 
 	init {
 		table.recreate()
 
-		table.insert(LocationDao(location1 = Location(world, 0.0, 5.0, 0.0), location2 = Location(null, 0.0, 10.0, 0.0), world = world))
+		table.insert(LocationTestObject(location1 = Location(world, 0.0, 5.0, 0.0), location2 = Location(null, 0.0, 10.0, 0.0), world = world))
 
 		connection.driver.setSqlLogger(ConsoleSqlLogger)
 	}
@@ -48,16 +48,16 @@ class LocationTest {
 
 	@Test
 	fun selectValue() {
-		assertEquals(5.0, table.selectValue(property(LocationDao::location1).y).first())
-		assertEquals(10.0, table.selectValue(property(LocationDao::location2).y).first())
+		assertEquals(5.0, table.selectValue(property(LocationTestObject::location1).y).first())
+		assertEquals(10.0, table.selectValue(property(LocationTestObject::location2).y).first())
 
-		assertEquals(id, table.selectValue(property(LocationDao::location1).world).first().uid)
-		assertEquals(null, table.selectValue(property(LocationDao::location2).world).first())
+		assertEquals(id, table.selectValue(property(LocationTestObject::location1).world).first().uid)
+		assertEquals(null, table.selectValue(property(LocationTestObject::location2).world).first())
 	}
 
 	@Test
 	fun update() {
-		table.update(property(LocationDao::location1).y to value(20))
-		assertEquals(20.0, table.selectValue(property(LocationDao::location1).y).first())
+		table.update(property(LocationTestObject::location1).y to value(20))
+		assertEquals(20.0, table.selectValue(property(LocationTestObject::location1).y).first())
 	}
 }
