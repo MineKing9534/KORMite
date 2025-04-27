@@ -21,7 +21,7 @@ class SQLiteTable<T: Any>(
 			return """
 				"${ column.name }" ${ type.sqlName }
 				${ 
-					if (column.property.hasDatabaseAnnotation<AutoGenerate>()) " default ${ column.property.getDatabaseAnnotation<AutoGenerate>()?.generator?.takeIf { it.isNotBlank() } ?: structure.manager.autoGenerate(column) } }" 
+					if (column.property.hasDatabaseAnnotation<AutoGenerate>()) " default ${ column.property.getDatabaseAnnotation<AutoGenerate>()?.generator?.takeIf { it.isNotBlank() } ?: structure.manager.autoGenerate(column) }" 
 					else "" 
 				}
 				${ if (type.nullable) "" else "not null" }
