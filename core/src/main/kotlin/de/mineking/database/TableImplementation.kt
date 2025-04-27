@@ -185,7 +185,7 @@ abstract class TableImplementation<T: Any>(
 			update ${ structure.name }
 			set ${ columns.joinToString { "\"${ it.name }\" = :${ it.name }" } }
 			${ identity.formatCondition(structure) }
-			returning *
+			returning ${ structure.columns.filter { it.autogenerate }.joinToString { it.name } }
 		""".trim().replace("\\s+".toRegex(), " ")
 
         return createResult {
@@ -297,7 +297,7 @@ abstract class TableImplementation<T: Any>(
 			insert into ${ structure.name }
 			(${ columns.joinToString { "\"${ it.name }\"" } })
 			values(${ columns.joinToString { ":${ it.name }" } }) 
-			returning *
+			returning ${ structure.columns.filter { it.autogenerate }.joinToString { it.name } }
 		""".trim().replace("\\s+".toRegex(), " ")
 
         return createResult {

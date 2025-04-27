@@ -76,7 +76,7 @@ object PostgresMappers {
 	val STRING = nullsafeTypeMapper<String>(PostgresType.TEXT, ResultSet::getString)
 	val ENUM = nullsafeDelegateTypeMapper<Enum<*>, String>(STRING, { name, type -> type.jvmErasure.java.enumConstants.map { it as Enum<*> }.first { it.name == name } }, Enum<*>::name)
 
-	val INSTANT = nullsafeTypeMapper<Instant, Timestamp>(PostgresType.TIMESTAMP, { set, position, _ -> set.getTimestamp(position).toInstant() }, {it, _ -> Timestamp.from(it) })
+	val INSTANT = nullsafeTypeMapper<Instant, Timestamp>(PostgresType.TIMESTAMP, { set, position, _ -> set.getTimestamp(position).toInstant() }, { it, _ -> Timestamp.from(it) })
 	val LOCAL_DATE_TIME = nullsafeTypeMapper<LocalDateTime, Timestamp>(PostgresType.TIMESTAMP, { set, position, _ -> set.getTimestamp(position).toLocalDateTime() }, { it, _ -> Timestamp.valueOf(it) })
 	val OFFSET_DATE_TIME = nullsafeTypeMapper<OffsetDateTime, Timestamp>(PostgresType.TIMESTAMPTZ, { set, position, _ -> set.getObject(position, OffsetDateTime::class.java) }, { it, _ -> Timestamp.valueOf(it.toLocalDateTime()) })
 	val ZONED_DATE_TIME = nullsafeTypeMapper<ZonedDateTime, Timestamp>(PostgresType.TIMESTAMPTZ, { set, position, _ -> set.getObject(position, OffsetDateTime::class.java).toZonedDateTime() }, { it, _ -> Timestamp.valueOf(it.toLocalDateTime()) })
