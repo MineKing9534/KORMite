@@ -118,14 +118,14 @@ fun <T> property(name: String, tableOverride: TableStructure<*>? = null) = Prope
 }
 
 //Static values will not use the column context of the current node
-fun <T> value(value: T, type: KType, static: Boolean = false): ValueNode<T> = ValueNode<T> { table, context ->
+fun <T> value(value: T, type: KType, static: Boolean = false): ValueNode<T> = ValueNode { table, context ->
 	val column = context.lastOrNull()
 
 	@Suppress("UNCHECKED_CAST")
 	val mapper = column?.mapper?.takeIf { !static && it.accepts(table.manager, column.property, type) } as TypeMapper<T, Any?>?
-		?: table.manager.getTypeMapper<T, Any?>(type, column?.property?.takeIf { !static })
+		?: table.manager.getTypeMapper(type, column?.property?.takeIf { !static })
 
-	mapper.write(context, table, type, value)
+	mapper.write(context.takeIf { !static } ?: emptyList(), table, type, value)
 }
 
 inline fun <reified T> value(value: T, static: Boolean = false) = value(value, typeOf<T>(), static)

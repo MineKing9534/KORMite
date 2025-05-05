@@ -1,6 +1,7 @@
 package tests.postgres.specific
 
 import de.mineking.database.*
+import de.mineking.database.vendors.postgres.JSON
 import de.mineking.database.vendors.postgres.json
 import org.junit.jupiter.api.Test
 import setup.ConsoleSqlLogger
@@ -15,7 +16,9 @@ data class JsonTestObject(
 )
 
 class JsonTest {
-	val connection = createConnection()
+	val connection = createConnection().also {
+		it.typeMappers += JSON
+	}
 	val table = connection.getDefaultTable(name = "json_test") { JsonTestObject() }
 
 	init {
