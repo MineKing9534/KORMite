@@ -3,6 +3,7 @@ package de.mineking.database.vendors.sqlite
 import com.google.gson.GsonBuilder
 import com.google.gson.ToNumberStrategy
 import de.mineking.database.*
+import de.mineking.database.vendors.sqlite.SQLiteMappers.STRING
 import org.jdbi.v3.core.argument.Argument
 import org.jdbi.v3.core.statement.StatementContext
 import java.awt.Color
@@ -42,33 +43,6 @@ object SQLiteMappers {
 
 	val LOCALE = nullsafeDelegateTypeMapper(STRING, { it, type -> Locale.forLanguageTag(it) }, Locale::toLanguageTag)
 	val COLOR = nullsafeDelegateTypeMapper(INTEGER, { it, type -> Color(it, true) }, Color::getRGB)
-
-	val JSON = object : TypeMapper<Any?, String?> {
-		val numberStrategy = ToNumberStrategy { reader ->
-			val str = reader!!.nextString()
-			if (str.contains(".")) str.toDouble() else str.toInt()
-		}
-		val gson = GsonBuilder()
-			.setNumberToNumberStrategy(numberStrategy)
-			.setObjectToNumberStrategy(numberStrategy)
-			.create()
-
-		override fun accepts(manager: DatabaseConnection, property: KProperty<*>?, type: KType): Boolean = property?.hasDatabaseAnnotation<Json>() == true
-		override fun getType(column: PropertyData<*, *>?, table: TableStructure<*>, type: KType): DataType = SQLiteType.TEXT.withNullability(type.isMarkedNullable)
-
-		override fun format(column: ColumnContext, table: TableStructure<*>, type: KType, value: Any?): String? = value?.let { gson.toJson(value) }
-		override fun createArgument(column: ColumnContext, table: TableStructure<*>, type: KType, value: String?): Argument = object : Argument {
-			override fun apply(position: Int, statement: PreparedStatement?, ctx: StatementContext?) {
-				if (value == null) statement?.setNull(position, Types.NULL)
-				else statement?.setString(position, value)
-			}
-
-			override fun toString(): String = value.toString()
-		}
-
-		override fun extract(column: ColumnContext, type: KType, context: ReadContext, position: Int): String? = STRING.extract(column, type, context, position)
-		override fun parse(column: ColumnContext, type: KType, value: String?, context: ReadContext, position: Int): Any? = value?.let { gson.fromJson(it, type.javaType) }
-	}
 
 	val ARRAY = object : TypeMapper<Any?, ByteArray> {
 		fun Any.asArray(): Array<*> = when (this) {
@@ -139,4 +113,31 @@ enum class SQLiteType(override val sqlName: String) : DataType {
 	BLOB("blob");
 
 	override fun toString(): String = sqlName
+}
+
+val JSON = object : TypeMapper<Any?, String?> {
+	val numberStrategy = ToNumberStrategy { reader ->
+		val str = reader!!.nextString()
+		if (str.contains(".")) str.toDouble() else str.toInt()
+	}
+	val gson = GsonBuilder()
+		.setNumberToNumberStrategy(numberStrategy)
+		.setObjectToNumberStrategy(numberStrategy)
+		.create()
+
+	override fun accepts(manager: DatabaseConnection, property: KProperty<*>?, type: KType): Boolean = property?.hasDatabaseAnnotation<Json>() == true
+	override fun getType(column: PropertyData<*, *>?, table: TableStructure<*>, type: KType): DataType = SQLiteType.TEXT.withNullability(type.isMarkedNullable)
+
+	override fun format(column: ColumnContext, table: TableStructure<*>, type: KType, value: Any?): String? = value?.let { gson.toJson(value) }
+	override fun createArgument(column: ColumnContext, table: TableStructure<*>, type: KType, value: String?): Argument = object : Argument {
+		override fun apply(position: Int, statement: PreparedStatement?, ctx: StatementContext?) {
+			if (value == null) statement?.setNull(position, Types.NULL)
+			else statement?.setString(position, value)
+		}
+
+		override fun toString(): String = value.toString()
+	}
+
+	override fun extract(column: ColumnContext, type: KType, context: ReadContext, position: Int): String? = STRING.extract(column, type, context, position)
+	override fun parse(column: ColumnContext, type: KType, value: String?, context: ReadContext, position: Int): Any? = value?.let { gson.fromJson(it, type.javaType) }
 }

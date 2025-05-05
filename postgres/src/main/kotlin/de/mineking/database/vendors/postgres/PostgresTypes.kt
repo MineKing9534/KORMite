@@ -5,6 +5,7 @@ import com.google.gson.JsonObject
 import com.google.gson.JsonParser
 import com.google.gson.ToNumberStrategy
 import de.mineking.database.*
+import de.mineking.database.vendors.postgres.PostgresMappers.STRING
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.serializer
 import org.jdbi.v3.core.argument.Argument
@@ -88,29 +89,6 @@ object PostgresMappers {
 	val COLOR = nullsafeDelegateTypeMapper(INTEGER, { it, _ -> Color(it, true) }, Color::getRGB)
 
 	val UUID_MAPPER = nullsafeTypeMapper<UUID>(PostgresType.UUID, { set, position -> UUID.fromString(set.getString(position)) })
-
-	val JSON = object : TypeMapper<Any?, String?> {
-		val numberStrategy = ToNumberStrategy { reader ->
-			val str = reader!!.nextString()
-			if (str.contains(".")) str.toDouble() else str.toInt()
-		}
-		val gson = GsonBuilder()
-			.setNumberToNumberStrategy(numberStrategy)
-			.setObjectToNumberStrategy(numberStrategy)
-			.create()
-
-		override fun accepts(manager: DatabaseConnection, property: KProperty<*>?, type: KType): Boolean = property?.hasDatabaseAnnotation<de.mineking.database.Json>() == true
-		override fun getType(column: PropertyData<*, *>?, table: TableStructure<*>, type: KType): DataType {
-			val raw = if (column?.property?.getDatabaseAnnotation<de.mineking.database.Json>()?.binary == true) PostgresType.JSONB else PostgresType.JSON
-			return raw.withNullability(type.isMarkedNullable)
-		}
-
-		override fun format(column: ColumnContext, table: TableStructure<*>, type: KType, value: Any?): String? = value?.let { gson.toJson(value) }
-		override fun createArgument(column: ColumnContext, table: TableStructure<*>, type: KType, value: String?) = createCustomArgument(value, column, table, type)
-
-		override fun extract(column: ColumnContext, type: KType, context: ReadContext, position: Int): String? = STRING.extract(column, type, context, position)
-		override fun parse(column: ColumnContext, type: KType, value: String?, context: ReadContext, position: Int): Any? = value?.let { gson.fromJson(it, type.javaType) }
-	}
 
 	val ARRAY = object : TypeMapper<Any?, Array<*>?> {
 		fun Any.asArray(): Array<*> = when (this) {
@@ -249,4 +227,27 @@ fun TypeMapper<*, *>.createCustomArgument(value: String?, column: ColumnContext,
 	}
 
 	override fun toString(): String = value.toString()
+}
+
+val JSON = object : TypeMapper<Any?, String?> {
+	val numberStrategy = ToNumberStrategy { reader ->
+		val str = reader!!.nextString()
+		if (str.contains(".")) str.toDouble() else str.toInt()
+	}
+	val gson = GsonBuilder()
+		.setNumberToNumberStrategy(numberStrategy)
+		.setObjectToNumberStrategy(numberStrategy)
+		.create()
+
+	override fun accepts(manager: DatabaseConnection, property: KProperty<*>?, type: KType): Boolean = property?.hasDatabaseAnnotation<de.mineking.database.Json>() == true
+	override fun getType(column: PropertyData<*, *>?, table: TableStructure<*>, type: KType): DataType {
+		val raw = if (column?.property?.getDatabaseAnnotation<de.mineking.database.Json>()?.binary == true) PostgresType.JSONB else PostgresType.JSON
+		return raw.withNullability(type.isMarkedNullable)
+	}
+
+	override fun format(column: ColumnContext, table: TableStructure<*>, type: KType, value: Any?): String? = value?.let { gson.toJson(value) }
+	override fun createArgument(column: ColumnContext, table: TableStructure<*>, type: KType, value: String?) = createCustomArgument(value, column, table, type)
+
+	override fun extract(column: ColumnContext, type: KType, context: ReadContext, position: Int): String? = STRING.extract(column, type, context, position)
+	override fun parse(column: ColumnContext, type: KType, value: String?, context: ReadContext, position: Int): Any? = value?.let { gson.fromJson(it, type.javaType) }
 }

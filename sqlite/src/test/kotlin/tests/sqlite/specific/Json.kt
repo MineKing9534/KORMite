@@ -1,6 +1,7 @@
 package tests.sqlite.specific
 
 import de.mineking.database.*
+import de.mineking.database.vendors.sqlite.JSON
 import org.junit.jupiter.api.Test
 import setup.ConsoleSqlLogger
 import setup.createConnection
@@ -14,7 +15,9 @@ data class JsonTestObject(
 )
 
 class JsonTest {
-	val connection = createConnection()
+	val connection = createConnection().also {
+		it.typeMappers += JSON
+	}
 	val table = connection.getDefaultTable(name = "json_test") { JsonTestObject() }
 
 	init {
